@@ -1,0 +1,1297 @@
+{% extends "base.html" %}
+
+{% block title %}Timesheet{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    .point-sheet-wrapper {
+      max-height: 68vh;
+      overflow: auto;
+      background: #fff;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .point-sheet {
+      width: max-content;
+      min-width: 0;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+      font-size: 0.76rem;
+    }
+
+    .point-sheet th,
+    .point-sheet td {
+      border-right: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0;
+      vertical-align: middle;
+      background: #fff;
+    }
+
+    .point-sheet thead th {
+      position: sticky;
+      top: 0;
+      z-index: 35;
+      background: #f7f8fa;
+      padding: 0.46rem 0.5rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      color: #475569;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .point-sheet tbody tr:nth-child(even) td {
+      background: #fcfcfd;
+    }
+
+    .point-sheet .sticky-col-1 {
+      position: sticky;
+      left: 0;
+      z-index: 20;
+    }
+
+    .point-sheet .sticky-col-2 {
+      position: sticky;
+      left: 88px;
+      z-index: 20;
+    }
+
+    .point-sheet thead .sticky-col-1,
+    .point-sheet thead .sticky-col-2 {
+      z-index: 45;
+      background: #f7f8fa;
+    }
+
+    .point-sheet .meta-cell {
+      padding: 0.28rem 0.4rem;
+    }
+
+    .point-sheet .sheet-input {
+      border: 0;
+      border-radius: 0;
+      box-shadow: none !important;
+      background: transparent;
+      min-height: 26px;
+      padding: 0.18rem 0.3rem;
+      font-size: 0.74rem;
+    }
+
+    .point-sheet .sheet-input:focus {
+      background: #e8f0fe;
+    }
+
+    .point-sheet .sheet-input.is-invalid {
+      background: #fff1f2;
+      color: #b42318;
+    }
+
+    .point-sheet td.is-active {
+      outline: 2px solid #4f8cf7;
+      outline-offset: -2px;
+      background: #e8f0fe !important;
+    }
+
+    .point-sheet tr.row-active td {
+      background: #f4f8ff !important;
+    }
+
+    .point-sheet td.col-active {
+      background: #f4f8ff !important;
+    }
+
+    .point-sheet .sheet-input:disabled {
+      background: #f8fafc;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .point-sheet td.bank-cell-disabled {
+      position: relative;
+      background: #f8fafc !important;
+    }
+
+    .point-sheet td.bank-cell-disabled .sheet-input {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .bank-disabled-chip {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      font-size: 0.68rem;
+      color: #64748b;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    .point-sheet th.col-separator-right,
+    .point-sheet td.col-separator-right {
+      border-right: 2px solid #d0d7e2 !important;
+    }
+
+    .timesheet-toast-stack {
+      position: fixed;
+      top: 88px;
+      right: 18px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      pointer-events: none;
+    }
+
+    .timesheet-toast {
+      min-width: 240px;
+      max-width: 360px;
+      background: #0f172a;
+      color: #f8fafc;
+      border-radius: 0.55rem;
+      padding: 0.55rem 0.75rem;
+      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.22);
+      font-size: 0.82rem;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+
+    .timesheet-toast.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .timesheet-toast strong {
+      font-weight: 700;
+    }
+
+    .point-sheet tr.timesheet-column-totals td {
+      background: #e5e7eb !important;
+      color: #111827 !important;
+      border-color: #cbd5e1;
+      font-weight: 700;
+    }
+
+    .point-sheet tr.timesheet-column-totals .badge {
+      background: #d1d5db !important;
+      color: #111827 !important;
+      border: 1px solid #9ca3af !important;
+      font-weight: 700;
+    }
+
+    .point-sheet tr.timesheet-column-totals .fw-semibold,
+    .point-sheet tr.timesheet-column-totals .fw-bold {
+      color: #111827 !important;
+      font-weight: 700 !important;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Timesheet</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-lg-8">
+      <h1 class="fw-bold text-primary mb-1">Timesheet Mensal</h1>
+      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mes de competencia.</p>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        id="summary-cards-toggle"
+        aria-expanded="true"
+      >
+        <i class="bi bi-arrows-collapse me-1"></i>
+        <span id="summary-cards-toggle-label">Ocultar cards</span>
+      </button>
+    </div>
+    <div class="col-lg-4 mt-3 mt-lg-0">
+      <form id="timesheet-month-form" method="get" class="d-flex gap-2 justify-content-lg-end align-items-end mb-2">
+        <div class="me-1">
+          <label for="competence_month" class="form-label fw-semibold mb-1">Mes de competencia</label>
+          <input
+            id="competence_month"
+            name="competence_month"
+            type="month"
+            class="form-control"
+            value="{{ selected_competence_month }}"
+            required
+          />
+        </div>
+        <noscript>
+          <button type="submit" class="btn btn-outline-primary">Carregar</button>
+        </noscript>
+      </form>
+    </div>
+  </div>
+
+  <div class="row mb-4" id="timesheet-summary-cards-row">
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-people me-1"></i>Empregados
+          </h6>
+          <h5 class="card-title fw-bold mb-0">{{ employees_count }}</h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-journal-check me-1"></i>Com lancamento
+          </h6>
+          <h5 class="card-title fw-bold text-success mb-0">{{ registered_employees_count }}</h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-calendar2-check me-1"></i>Horas previstas
+          </h6>
+          <h5
+            class="card-title fw-bold text-info mb-0 timesheet-total"
+            data-minutes="{{ total_expected_minutes }}"
+            data-total-target="expected"
+          ></h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-clock-history me-1"></i>Horas normais
+          </h6>
+          <h5
+            class="card-title fw-bold text-primary mb-0 timesheet-total"
+            data-minutes="{{ total_regular_minutes }}"
+            data-total-target="regular"
+          ></h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-stopwatch me-1"></i>Horas totais
+          </h6>
+          <h5
+            class="card-title fw-bold text-dark mb-0 timesheet-total"
+            data-minutes="{{ total_worked_minutes }}"
+            data-total-target="worked"
+          ></h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-clock-history me-1"></i>Horas extras
+          </h6>
+          <h5
+            class="card-title fw-bold text-warning mb-0 timesheet-total"
+            data-minutes="{{ total_overtime_minutes }}"
+            data-total-target="overtime"
+          ></h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-person-x me-1"></i>Ausencias
+          </h6>
+          <h5
+            class="card-title fw-bold text-danger mb-0 timesheet-total"
+            data-minutes="{{ total_absence_minutes }}"
+            data-total-target="absence"
+          ></h5>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="fw-semibold mb-0">Tabela mensal de timesheet</h5>
+      <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+        <span class="badge text-bg-light border">
+          Competencia: {{ selected_competence_month }}
+        </span>
+        <div class="form-check form-switch m-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="display-mode-toggle" />
+          <label class="form-check-label small text-muted" for="display-mode-toggle">
+            Exibicao: <span id="display-mode-label">HH:MM</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input
+        type="hidden"
+        id="timesheet_competence_month"
+        name="competence_month"
+        value="{{ selected_competence_month }}"
+      />
+      <div class="card-body p-0">
+        <div class="point-sheet-wrapper">
+          <table class="point-sheet mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="sticky-col-1" style="width: 88px;">Matricula</th>
+                <th class="sticky-col-2" style="width: 178px;">Empregado</th>
+                <th style="min-width: 86px;">Previstas</th>
+                <th style="min-width: 66px;">Normais</th>
+                <th style="min-width: 66px;">Extra 60%</th>
+                <th class="col-separator-right" style="min-width: 66px;">Extra 100%</th>
+                <th style="min-width: 66px;">Falta</th>
+                <th style="min-width: 74px;">Justificada</th>
+                <th style="min-width: 66px;">Banco</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="timesheet-column-totals">
+                <td class="meta-cell sticky-col-1">
+                  <span class="badge text-bg-secondary">Total</span>
+                </td>
+                <td class="meta-cell sticky-col-2">
+                  <div class="fw-semibold">Totais da competencia</div>
+                </td>
+                <td class="meta-cell text-end">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_expected_minutes }}" data-total-target="expected"></span>
+                </td>
+                <td class="meta-cell text-end">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_regular_minutes }}" data-total-target="regular"></span>
+                </td>
+                <td class="meta-cell text-end">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_overtime_60_minutes }}" data-total-target="overtime60"></span>
+                </td>
+                <td class="meta-cell text-end col-separator-right">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_overtime_100_minutes }}" data-total-target="overtime100"></span>
+                </td>
+                <td class="meta-cell text-end">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_absence_unexcused_minutes }}" data-total-target="absenceUnexcused"></span>
+                </td>
+                <td class="meta-cell text-end">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_absence_excused_minutes }}" data-total-target="absenceExcused"></span>
+                </td>
+                <td class="meta-cell text-end">
+                  <span class="fw-bold timesheet-total" data-minutes="{{ total_absence_bank_minutes }}" data-total-target="absenceBank"></span>
+                </td>
+              </tr>
+              {% for row in rows %}
+                <tr>
+                  <td class="meta-cell sticky-col-1">
+                    <span class="badge text-bg-light border">{{ row.employee.matricula }}</span>
+                  </td>
+                  <td class="meta-cell sticky-col-2">
+                    <div class="fw-semibold">{{ row.employee.nome_completo }}</div>
+                  </td>
+                  <td class="meta-cell text-end">
+                    <span
+                      class="fw-semibold text-muted timesheet-total"
+                      data-minutes="{{ row.expected_minutes }}"
+                    ></span>
+                  </td>
+                  <td class="sheet-edit-cell" data-col="0">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm sheet-input sheet-number"
+                      data-row="{{ forloop.counter0 }}"
+                      data-col="0"
+                      data-minutes-field="regular_minutes_{{ row.employee.id }}"
+                      autocomplete="off"
+                      value=""
+                    />
+                    <input
+                      type="hidden"
+                      id="regular_minutes_{{ row.employee.id }}"
+                      name="regular_minutes_{{ row.employee.id }}"
+                      value="{% if row.entry %}{{ row.entry.regular_minutes }}{% else %}0{% endif %}"
+                    />
+                  </td>
+                  <td class="sheet-edit-cell" data-col="1">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm sheet-input sheet-number"
+                      data-row="{{ forloop.counter0 }}"
+                      data-col="1"
+                      data-minutes-field="overtime_60_minutes_{{ row.employee.id }}"
+                      autocomplete="off"
+                      value=""
+                    />
+                    <input
+                      type="hidden"
+                      id="overtime_60_minutes_{{ row.employee.id }}"
+                      name="overtime_60_minutes_{{ row.employee.id }}"
+                      value="{% if row.entry %}{{ row.entry.overtime_60_minutes }}{% else %}0{% endif %}"
+                    />
+                  </td>
+                  <td class="sheet-edit-cell col-separator-right" data-col="2">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm sheet-input sheet-number"
+                      data-row="{{ forloop.counter0 }}"
+                      data-col="2"
+                      data-minutes-field="overtime_100_minutes_{{ row.employee.id }}"
+                      autocomplete="off"
+                      value=""
+                    />
+                    <input
+                      type="hidden"
+                      id="overtime_100_minutes_{{ row.employee.id }}"
+                      name="overtime_100_minutes_{{ row.employee.id }}"
+                      value="{% if row.entry %}{{ row.entry.overtime_100_minutes }}{% else %}0{% endif %}"
+                    />
+                  </td>
+                  <td class="sheet-edit-cell" data-col="3">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm sheet-input sheet-number"
+                      data-row="{{ forloop.counter0 }}"
+                      data-col="3"
+                      data-minutes-field="absence_unexcused_minutes_{{ row.employee.id }}"
+                      autocomplete="off"
+                      value=""
+                    />
+                    <input
+                      type="hidden"
+                      id="absence_unexcused_minutes_{{ row.employee.id }}"
+                      name="absence_unexcused_minutes_{{ row.employee.id }}"
+                      value="{% if row.entry %}{{ row.entry.absence_unexcused_minutes }}{% else %}0{% endif %}"
+                    />
+                  </td>
+                  <td class="sheet-edit-cell" data-col="4">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm sheet-input sheet-number"
+                      data-row="{{ forloop.counter0 }}"
+                      data-col="4"
+                      data-minutes-field="absence_excused_minutes_{{ row.employee.id }}"
+                      autocomplete="off"
+                      value=""
+                    />
+                    <input
+                      type="hidden"
+                      id="absence_excused_minutes_{{ row.employee.id }}"
+                      name="absence_excused_minutes_{{ row.employee.id }}"
+                      value="{% if row.entry %}{{ row.entry.absence_excused_minutes }}{% else %}0{% endif %}"
+                    />
+                  </td>
+                  <td class="sheet-edit-cell {% if row.employee.regime_compensacao_jornada != 'participante' %}bank-cell-disabled{% endif %}" data-col="5">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm sheet-input sheet-number"
+                      data-row="{{ forloop.counter0 }}"
+                      data-col="5"
+                      data-minutes-field="absence_bank_minutes_{{ row.employee.id }}"
+                      autocomplete="off"
+                      {% if row.employee.regime_compensacao_jornada != "participante" %}disabled tabindex="-1" title="Empregado nao participante do banco de horas"{% endif %}
+                      value=""
+                    />
+                    {% if row.employee.regime_compensacao_jornada != "participante" %}
+                      <div class="bank-disabled-chip">
+                        <i class="bi bi-lock-fill"></i>Nao participante
+                      </div>
+                    {% endif %}
+                    <input
+                      type="hidden"
+                      id="absence_bank_minutes_{{ row.employee.id }}"
+                      name="absence_bank_minutes_{{ row.employee.id }}"
+                      value="{% if row.employee.regime_compensacao_jornada == 'participante' and row.entry %}{{ row.entry.absence_bank_minutes }}{% else %}0{% endif %}"
+                    />
+                    <input
+                      type="hidden"
+                      name="notes_{{ row.employee.id }}"
+                      value="{% if row.entry %}{{ row.entry.notes }}{% endif %}"
+                    />
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <small class="text-muted mb-0">
+          Linhas sem valores e sem observacao sao removidas da competencia ao salvar.
+        </small>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-save me-1"></i>Salvar compilado mensal
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div id="timesheet-mode-toast-stack" class="timesheet-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (function () {
+      const inputs = Array.from(document.querySelectorAll(".point-sheet .sheet-input"));
+      if (!inputs.length) return;
+      const numericInputs = inputs.filter(function (input) {
+        return input.classList.contains("sheet-number");
+      });
+      const sheetForm = document.querySelector("form[method='post']");
+      const monthForm = document.getElementById("timesheet-month-form");
+      const monthInput = document.getElementById("competence_month");
+      const sheetCompetenceMonthInput = document.getElementById("timesheet_competence_month");
+      const summaryCardsToggleButton = document.getElementById("summary-cards-toggle");
+      const summaryCardsToggleLabel = document.getElementById("summary-cards-toggle-label");
+      const summaryCardsRow = document.getElementById("timesheet-summary-cards-row");
+      const displayModeToggle = document.getElementById("display-mode-toggle");
+      const displayModeLabel = document.getElementById("display-mode-label");
+      const totalElements = Array.from(document.querySelectorAll(".timesheet-total"));
+      const modeToastStack = document.getElementById("timesheet-mode-toast-stack");
+
+      function safeStorageGet(key) {
+        try {
+          return window.localStorage.getItem(key);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function safeStorageSet(key, value) {
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (error) {}
+      }
+
+      let displayMode = safeStorageGet("timesheet_display_mode");
+      const storedSummaryCardsState = safeStorageGet("timesheet_summary_cards_collapsed");
+      let summaryCardsCollapsed =
+        storedSummaryCardsState === "1" || storedSummaryCardsState === "true";
+      if (displayMode !== "hhmm" && displayMode !== "decimal") {
+        displayMode = "hhmm";
+      }
+
+      const inputByCell = new Map();
+      inputs.forEach(function (input) {
+        inputByCell.set(input.dataset.row + ":" + input.dataset.col, input);
+        input.dataset.editMode = "0";
+        input.setAttribute("readonly", "readonly");
+        if (!input.classList.contains("sheet-number")) {
+          input.dataset.lastText = input.value || "";
+        }
+      });
+
+      const numericInputsByTotalKey = {
+        regular: numericInputs.filter(function (input) {
+          return (input.dataset.minutesField || "").indexOf("regular_minutes_") === 0;
+        }),
+        overtime60: numericInputs.filter(function (input) {
+          return (input.dataset.minutesField || "").indexOf("overtime_60_minutes_") === 0;
+        }),
+        overtime100: numericInputs.filter(function (input) {
+          return (input.dataset.minutesField || "").indexOf("overtime_100_minutes_") === 0;
+        }),
+        absenceUnexcused: numericInputs.filter(function (input) {
+          return (input.dataset.minutesField || "").indexOf("absence_unexcused_minutes_") === 0;
+        }),
+        absenceExcused: numericInputs.filter(function (input) {
+          return (input.dataset.minutesField || "").indexOf("absence_excused_minutes_") === 0;
+        }),
+        absenceBank: numericInputs.filter(function (input) {
+          return (input.dataset.minutesField || "").indexOf("absence_bank_minutes_") === 0;
+        }),
+      };
+
+      function setMinutesOnTargets(targetKey, minutes) {
+        document
+          .querySelectorAll('[data-total-target="' + targetKey + '"]')
+          .forEach(function (element) {
+            element.dataset.minutes = String(minutes);
+          });
+      }
+
+      function safeHiddenMinutes(input) {
+        const hiddenInput = document.getElementById(input.dataset.minutesField);
+        if (!hiddenInput) return 0;
+        const rawMinutes = Number(hiddenInput.value || "0");
+        if (!Number.isFinite(rawMinutes)) return 0;
+        return Math.max(0, Math.round(rawMinutes));
+      }
+
+      function resolveMinutesForTotals(input) {
+        const fallbackMinutes = safeHiddenMinutes(input);
+        if (!isEditing(input)) return fallbackMinutes;
+
+        const evaluated = evaluateExpressionToMinutes(input.value);
+        if (!evaluated.ok) return fallbackMinutes;
+        return Math.max(0, Math.round(evaluated.minutes || 0));
+      }
+
+      function sumGroupMinutes(group) {
+        return group.reduce(function (totalMinutes, input) {
+          return totalMinutes + resolveMinutesForTotals(input);
+        }, 0);
+      }
+
+      function renderSummaryCardsVisibility() {
+        if (!summaryCardsRow || !summaryCardsToggleButton || !summaryCardsToggleLabel) return;
+
+        summaryCardsRow.classList.toggle("d-none", summaryCardsCollapsed);
+        summaryCardsToggleButton.setAttribute(
+          "aria-expanded",
+          summaryCardsCollapsed ? "false" : "true"
+        );
+        summaryCardsToggleLabel.textContent = summaryCardsCollapsed
+          ? "Exibir cards"
+          : "Ocultar cards";
+
+        const icon = summaryCardsToggleButton.querySelector("i");
+        if (icon) {
+          icon.className = summaryCardsCollapsed
+            ? "bi bi-arrows-expand me-1"
+            : "bi bi-arrows-collapse me-1";
+        }
+      }
+
+      function toggleSummaryCardsVisibility() {
+        summaryCardsCollapsed = !summaryCardsCollapsed;
+        safeStorageSet(
+          "timesheet_summary_cards_collapsed",
+          summaryCardsCollapsed ? "1" : "0"
+        );
+        renderSummaryCardsVisibility();
+      }
+
+      function clearActiveStates() {
+        document.querySelectorAll(".point-sheet td.is-active").forEach(function (cell) {
+          cell.classList.remove("is-active");
+        });
+        document.querySelectorAll(".point-sheet td.col-active").forEach(function (cell) {
+          cell.classList.remove("col-active");
+        });
+        document.querySelectorAll(".point-sheet tr.row-active").forEach(function (row) {
+          row.classList.remove("row-active");
+        });
+      }
+
+      function activateCell(input) {
+        clearActiveStates();
+        const cell = input.closest("td");
+        const row = input.closest("tr");
+        const col = input.dataset.col;
+
+        if (cell) cell.classList.add("is-active");
+        if (row) row.classList.add("row-active");
+
+        document
+          .querySelectorAll('.point-sheet td.sheet-edit-cell[data-col="' + col + '"]')
+          .forEach(function (cellItem) {
+            cellItem.classList.add("col-active");
+          });
+      }
+
+      function moveFocus(current, rowDelta, colDelta) {
+        let row = Number(current.dataset.row);
+        let col = Number(current.dataset.col);
+        let attempts = 0;
+        while (attempts < 400) {
+          row += rowDelta;
+          col += colDelta;
+          const target = inputByCell.get(String(row) + ":" + String(col));
+          if (!target) return false;
+          if (target.disabled) {
+            attempts += 1;
+            continue;
+          }
+          target.focus();
+          target.select();
+          return true;
+        }
+        return false;
+      }
+
+      function toggleDisplayMode() {
+        displayMode = displayMode === "decimal" ? "hhmm" : "decimal";
+        safeStorageSet("timesheet_display_mode", displayMode);
+        if (displayModeToggle) {
+          displayModeToggle.checked = displayMode === "decimal";
+        }
+        refreshDisplayMode();
+        showModeToast();
+      }
+
+      function showModeToast() {
+        if (!modeToastStack) return;
+        const modeLabel = displayMode === "decimal" ? "Horas decimais" : "HH:MM";
+        const toast = document.createElement("div");
+        toast.className = "timesheet-toast";
+        toast.innerHTML = "<strong>Modo alterado:</strong> " + modeLabel;
+        modeToastStack.appendChild(toast);
+
+        requestAnimationFrame(function () {
+          toast.classList.add("is-visible");
+        });
+
+        setTimeout(function () {
+          toast.classList.remove("is-visible");
+          setTimeout(function () {
+            if (toast && toast.parentNode) {
+              toast.parentNode.removeChild(toast);
+            }
+          }, 200);
+        }, 2200);
+      }
+
+      function isEditing(input) {
+        return input.dataset.editMode === "1";
+      }
+
+      function enterEditMode(input, initialValue) {
+        input.dataset.editMode = "1";
+        input.removeAttribute("readonly");
+        if (typeof initialValue === "string") {
+          input.value = initialValue;
+        }
+        requestAnimationFrame(function () {
+          if (document.activeElement !== input) {
+            input.focus();
+          }
+          const caretPos = input.value.length;
+          if (typeof input.setSelectionRange === "function") {
+            input.setSelectionRange(caretPos, caretPos);
+          }
+        });
+      }
+
+      function exitEditMode(input, commitChanges) {
+        if (commitChanges) {
+          if (input.classList.contains("sheet-number")) {
+            normalizeNumericInput(input, true);
+          } else {
+            input.dataset.lastText = input.value || "";
+          }
+        } else if (input.classList.contains("sheet-number")) {
+          renderNumericInput(input);
+          clearInvalid(input);
+        } else {
+          input.value = input.dataset.lastText || "";
+        }
+
+        input.dataset.editMode = "0";
+        input.setAttribute("readonly", "readonly");
+        if (!commitChanges && input.classList.contains("sheet-number")) {
+          recalculateCompetenceTotals();
+        }
+      }
+
+      function startTypingInCell(input, typedChar) {
+        if (input.classList.contains("sheet-number")) {
+          const sanitizedChar = typedChar.replace(/[^0-9+\-*/().,:\s]/g, "");
+          if (!sanitizedChar) return;
+          clearInvalid(input);
+          enterEditMode(input, sanitizedChar);
+          recalculateCompetenceTotals();
+          return;
+        }
+
+        enterEditMode(input, typedChar);
+      }
+
+      function copyFromAbove(currentInput) {
+        const sourceRow = String(Number(currentInput.dataset.row) - 1);
+        const sourceCol = String(currentInput.dataset.col);
+        const sourceInput = inputByCell.get(sourceRow + ":" + sourceCol);
+        if (!sourceInput) return;
+
+        if (
+          currentInput.classList.contains("sheet-number") &&
+          sourceInput.classList.contains("sheet-number")
+        ) {
+          const currentHiddenInput = document.getElementById(currentInput.dataset.minutesField);
+          const sourceHiddenInput = document.getElementById(sourceInput.dataset.minutesField);
+          if (currentHiddenInput && sourceHiddenInput) {
+            currentHiddenInput.value = sourceHiddenInput.value || "0";
+            currentInput.dataset.lastMinutes = currentHiddenInput.value;
+            clearInvalid(currentInput);
+            renderNumericInput(currentInput);
+            recalculateCompetenceTotals();
+            return;
+          }
+        }
+
+        currentInput.value = sourceInput.value || "";
+      }
+
+      function formatMinutes(minutes) {
+        if (!minutes) return "";
+
+        if (displayMode === "decimal") {
+          return formatDecimalHours(minutes);
+        }
+
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return hours + ":" + String(mins).padStart(2, "0");
+      }
+
+      function formatTotal(minutes) {
+        if (displayMode === "decimal") {
+          return formatDecimalHours(minutes) + "h";
+        }
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return hours + ":" + String(mins).padStart(2, "0");
+      }
+
+      function formatDecimalHours(minutes) {
+        return (minutes / 60).toFixed(2).replace(".", ",");
+      }
+
+      function updateTotals() {
+        totalElements.forEach(function (element) {
+          const rawMinutes = Number(element.dataset.minutes || "0");
+          const safeMinutes = Number.isFinite(rawMinutes) ? Math.max(0, rawMinutes) : 0;
+          element.textContent = formatTotal(safeMinutes);
+        });
+      }
+
+      function recalculateCompetenceTotals() {
+        const regularMinutes = sumGroupMinutes(numericInputsByTotalKey.regular);
+        const overtime60Minutes = sumGroupMinutes(numericInputsByTotalKey.overtime60);
+        const overtime100Minutes = sumGroupMinutes(numericInputsByTotalKey.overtime100);
+        const absenceUnexcusedMinutes = sumGroupMinutes(
+          numericInputsByTotalKey.absenceUnexcused
+        );
+        const absenceExcusedMinutes = sumGroupMinutes(numericInputsByTotalKey.absenceExcused);
+        const absenceBankMinutes = sumGroupMinutes(numericInputsByTotalKey.absenceBank);
+        const overtimeMinutes = overtime60Minutes + overtime100Minutes;
+        const workedMinutes = regularMinutes + overtimeMinutes;
+        const absenceMinutes =
+          absenceUnexcusedMinutes + absenceExcusedMinutes + absenceBankMinutes;
+
+        setMinutesOnTargets("regular", regularMinutes);
+        setMinutesOnTargets("overtime60", overtime60Minutes);
+        setMinutesOnTargets("overtime100", overtime100Minutes);
+        setMinutesOnTargets("worked", workedMinutes);
+        setMinutesOnTargets("absenceUnexcused", absenceUnexcusedMinutes);
+        setMinutesOnTargets("absenceExcused", absenceExcusedMinutes);
+        setMinutesOnTargets("absenceBank", absenceBankMinutes);
+        setMinutesOnTargets("overtime", overtimeMinutes);
+        setMinutesOnTargets("absence", absenceMinutes);
+        updateTotals();
+      }
+
+      function updateDisplayModeLabel() {
+        if (!displayModeLabel) return;
+        displayModeLabel.textContent = displayMode === "decimal" ? "Horas decimais" : "HH:MM";
+      }
+
+      function renderNumericInput(input) {
+        const hiddenInput = document.getElementById(input.dataset.minutesField);
+        if (!hiddenInput) return;
+        const rawMinutes = Number(hiddenInput.value || "0");
+        const safeMinutes = Number.isFinite(rawMinutes) ? Math.max(0, Math.round(rawMinutes)) : 0;
+        hiddenInput.value = String(safeMinutes);
+        input.dataset.lastMinutes = String(safeMinutes);
+        input.value = formatMinutes(safeMinutes);
+      }
+
+      function refreshDisplayMode() {
+        updateDisplayModeLabel();
+        numericInputs.forEach(function (input) {
+          renderNumericInput(input);
+        });
+        recalculateCompetenceTotals();
+      }
+
+      function syncCompetenceMonthToPostForm() {
+        if (!sheetCompetenceMonthInput || !monthInput) return;
+        if (monthInput.value) {
+          sheetCompetenceMonthInput.value = monthInput.value;
+        }
+      }
+
+      function clearInvalid(input) {
+        input.classList.remove("is-invalid");
+        input.removeAttribute("title");
+      }
+
+      function markInvalid(input, message) {
+        input.classList.add("is-invalid");
+        input.title = message;
+      }
+
+      function evaluateExpressionToMinutes(rawValue) {
+        const trimmed = (rawValue || "").trim();
+        if (!trimmed) return { ok: true, empty: true, minutes: 0 };
+
+        if (!/^[0-9+\-*/().,:\s]+$/.test(trimmed)) {
+          return { ok: false, error: "Use apenas numeros e operadores matematicos." };
+        }
+
+        const compact = trimmed.replace(/\s+/g, "");
+        if (!compact) return { ok: true, empty: true, minutes: 0 };
+
+        const toggleCount = (compact.match(/,,/g) || []).length;
+        const invertedMode = displayMode === "decimal" ? "hhmm" : "decimal";
+        const inputMode = toggleCount % 2 === 1 ? invertedMode : displayMode;
+
+        let normalized = compact.replace(/,,/g, ",");
+        if (inputMode === "hhmm") {
+          let invalidCompactMinutes = false;
+
+          normalized = normalized.replace(
+            /(\d+),(\d{0,2})/g,
+            function (_, hoursPart, minutesPart) {
+              const safeMinutes = minutesPart === "" ? "00" : minutesPart;
+              if (Number(safeMinutes) > 59) {
+                invalidCompactMinutes = true;
+              }
+              return hoursPart + ":" + safeMinutes.padStart(2, "0");
+            }
+          );
+
+          normalized = normalized.replace(
+            /(^|[^\d])(\d{3,})(?=$|[^\d])/g,
+            function (_, prefix, compactToken) {
+              const hoursPart = compactToken.slice(0, -2);
+              const minutesPart = compactToken.slice(-2);
+              if (Number(minutesPart) > 59) {
+                invalidCompactMinutes = true;
+                return prefix + compactToken;
+              }
+              return prefix + hoursPart + ":" + minutesPart;
+            }
+          );
+
+          if (invalidCompactMinutes) {
+            return { ok: false, error: "Minutos invalidos no formato HH:MM." };
+          }
+
+          if (normalized.includes(",")) {
+            return { ok: false, error: "Formato HH:MM invalido." };
+          }
+        } else {
+          normalized = normalized.replace(/,/g, ".");
+        }
+        if (!normalized) return { ok: true, empty: true, minutes: 0 };
+
+        const expression = normalized.replace(
+          /(\d+):([0-5]?\d)/g,
+          function (_, hoursPart, minutesPart) {
+            const hours = Number(hoursPart);
+            const minutes = Number(minutesPart);
+            return "(" + hours + "+" + minutes + "/60)";
+          }
+        );
+
+        if (expression.includes(":")) {
+          return { ok: false, error: "Formato HH:MM invalido." };
+        }
+
+        let result;
+        try {
+          result = Function('"use strict"; return (' + expression + ");")();
+        } catch (error) {
+          return { ok: false, error: "Expressao invalida." };
+        }
+
+        if (typeof result !== "number" || !Number.isFinite(result)) {
+          return { ok: false, error: "Expressao invalida." };
+        }
+
+        if (result < 0) {
+          return { ok: false, error: "O resultado nao pode ser negativo." };
+        }
+
+        if (result > 999.99) {
+          return { ok: false, error: "O resultado deve ser no maximo 999,99." };
+        }
+
+        const minutes = Math.round(result * 60);
+        if (minutes > 59999) {
+          return { ok: false, error: "O resultado deve ser no maximo 59999 minutos." };
+        }
+
+        return {
+          ok: true,
+          empty: false,
+          minutes: minutes,
+        };
+      }
+
+      function normalizeNumericInput(input, useFallbackValue) {
+        const hiddenInput = document.getElementById(input.dataset.minutesField);
+        if (!hiddenInput) return false;
+
+        const evaluated = evaluateExpressionToMinutes(input.value);
+        if (evaluated.ok) {
+          clearInvalid(input);
+          hiddenInput.value = String(evaluated.minutes || 0);
+          input.dataset.lastMinutes = hiddenInput.value;
+          input.value = formatMinutes(evaluated.minutes || 0);
+          recalculateCompetenceTotals();
+          return true;
+        }
+
+        markInvalid(input, evaluated.error || "Valor invalido.");
+        if (useFallbackValue) {
+          const fallbackMinutes = Number(input.dataset.lastMinutes || hiddenInput.value || "0");
+          const safeFallbackMinutes = Number.isFinite(fallbackMinutes)
+            ? Math.max(0, Math.round(fallbackMinutes))
+            : 0;
+          hiddenInput.value = String(safeFallbackMinutes);
+          input.dataset.lastMinutes = hiddenInput.value;
+          input.value = formatMinutes(safeFallbackMinutes);
+        }
+        recalculateCompetenceTotals();
+        return false;
+      }
+
+      function applyMatrixPaste(startInput, rawText) {
+        const rows = rawText
+          .replace(/\r/g, "")
+          .split("\n")
+          .filter(function (line, index, arr) {
+            return !(index === arr.length - 1 && line === "");
+          });
+
+        if (!rows.length) return;
+
+        const startRow = Number(startInput.dataset.row);
+        const startCol = Number(startInput.dataset.col);
+
+        rows.forEach(function (line, rowOffset) {
+          const cols = line.split("\t");
+          cols.forEach(function (cellValue, colOffset) {
+            const target = inputByCell.get(
+              String(startRow + rowOffset) + ":" + String(startCol + colOffset)
+            );
+            if (!target) return;
+            if (target.disabled) return;
+            target.value = cellValue.trim();
+            if (target.classList.contains("sheet-number")) {
+              target.value = target.value.replace(/[^0-9+\-*/().,:\s]/g, "");
+              normalizeNumericInput(target, true);
+            }
+          });
+        });
+        recalculateCompetenceTotals();
+      }
+
+      numericInputs.forEach(function (input) {
+        const hiddenInput = document.getElementById(input.dataset.minutesField);
+        if (hiddenInput) {
+          const initialMinutes = Number(hiddenInput.value || "0");
+          input.dataset.lastMinutes = Number.isFinite(initialMinutes)
+            ? String(Math.max(0, Math.round(initialMinutes)))
+            : "0";
+        } else {
+          input.dataset.lastMinutes = "0";
+        }
+
+        input.addEventListener("input", function () {
+          const sanitized = input.value.replace(/[^0-9+\-*/().,:\s]/g, "");
+          if (sanitized !== input.value) {
+            input.value = sanitized;
+          }
+          clearInvalid(input);
+          recalculateCompetenceTotals();
+        });
+
+        input.addEventListener("blur", function () {
+          normalizeNumericInput(input, true);
+          input.dataset.editMode = "0";
+          input.setAttribute("readonly", "readonly");
+        });
+      });
+
+      inputs.forEach(function (input) {
+        input.addEventListener("focus", function () {
+          activateCell(input);
+        });
+
+        if (!input.classList.contains("sheet-number")) {
+          input.addEventListener("blur", function () {
+            input.dataset.lastText = input.value || "";
+            input.dataset.editMode = "0";
+            input.setAttribute("readonly", "readonly");
+          });
+        }
+
+        input.addEventListener("keydown", function (event) {
+          const editing = isEditing(input);
+          const isPrintableKey =
+            event.key.length === 1 &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey;
+
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+            event.preventDefault();
+            if (editing) {
+              exitEditMode(input, true);
+            }
+            copyFromAbove(input);
+            return;
+          }
+
+          if (event.key === "F9") {
+            event.preventDefault();
+            if (editing) {
+              exitEditMode(input, true);
+            }
+            toggleDisplayMode();
+            input.focus();
+            input.select();
+            return;
+          }
+
+          if (event.key === "F2") {
+            event.preventDefault();
+            if (!editing) {
+              enterEditMode(input);
+            }
+            return;
+          }
+
+          if (!editing) {
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              moveFocus(input, -1, 0);
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              moveFocus(input, 1, 0);
+              return;
+            }
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              moveFocus(input, 0, -1);
+              return;
+            }
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              moveFocus(input, 0, 1);
+              return;
+            }
+            if (event.key === "Backspace" || event.key === "Delete") {
+              event.preventDefault();
+              enterEditMode(input, "");
+              clearInvalid(input);
+              if (input.classList.contains("sheet-number")) {
+                recalculateCompetenceTotals();
+              }
+              return;
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const moved = moveFocus(input, event.shiftKey ? -1 : 1, 0);
+              if (!moved) {
+                input.focus();
+                input.select();
+              }
+              return;
+            }
+            if (isPrintableKey) {
+              event.preventDefault();
+              startTypingInCell(input, event.key);
+              return;
+            }
+            return;
+          }
+
+          if (event.key === "Enter") {
+            event.preventDefault();
+            exitEditMode(input, true);
+            const moved = moveFocus(input, event.shiftKey ? -1 : 1, 0);
+            if (!moved) {
+              input.focus();
+              input.select();
+            }
+            return;
+          }
+
+          if (event.key === "Escape") {
+            event.preventDefault();
+            exitEditMode(input, false);
+            input.focus();
+            input.select();
+            return;
+          }
+        });
+
+        input.addEventListener("paste", function (event) {
+          const pastedText = (event.clipboardData || window.clipboardData).getData("text");
+          if (!pastedText || (!pastedText.includes("\t") && !pastedText.includes("\n"))) return;
+          event.preventDefault();
+          applyMatrixPaste(input, pastedText);
+        });
+      });
+
+      if (sheetForm) {
+        sheetForm.addEventListener("submit", function (event) {
+          syncCompetenceMonthToPostForm();
+          let hasInvalid = false;
+          let firstInvalid = null;
+
+          numericInputs.forEach(function (input) {
+            const valid = normalizeNumericInput(input, false);
+            if (!valid && !firstInvalid) {
+              firstInvalid = input;
+              hasInvalid = true;
+            }
+          });
+
+          if (hasInvalid) {
+            event.preventDefault();
+            if (firstInvalid) firstInvalid.focus();
+          }
+        });
+      }
+
+      if (monthForm && monthInput) {
+        monthInput.addEventListener("change", function () {
+          syncCompetenceMonthToPostForm();
+          if (monthInput.value) {
+            monthForm.submit();
+          }
+        });
+      }
+
+      if (displayModeToggle) {
+        displayModeToggle.checked = displayMode === "decimal";
+        displayModeToggle.addEventListener("change", function () {
+          toggleDisplayMode();
+        });
+      }
+
+      if (summaryCardsToggleButton) {
+        summaryCardsToggleButton.addEventListener("click", function () {
+          toggleSummaryCardsVisibility();
+        });
+      }
+
+      renderSummaryCardsVisibility();
+      syncCompetenceMonthToPostForm();
+      refreshDisplayMode();
+    })();
+  </script>
+{% endblock %}

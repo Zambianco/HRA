@@ -1,0 +1,123 @@
+{% load static %}
+{% url "employees_page" as employees_page_url %}
+{% url "events_page" as events_page_url %}
+{% url "timesheet_page" as timesheet_page_url %}
+{% url "sectors_page" as sectors_page_url %}
+{% url "work_schedules_page" as work_schedules_page_url %}
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}RH Local{% endblock %}</title>
+
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/abn-icon.png' %}" />
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/Navbar-Right-Links-Dark-icons.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/print-standard.css' %}" media="print" />
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="{% if APP_IS_DEV %}env-dev{% endif %}">
+    {% if APP_GIT_BRANCH or APP_GIT_COMMIT %}
+      <div class="build-indicator" title="Versao do build">
+        {{ APP_GIT_BRANCH }}@{{ APP_GIT_COMMIT }}
+      </div>
+    {% endif %}
+
+    {% if APP_IS_DEV %}
+      <div class="env-banner" role="status" aria-live="polite">
+        AMBIENTE DE DESENVOLVIMENTO
+      </div>
+    {% endif %}
+
+    <nav class="navbar navbar-dark bg-dark py-2 app-navbar">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="{{ employees_page_url }}">
+          <img src="{% static 'img/logotipo.png' %}" alt="Logotipo RH Local" class="app-logo" />
+        </a>
+
+        <ul class="navbar-nav flex-row flex-wrap justify-content-end align-items-center gap-2 app-nav-links">
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 {% if request.path == '/' or request.path == '/empregados/' %}active{% endif %}"
+              href="{{ employees_page_url }}"
+            >
+              Empregados
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 disabled text-white-50"
+              href="#"
+              aria-disabled="true"
+              tabindex="-1"
+              onclick="return false;"
+            >
+              Eventos
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 {% if request.path == '/timesheet/' or request.path == '/ponto/' %}active{% endif %}"
+              href="{{ timesheet_page_url }}"
+            >
+              Timesheet
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 {% if request.path == '/setores/' %}active{% endif %}"
+              href="{{ sectors_page_url }}"
+            >
+              Setores
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 {% if request.path == '/escalas/' %}active{% endif %}"
+              href="{{ work_schedules_page_url }}"
+            >
+              Escalas
+            </a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    {% if messages %}
+      <section class="app-toast-stack" aria-live="polite" aria-atomic="true">
+        {% for message in messages %}
+          <div class="app-toast {{ message.tags|default:'info' }}" role="status">
+            <div class="app-toast-body">{{ message }}</div>
+            <button type="button" class="app-toast-close" aria-label="Fechar" onclick="this.closest('.app-toast').remove()">
+              &times;
+            </button>
+          </div>
+        {% endfor %}
+      </section>
+      <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          var toasts = document.querySelectorAll(".app-toast");
+          toasts.forEach(function (toast, index) {
+            var delayMs = 3800 + (index * 220);
+            setTimeout(function () {
+              toast.classList.add("is-hiding");
+              setTimeout(function () {
+                if (toast && toast.parentNode) {
+                  toast.remove();
+                }
+              }, 260);
+            }, delayMs);
+          });
+        });
+      </script>
+    {% endif %}
+
+    <main class="container app-shell">
+
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

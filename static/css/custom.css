@@ -1,0 +1,70 @@
+/* submenu estilo TOTVS/SAP */
+.dropdown-submenu {
+    position: relative;
+}
+
+.dropdown-submenu > .dropdown-menu {
+    top: 0;
+    left: 100%;
+    margin-left: .1rem;
+}
+
+.build-indicator {
+    position: fixed;
+    top: .35rem;
+    left: .5rem;
+    z-index: 1031;
+    font-size: .65rem;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.6);
+    opacity: 0.75;
+    letter-spacing: .02em;
+    pointer-events: none;
+    user-select: none;
+}
+
+.env-banner {
+    position: fixed;
+    right: .75rem;
+    top: .5rem;
+    z-index: 1032;
+    padding: .25rem .55rem;
+    border-radius: .25rem;
+    background: #c1121f;
+    color: #fff;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    user-select: none;
+}
+
+body.env-dev::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    border: 5px solid #c1121f;
+    pointer-events: none;
+    z-index: 2000;
+    box-sizing: border-box;
+}
+
+
+@media (min-width: 1200px) {
+    .container, .container-lg, .container-md, .container-sm, .container-xl, .container-xxl {
+        max-width: 1800px;
+    }
+
+    .timesheet-set-sticky {
+        position: sticky;
+        top: 1rem;
+        z-index: 10;
+    }
+
+    .timesheet-set-sticky #set-tree-list {
+        max-height: calc(100vh - 14rem);
+        overflow: auto;
+    }
+}

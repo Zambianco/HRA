@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Empregado{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Empregados</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Editar</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-lg-7">
+      <h1 class="fw-bold text-primary mb-1">Editar Empregado</h1>
+      <p class="text-muted mb-0">Atualize os dados cadastrais e os vinculos do empregado selecionado.</p>
+    </div>
+    <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+      <div class="d-inline-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">
+          <i class="bi bi-arrow-left me-1"></i>Voltar para Empregados
+        </a>
+        <a class="btn btn-outline-info" href="{% url 'events_page' %}?employee_id={{ employee.id }}">
+          <i class="bi bi-calendar-event me-1"></i>Ver Eventos
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-person-vcard me-1"></i>Matricula
+          </h6>
+          <h5 class="card-title fw-bold mb-1">{{ employee.matricula }}</h5>
+          <p class="card-text text-muted mb-0">Identificacao no sistema</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-person-check me-1"></i>Status
+          </h6>
+          {% if employee.deactivated_at %}
+            <h5 class="card-title fw-bold text-danger mb-1">Inativo</h5>
+            <p class="card-text text-muted mb-0">Empregado desativado</p>
+          {% else %}
+            <h5 class="card-title fw-bold text-success mb-1">Ativo</h5>
+            <p class="card-text text-muted mb-0">Empregado em operacao</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-building me-1"></i>Setor atual
+          </h6>
+          {% if employee.sector %}
+            <h5 class="card-title fw-bold mb-1 text-truncate" title="{{ employee.sector.nome }}">{{ employee.sector.nome }}</h5>
+            <p class="card-text text-muted mb-0">
+              {% if employee.sector.deactivated_at %}Setor inativo atual{% else %}Vinculo ativo{% endif %}
+            </p>
+          {% else %}
+            <h5 class="card-title fw-bold text-warning mb-1">Sem setor</h5>
+            <p class="card-text text-muted mb-0">Sem vinculacao setorial</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-clock-history me-1"></i>Escala atual
+          </h6>
+          {% if employee.work_schedule %}
+            <h5 class="card-title fw-bold mb-1 text-truncate" title="{{ employee.work_schedule.nome }}">{{ employee.work_schedule.nome }}</h5>
+            <p class="card-text text-muted mb-0">Escala vinculada</p>
+          {% else %}
+            <h5 class="card-title fw-bold text-warning mb-1">Sem escala</h5>
+            <p class="card-text text-muted mb-0">Sem vinculacao de jornada</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body py-2">
+          <div class="d-flex flex-wrap gap-2" role="tablist" aria-label="Abas da edicao de empregado">
+            <button
+              type="button"
+              class="btn btn-sm btn-primary js-employee-tab"
+              data-tab-target="overview"
+              aria-selected="true"
+            >
+              <i class="bi bi-grid me-1"></i>Visao Geral
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary js-employee-tab"
+              data-tab-target="edit"
+              aria-selected="false"
+            >
+              <i class="bi bi-pencil-square me-1"></i>Editar Dados
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="employee-tab-overview">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-bottom p-3">
+        <h5 class="fw-semibold mb-0">
+          <i class="bi bi-info-circle text-primary me-2"></i>Resumo e Vinculos Atuais
+        </h5>
+      </div>
+      <div class="card-body">
+        {% if employee.deactivated_at %}
+          <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span>Este empregado esta inativo. Revise os dados e utilize a lista de Empregados para reativacao quando necessario.</span>
+          </div>
+        {% endif %}
+
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="list-group border rounded">
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Nome completo</span>
+                <span class="fw-medium text-end">{{ employee.nome_completo }}</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Matricula</span>
+                <span class="fw-medium text-end">{{ employee.matricula }}</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Tipo</span>
+                <span class="fw-medium text-end">{{ employee.get_tipo_display }}</span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Regime de compensacao de jornada</span>
+                <span class="fw-medium text-end">
+                  {{ employee.get_regime_compensacao_jornada_display }}
+                </span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Setor atual</span>
+                <span class="fw-medium text-end">
+                  {% if employee.sector %}
+                    {{ employee.sector.nome }}
+                    {% if employee.sector.deactivated_at %}
+                      <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1">Setor inativo</span>
+                    {% endif %}
+                  {% else %}
+                    Sem setor
+                  {% endif %}
+                </span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Escala atual</span>
+                <span class="fw-medium text-end">
+                  {% if employee.work_schedule %}{{ employee.work_schedule.nome }}{% else %}Sem escala{% endif %}
+                </span>
+              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <span class="text-muted">Status</span>
+                <span class="fw-medium text-end">
+                  {% if employee.deactivated_at %}Inativo{% else %}Ativo{% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card bg-light border h-100">
+              <div class="card-body d-flex flex-column">
+                <h6 class="fw-semibold mb-2">Edicao de vinculos</h6>
+                <p class="text-muted small mb-3">
+                  Setor e escala permanecem visiveis nesta aba. Use os botoes abaixo para editar.
+                </p>
+                <button type="button" class="btn btn-primary mb-2 js-open-edit-tab" data-focus-field="sector_id">
+                  <i class="bi bi-pencil-square me-1"></i>Editar Setor e Escala
+                </button>
+                <button type="button" class="btn btn-outline-primary js-open-edit-tab" data-focus-field="matricula">
+                  <i class="bi bi-person-gear me-1"></i>Editar Dados Cadastrais
+                </button>
+                <small class="text-muted mt-3">
+                  Ao alterar setor ou escala, o inicio da vigencia sera obrigatorio.
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="employee-tab-edit" class="d-none">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-bottom p-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <h5 class="fw-semibold mb-0">
+            <i class="bi bi-pencil-square text-primary me-2"></i>Formulario de Edicao
+          </h5>
+          <small class="text-muted">ID interno: {{ employee.id }}</small>
+        </div>
+      </div>
+
+      <form
+        method="post"
+        id="employee-edit-page-form"
+        action="{% url 'employee_edit_page' employee.id %}"
+      >
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-lg-4">
+              <label for="matricula" class="form-label fw-semibold">Matricula</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-person-vcard text-muted"></i>
+                </span>
+                <input
+                  id="matricula"
+                  name="matricula"
+                  type="text"
+                  value="{{ employee.matricula }}"
+                  maxlength="50"
+                  class="form-control"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="col-lg-8">
+              <label for="nome_completo" class="form-label fw-semibold">Nome completo</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-person text-muted"></i>
+                </span>
+                <input
+                  id="nome_completo"
+                  name="nome_completo"
+                  type="text"
+                  value="{{ employee.nome_completo }}"
+                  maxlength="150"
+                  class="form-control"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="col-lg-4">
+              <label for="tipo" class="form-label fw-semibold">Tipo</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-diagram-2 text-muted"></i>
+                </span>
+                <select id="tipo" name="tipo" class="form-select" required>
+                  {% for type_value, type_label in employee_type_choices %}
+                    <option value="{{ type_value }}" {% if employee.tipo == type_value %}selected{% endif %}>
+                      {{ type_label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="col-lg-4">
+              <label for="regime_compensacao_jornada" class="form-label fw-semibold">Regime de compensacao de jornada</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-hourglass-split text-muted"></i>
+                </span>
+                <select
+                  id="regime_compensacao_jornada"
+                  name="regime_compensacao_jornada"
+                  class="form-select"
+                  required
+                >
+                  {% for regime_value, regime_label in compensation_regime_choices %}
+                    <option value="{{ regime_value }}" {% if employee.regime_compensacao_jornada == regime_value %}selected{% endif %}>
+                      {{ regime_label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <small class="text-muted">Define a adesao ao banco de horas.</small>
+            </div>
+
+            <div class="col-lg-6">
+              <label for="sector_id" class="form-label fw-semibold">Setor</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-building text-muted"></i>
+                </span>
+                <select
+                  id="sector_id"
+                  name="sector_id"
+                  class="form-select"
+                  data-initial-value="{% if employee.sector %}{{ employee.sector.id }}{% endif %}"
+                  required
+                >
+                  <option value="">Selecione um setor...</option>
+                  {% for sector in active_sectors %}
+                    <option value="{{ sector.id }}" {% if employee.sector and employee.sector.id == sector.id %}selected{% endif %}>
+                      {{ sector.nome }}
+                    </option>
+                  {% endfor %}
+                  {% if employee.sector and employee.sector.deactivated_at %}
+                    <option value="{{ employee.sector.id }}" selected>
+                      {{ employee.sector.nome }} (inativo atual)
+                    </option>
+                  {% endif %}
+                </select>
+                <a href="{% url 'sectors_page' %}" class="btn btn-outline-primary">
+                  <i class="bi bi-building-gear me-1"></i>Setores
+                </a>
+              </div>
+              {% if not active_sectors %}
+                <small class="text-danger">Cadastre ao menos um setor ativo para concluir a edicao.</small>
+              {% endif %}
+            </div>
+
+            <div class="col-lg-6">
+              <label for="work_schedule_id" class="form-label fw-semibold">Escala</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-clock-history text-muted"></i>
+                </span>
+                <select
+                  id="work_schedule_id"
+                  name="work_schedule_id"
+                  class="form-select"
+                  data-initial-value="{% if employee.work_schedule %}{{ employee.work_schedule.id }}{% endif %}"
+                >
+                  <option value="">Sem escala</option>
+                  {% for work_schedule in work_schedules %}
+                    <option value="{{ work_schedule.id }}" {% if employee.work_schedule and employee.work_schedule.id == work_schedule.id %}selected{% endif %}>
+                      {{ work_schedule.nome }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <a href="{% url 'work_schedules_page' %}" class="btn btn-outline-primary">
+                  <i class="bi bi-list-check me-1"></i>Escalas
+                </a>
+              </div>
+            </div>
+
+            <div class="col-lg-4">
+              <label for="change_effective_date" class="form-label fw-semibold">Inicio da vigencia da alteracao</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent">
+                  <i class="bi bi-calendar-event text-muted"></i>
+                </span>
+                <input
+                  id="change_effective_date"
+                  name="change_effective_date"
+                  type="date"
+                  class="form-control"
+                />
+              </div>
+              <small class="text-muted">Obrigatoria quando houver alteracao de setor ou escala.</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer bg-white border-top py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <small class="text-muted mb-0">As alteracoes de setor/escala exigem inicio da vigencia para gerar historico de evento.</small>
+          <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">Cancelar</a>
+            <button type="submit" class="btn btn-primary" {% if not active_sectors %}disabled{% endif %}>
+              <i class="bi bi-save me-1"></i>Salvar alteracoes
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      const tabButtons = Array.from(document.querySelectorAll(".js-employee-tab"));
+      const tabPanels = {
+        overview: document.getElementById("employee-tab-overview"),
+        edit: document.getElementById("employee-tab-edit"),
+      };
+      const defaultTab = "{% if messages %}edit{% else %}overview{% endif %}";
+
+      function activateTab(tabName) {
+        if (!tabPanels[tabName]) return;
+
+        Object.keys(tabPanels).forEach(function (key) {
+          const panel = tabPanels[key];
+          if (!panel) return;
+          panel.classList.toggle("d-none", key !== tabName);
+        });
+
+        tabButtons.forEach(function (button) {
+          const isActive = button.dataset.tabTarget === tabName;
+          button.classList.toggle("btn-primary", isActive);
+          button.classList.toggle("btn-outline-primary", !isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+      }
+
+      tabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          activateTab(button.dataset.tabTarget || "overview");
+        });
+      });
+
+      document.querySelectorAll(".js-open-edit-tab").forEach(function (button) {
+        button.addEventListener("click", function () {
+          const focusFieldId = button.dataset.focusField || "sector_id";
+          activateTab("edit");
+          setTimeout(function () {
+            const field = document.getElementById(focusFieldId);
+            if (field) field.focus();
+          }, 0);
+        });
+      });
+
+      activateTab(defaultTab);
+
+      const form = document.getElementById("employee-edit-page-form");
+      const sectorSelect = document.getElementById("sector_id");
+      const workScheduleSelect = document.getElementById("work_schedule_id");
+      const effectiveDateInput = document.getElementById("change_effective_date");
+
+      if (!form || !sectorSelect || !workScheduleSelect || !effectiveDateInput) return;
+
+      const initialSectorId = sectorSelect.dataset.initialValue || "";
+      const initialWorkScheduleId = workScheduleSelect.dataset.initialValue || "";
+
+      function hasAllocationChange() {
+        const nextSectorId = sectorSelect.value || "";
+        const nextWorkScheduleId = workScheduleSelect.value || "";
+        return nextSectorId !== initialSectorId || nextWorkScheduleId !== initialWorkScheduleId;
+      }
+
+      function updateEffectiveDateRequirement() {
+        const changed = hasAllocationChange();
+        effectiveDateInput.required = changed;
+        if (!changed) {
+          effectiveDateInput.setCustomValidity("");
+        }
+      }
+
+      sectorSelect.addEventListener("change", updateEffectiveDateRequirement);
+      workScheduleSelect.addEventListener("change", updateEffectiveDateRequirement);
+      form.addEventListener("submit", function (event) {
+        const changed = hasAllocationChange();
+        effectiveDateInput.required = changed;
+
+        if (changed && !effectiveDateInput.value) {
+          effectiveDateInput.setCustomValidity(
+            "Informe o inicio da vigencia para alteracao de setor ou escala.",
+          );
+          effectiveDateInput.reportValidity();
+          event.preventDefault();
+          return;
+        }
+
+        effectiveDateInput.setCustomValidity("");
+      });
+
+      updateEffectiveDateRequirement();
+    })();
+  </script>
+{% endblock %}

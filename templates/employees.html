@@ -1,0 +1,766 @@
+{% extends "base.html" %}
+
+{% block title %}Empregados{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Empregados</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-lg-8">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div>
+          <h1 class="fw-bold text-primary mb-1">Empregados</h1>
+          <p class="text-muted mb-0">Gerencie os colaboradores por matricula, status e vinculacao.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+      <button type="button" class="btn btn-primary" onclick="openEmployeeCreateModal()">
+        <i class="bi bi-plus-circle me-1"></i>
+        Novo Empregado
+      </button>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-people me-1"></i>Total de empregados
+          </h6>
+          <h5 class="card-title fw-bold" id="totalCount">{{ employees_count }}</h5>
+          <p class="card-text text-muted mb-0">Cadastrados no sistema</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-check-circle-fill text-success me-1"></i>Empregados ativos
+          </h6>
+          <h5 class="card-title fw-bold text-success" id="activeCount">{{ active_count }}</h5>
+          <p class="card-text text-muted mb-0">Empregados com cadastro ativo</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-x-circle-fill text-danger me-1"></i>Empregados inativos
+          </h6>
+          <h5 class="card-title fw-bold text-danger" id="inactiveCount">{{ inactive_count }}</h5>
+          <p class="card-text text-muted mb-0">Empregados desativados</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">
+            <i class="bi bi-person-fill-x me-1"></i>Sem setor
+          </h6>
+          <h5 class="card-title fw-bold text-warning" id="unassignedCount">{{ unassigned_count }}</h5>
+          <p class="card-text text-muted mb-0">Empregados sem vinculacao</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom p-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex gap-3 align-items-center">
+              <i class="bi bi-people fs-5 text-primary"></i>
+              <h5 class="fw-semibold mb-0">Empregados Cadastrados</h5>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <div class="position-relative" style="width: 280px;">
+                <details id="sectorFilterDetails" class="w-100">
+                  <summary
+                    class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-between text-start"
+                    style="list-style: none;"
+                  >
+                    <span class="d-inline-flex align-items-center gap-2">
+                      <i class="bi bi-building text-muted"></i>
+                      <span id="sectorFilterLabel">Setores: Todos</span>
+                    </span>
+                    <i class="bi bi-chevron-down small"></i>
+                  </summary>
+                  <div
+                    class="card border shadow-sm mt-1 p-2 position-absolute w-100"
+                    style="z-index: 1060; max-height: 260px; overflow-y: auto;"
+                  >
+                    <div class="form-check mb-1">
+                      <input
+                        class="form-check-input sector-filter-checkbox"
+                        type="checkbox"
+                        value="all"
+                        id="sectorFilterAll"
+                        data-label="Todos os setores"
+                        checked
+                      />
+                      <label class="form-check-label" for="sectorFilterAll">Todos os setores</label>
+                    </div>
+                    <div class="form-check mb-2">
+                      <input
+                        class="form-check-input sector-filter-checkbox"
+                        type="checkbox"
+                        value="none"
+                        id="sectorFilterNone"
+                        data-label="Sem setor"
+                      />
+                      <label class="form-check-label" for="sectorFilterNone">Sem setor</label>
+                    </div>
+                    {% for sector in all_sectors %}
+                      <div class="form-check mb-1">
+                        <input
+                          class="form-check-input sector-filter-checkbox"
+                          type="checkbox"
+                          value="{{ sector.id }}"
+                          id="sectorFilter{{ sector.id }}"
+                          data-label="{{ sector.nome }}"
+                        />
+                        <label class="form-check-label" for="sectorFilter{{ sector.id }}">
+                          {{ sector.nome }} {% if sector.deactivated_at %}(inativo){% else %}(ativo){% endif %}
+                        </label>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </details>
+              </div>
+              <div class="input-group input-group-sm" style="width: 280px;">
+                <span class="input-group-text bg-transparent border-end-0">
+                  <i class="bi bi-search text-muted"></i>
+                </span>
+                <input
+                  type="text"
+                  class="form-control border-start-0"
+                  id="searchInput"
+                  placeholder="Buscar por nome, matricula, tipo, regime, setor ou escala..."
+                />
+              </div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de status">
+                <button type="button" class="btn btn-outline-secondary active" id="filterAllBtn" data-filter="all">
+                  <i class="bi bi-list-ul me-1"></i>Todos
+                </button>
+                <button type="button" class="btn btn-outline-success" id="filterActiveBtn" data-filter="active">
+                  <i class="bi bi-check-circle me-1"></i>Ativos
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="filterInactiveBtn" data-filter="inactive">
+                  <i class="bi bi-x-circle me-1"></i>Inativos
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 170px;" class="ps-4">Matricula</th>
+                  <th class="text-nowrap">Nome completo</th>
+                  <th style="width: 120px;">Tipo</th>
+                  <th style="width: 220px;">Regime de compensacao</th>
+                  <th style="width: 220px;">Setor</th>
+                  <th style="width: 200px;">Escala</th>
+                  <th style="width: 130px;">Status</th>
+                  <th style="width: 180px;" class="text-end pe-4">Acoes</th>
+                </tr>
+              </thead>
+              <tbody id="employeeTableBody">
+                {% for employee in employees %}
+                  <tr
+                    data-employee-id="{{ employee.id }}"
+                    data-employee-name="{{ employee.nome_completo|lower }}"
+                    data-registration="{{ employee.matricula|lower }}"
+                    data-employee-type="{{ employee.get_tipo_display|lower }}"
+                    data-compensation-regime="{{ employee.get_regime_compensacao_jornada_display|lower }}"
+                    data-sector-name="{{ employee.sector.nome|default:'sem setor'|lower }}"
+                    data-sector-id="{% if employee.sector %}{{ employee.sector.id }}{% else %}none{% endif %}"
+                    data-schedule-name="{{ employee.work_schedule.nome|default:'sem escala'|lower }}"
+                    data-status="{% if employee.deactivated_at %}inactive{% else %}active{% endif %}"
+                    class="employee-row{% if employee.deactivated_at %} table-secondary opacity-75{% endif %}"
+                  >
+                    <td class="ps-4">
+                      <span class="badge text-bg-light border">
+                        <i class="bi bi-person-vcard me-1"></i>{{ employee.matricula }}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-person text-secondary"></i>
+                        <span class="fw-medium text-nowrap {% if employee.deactivated_at %}text-decoration-line-through{% endif %}">
+                          {{ employee.nome_completo }}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      {% if employee.tipo == "direto" %}
+                        <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">Direto</span>
+                      {% else %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill">Indireto</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if employee.regime_compensacao_jornada == "participante" %}
+                        <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
+                          <i class="bi bi-clock-history me-1"></i>Participante
+                        </span>
+                      {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
+                          <i class="bi bi-clock me-1"></i>Nao participante
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if employee.sector %}
+                        <span class="text-muted small">
+                          <i class="bi bi-building me-1"></i>{{ employee.sector.nome }}
+                          {% if employee.sector.deactivated_at %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1">Setor inativo</span>
+                          {% endif %}
+                        </span>
+                      {% else %}
+                        <span class="text-muted small">
+                          <i class="bi bi-exclamation-circle me-1"></i>Sem setor
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if employee.work_schedule %}
+                        <span class="text-muted small">
+                          <i class="bi bi-clock-history me-1"></i>{{ employee.work_schedule.nome }}
+                        </span>
+                      {% else %}
+                        <span class="text-muted small">
+                          <i class="bi bi-dash-circle me-1"></i>Sem escala
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if employee.deactivated_at %}
+                        <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill">
+                          <i class="bi bi-x-circle-fill me-1 small"></i>Inativo
+                        </span>
+                      {% else %}
+                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
+                          <i class="bi bi-check-circle-fill me-1 small"></i>Ativo
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Acoes do empregado">
+                        <a href="{% url 'employee_edit_page' employee.id %}" class="btn btn-sm btn-outline-primary sector-action-btn" title="Editar">
+                          <i class="bi bi-pencil me-1"></i>Editar
+                        </a>
+                        <a href="{% url 'events_page' %}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-info sector-action-btn" title="Eventos">
+                          <i class="bi bi-calendar-event me-1"></i>Eventos
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div id="emptyState" class="text-center py-5 {% if employees %}d-none{% endif %}">
+            <i class="bi bi-inbox fs-1 text-muted opacity-50"></i>
+            <p class="text-muted mt-2 mb-0">Nenhum empregado encontrado</p>
+            <small class="text-muted">Tente ajustar os filtros ou crie um novo empregado</small>
+          </div>
+        </div>
+
+        <div class="card-footer bg-white border-top py-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+              <i class="bi bi-info-circle me-1"></i>
+              <span id="visibleCount">{{ employees_count }}</span> empregado(s) exibido(s)
+            </small>
+            <small class="text-muted">
+              <i class="bi bi-clock me-1"></i>Ultima atualizacao: agora
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="employee-create-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="employee-create-modal-title">
+      <div class="app-modal-header">
+        <h2 id="employee-create-modal-title"><i class="bi bi-plus-circle me-2"></i>Novo Empregado</h2>
+        <button type="button" class="app-modal-close" onclick="closeEmployeeCreateModal()" aria-label="Fechar">
+          &times;
+        </button>
+      </div>
+      <form method="post" action="{% url 'employees_page' %}" class="form-grid app-form">
+        {% csrf_token %}
+
+        <label for="employee_matricula">Matricula</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-person-vcard text-muted"></i>
+          </span>
+          <input
+            id="employee_matricula"
+            name="matricula"
+            type="text"
+            class="form-control"
+            placeholder="Ex: 12345"
+            maxlength="50"
+            required
+          />
+        </div>
+
+        <label for="employee_nome_completo">Nome completo</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-person text-muted"></i>
+          </span>
+          <input
+            id="employee_nome_completo"
+            name="nome_completo"
+            type="text"
+            class="form-control"
+            placeholder="Ex: Maria Silva Santos"
+            maxlength="150"
+            required
+          />
+        </div>
+
+        <label for="employee_tipo">Tipo</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-diagram-2 text-muted"></i>
+          </span>
+          <select id="employee_tipo" name="tipo" class="form-select" required>
+            {% for type_value, type_label in employee_type_choices %}
+              <option value="{{ type_value }}">{{ type_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <label for="employee_regime_compensacao_jornada">Regime de compensacao de jornada</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-hourglass-split text-muted"></i>
+          </span>
+          <select
+            id="employee_regime_compensacao_jornada"
+            name="regime_compensacao_jornada"
+            class="form-select"
+            required
+          >
+            {% for regime_value, regime_label in compensation_regime_choices %}
+              <option value="{{ regime_value }}">{{ regime_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <small class="text-muted">Campo tecnico para adesao ao banco de horas.</small>
+
+        <label for="employee_sector_id">Setor</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-building text-muted"></i>
+          </span>
+          <select id="employee_sector_id" name="sector_id" class="form-select" required>
+            <option value="">Selecione um setor ativo...</option>
+            {% for sector in active_sectors %}
+              <option
+                value="{{ sector.id }}"
+                {% if selected_sector_id and selected_sector_id == sector.id|stringformat:"s" %}selected{% endif %}
+              >
+                {{ sector.nome }}
+              </option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-outline-primary" onclick="openEmployeeSectorCreateModal()">
+            <i class="bi bi-plus-circle me-1"></i>
+            Novo Setor
+          </button>
+        </div>
+        {% if not active_sectors %}
+          <small class="text-danger">Cadastre ao menos um setor ativo para incluir empregados.</small>
+        {% endif %}
+
+        <label for="employee_work_schedule_id">Escala</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-clock-history text-muted"></i>
+          </span>
+          <select id="employee_work_schedule_id" name="work_schedule_id" class="form-select">
+            <option value="">Sem escala</option>
+            {% for work_schedule in work_schedules %}
+              <option value="{{ work_schedule.id }}">{{ work_schedule.nome }}</option>
+            {% endfor %}
+          </select>
+          <a href="{% url 'work_schedules_page' %}" class="btn btn-outline-primary">
+            <i class="bi bi-list-check me-1"></i>
+            Escalas
+          </a>
+        </div>
+        <small class="text-muted">Cadastre as escalas na tela de Escalas e selecione aqui para vincular ao empregado.</small>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary" {% if not active_sectors %}disabled{% endif %}>
+            <i class="bi bi-save me-1"></i>Cadastrar
+          </button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeEmployeeCreateModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="employee-sector-create-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="employee-sector-create-modal-title">
+      <div class="app-modal-header">
+        <h2 id="employee-sector-create-modal-title"><i class="bi bi-building-add me-2"></i>Novo Setor</h2>
+        <button type="button" class="app-modal-close" onclick="closeEmployeeSectorCreateModal()" aria-label="Fechar">
+          &times;
+        </button>
+      </div>
+      <form method="post" action="{% url 'employee_create_sector' %}" class="form-grid app-form">
+        {% csrf_token %}
+        <label for="employee_modal_sector_name">Nome do setor</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-building text-muted"></i>
+          </span>
+          <input
+            id="employee_modal_sector_name"
+            name="nome"
+            type="text"
+            class="form-control"
+            placeholder="Ex: Recursos Humanos"
+            maxlength="120"
+            required
+          />
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save me-1"></i>Cadastrar
+          </button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeEmployeeSectorCreateModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const searchInput = document.getElementById("searchInput");
+    const sectorFilterLabel = document.getElementById("sectorFilterLabel");
+    const sectorFilterCheckboxes = document.querySelectorAll(".sector-filter-checkbox");
+    const sectorFilterAll = document.getElementById("sectorFilterAll");
+    const filterAllBtn = document.getElementById("filterAllBtn");
+    const filterActiveBtn = document.getElementById("filterActiveBtn");
+    const filterInactiveBtn = document.getElementById("filterInactiveBtn");
+    const employeeTableBody = document.getElementById("employeeTableBody");
+    const emptyState = document.getElementById("emptyState");
+    const visibleCountSpan = document.getElementById("visibleCount");
+    const totalCountSpan = document.getElementById("totalCount");
+    const activeCountSpan = document.getElementById("activeCount");
+    const inactiveCountSpan = document.getElementById("inactiveCount");
+    const unassignedCountSpan = document.getElementById("unassignedCount");
+    const shouldOpenEmployeeModal = "{{ open_employee_modal|yesno:'true,false' }}" === "true";
+    const shouldOpenSectorModal = "{{ open_sector_modal|yesno:'true,false' }}" === "true";
+
+    let currentFilter = "all";
+    let selectedSectorFilters = new Set(["all"]);
+    let searchTerm = "";
+
+    function updateBodyModalState() {
+      const hasOpenModal = [
+        document.getElementById("employee-create-modal"),
+        document.getElementById("employee-sector-create-modal"),
+      ].some(function (modal) {
+        return modal && !modal.hidden;
+      });
+
+      document.body.classList.toggle("modal-open", hasOpenModal);
+    }
+
+    function openEmployeeCreateModal() {
+      const modal = document.getElementById("employee-create-modal");
+      if (!modal) return;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+      updateBodyModalState();
+      setTimeout(function () {
+        const input = document.getElementById("employee_matricula");
+        if (input) input.focus();
+      }, 0);
+    }
+
+    function closeEmployeeCreateModal() {
+      const modal = document.getElementById("employee-create-modal");
+      if (!modal) return;
+      closeEmployeeSectorCreateModal();
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      updateBodyModalState();
+    }
+
+    function openEmployeeSectorCreateModal() {
+      const modal = document.getElementById("employee-sector-create-modal");
+      if (!modal) return;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+      updateBodyModalState();
+      setTimeout(function () {
+        const input = document.getElementById("employee_modal_sector_name");
+        if (input) input.focus();
+      }, 0);
+    }
+
+    function closeEmployeeSectorCreateModal() {
+      const modal = document.getElementById("employee-sector-create-modal");
+      if (!modal) return;
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      updateBodyModalState();
+    }
+
+    function updateCounters() {
+      if (!employeeTableBody) return;
+
+      const allRows = Array.from(employeeTableBody.querySelectorAll("tr"));
+      totalCountSpan.textContent = allRows.length;
+      activeCountSpan.textContent = allRows.filter(function (row) {
+        return row.dataset.status === "active";
+      }).length;
+      inactiveCountSpan.textContent = allRows.filter(function (row) {
+        return row.dataset.status === "inactive";
+      }).length;
+      if (unassignedCountSpan) {
+        unassignedCountSpan.textContent = allRows.filter(function (row) {
+          return (row.dataset.sectorId || "none") === "none";
+        }).length;
+      }
+    }
+
+    function updateSectorFilterLabel() {
+      if (!sectorFilterLabel) return;
+
+      if (selectedSectorFilters.has("all")) {
+        sectorFilterLabel.textContent = "Setores: Todos";
+        return;
+      }
+
+      const selectedLabels = Array.from(sectorFilterCheckboxes)
+        .filter(function (checkbox) {
+          return checkbox.checked && checkbox.value !== "all";
+        })
+        .map(function (checkbox) {
+          return checkbox.dataset.label || checkbox.value;
+        });
+
+      if (selectedLabels.length === 1) {
+        sectorFilterLabel.textContent = "Setor: " + selectedLabels[0];
+        return;
+      }
+
+      sectorFilterLabel.textContent = "Setores: " + selectedLabels.length + " selecionados";
+    }
+
+    function syncSectorFilterState(changedValue) {
+      if (!sectorFilterCheckboxes.length) {
+        selectedSectorFilters = new Set(["all"]);
+        return;
+      }
+
+      if (changedValue === "all" && sectorFilterAll && sectorFilterAll.checked) {
+        sectorFilterCheckboxes.forEach(function (checkbox) {
+          checkbox.checked = checkbox.value === "all";
+        });
+        selectedSectorFilters = new Set(["all"]);
+        updateSectorFilterLabel();
+        return;
+      }
+
+      const checkedNonAll = Array.from(sectorFilterCheckboxes).filter(function (checkbox) {
+        return checkbox.value !== "all" && checkbox.checked;
+      });
+
+      if (!checkedNonAll.length) {
+        sectorFilterCheckboxes.forEach(function (checkbox) {
+          checkbox.checked = checkbox.value === "all";
+        });
+        selectedSectorFilters = new Set(["all"]);
+      } else {
+        if (sectorFilterAll) sectorFilterAll.checked = false;
+        selectedSectorFilters = new Set(
+          checkedNonAll.map(function (checkbox) {
+            return checkbox.value;
+          })
+        );
+      }
+
+      updateSectorFilterLabel();
+    }
+
+    function applyFilters() {
+      if (!employeeTableBody) return;
+
+      const rows = employeeTableBody.querySelectorAll("tr");
+      let visible = 0;
+
+      rows.forEach(function (row) {
+        const status = row.dataset.status;
+        const name = (row.dataset.employeeName || "").toLowerCase();
+        const registration = (row.dataset.registration || "").toLowerCase();
+        const employeeType = (row.dataset.employeeType || "").toLowerCase();
+        const compensationRegime = (row.dataset.compensationRegime || "").toLowerCase();
+        const sector = (row.dataset.sectorName || "").toLowerCase();
+        const schedule = (row.dataset.scheduleName || "").toLowerCase();
+        const sectorId = row.dataset.sectorId || "none";
+
+        const matchesStatus =
+          currentFilter === "all" ||
+          (currentFilter === "active" && status === "active") ||
+          (currentFilter === "inactive" && status === "inactive");
+        const matchesSector =
+          selectedSectorFilters.has("all") ||
+          selectedSectorFilters.has(sectorId);
+
+        const matchesSearch =
+          name.includes(searchTerm) ||
+          registration.includes(searchTerm) ||
+          employeeType.includes(searchTerm) ||
+          compensationRegime.includes(searchTerm) ||
+          sector.includes(searchTerm) ||
+          schedule.includes(searchTerm);
+
+        if (matchesStatus && matchesSector && matchesSearch) {
+          row.style.display = "";
+          visible += 1;
+        } else {
+          row.style.display = "none";
+        }
+      });
+
+      visibleCountSpan.textContent = visible;
+      emptyState.classList.toggle("d-none", visible > 0);
+      updateCounters();
+    }
+
+    if (sectorFilterCheckboxes.length) {
+      sectorFilterCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener("change", function (event) {
+          syncSectorFilterState(event.target.value);
+          applyFilters();
+        });
+      });
+      syncSectorFilterState("all");
+    } else {
+      selectedSectorFilters = new Set(["all"]);
+      updateSectorFilterLabel();
+    }
+
+    document.addEventListener("click", function (event) {
+      const details = document.getElementById("sectorFilterDetails");
+      if (!details || !details.open) return;
+      if (details.contains(event.target)) return;
+      details.open = false;
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener("input", function (event) {
+        searchTerm = event.target.value.toLowerCase().trim();
+        applyFilters();
+      });
+    }
+
+    if (filterAllBtn) {
+      filterAllBtn.addEventListener("click", function () {
+        currentFilter = "all";
+        [filterAllBtn, filterActiveBtn, filterInactiveBtn].forEach(function (btn) {
+          if (btn) btn.classList.remove("active");
+        });
+        filterAllBtn.classList.add("active");
+        applyFilters();
+      });
+    }
+
+    if (filterActiveBtn) {
+      filterActiveBtn.addEventListener("click", function () {
+        currentFilter = "active";
+        [filterAllBtn, filterActiveBtn, filterInactiveBtn].forEach(function (btn) {
+          if (btn) btn.classList.remove("active");
+        });
+        filterActiveBtn.classList.add("active");
+        applyFilters();
+      });
+    }
+
+    if (filterInactiveBtn) {
+      filterInactiveBtn.addEventListener("click", function () {
+        currentFilter = "inactive";
+        [filterAllBtn, filterActiveBtn, filterInactiveBtn].forEach(function (btn) {
+          if (btn) btn.classList.remove("active");
+        });
+        filterInactiveBtn.classList.add("active");
+        applyFilters();
+      });
+    }
+
+    document.addEventListener("click", function (event) {
+      const modal = document.getElementById("employee-create-modal");
+      if (!modal || modal.hidden) return;
+      if (event.target === modal) {
+        closeEmployeeCreateModal();
+      }
+    });
+
+    document.addEventListener("click", function (event) {
+      const modal = document.getElementById("employee-sector-create-modal");
+      if (!modal || modal.hidden) return;
+      if (event.target === modal) {
+        closeEmployeeSectorCreateModal();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      const sectorModal = document.getElementById("employee-sector-create-modal");
+      if (sectorModal && !sectorModal.hidden) {
+        closeEmployeeSectorCreateModal();
+        return;
+      }
+      const modal = document.getElementById("employee-create-modal");
+      if (!modal || modal.hidden) return;
+      closeEmployeeCreateModal();
+    });
+
+    if (shouldOpenEmployeeModal) {
+      openEmployeeCreateModal();
+    }
+
+    if (shouldOpenSectorModal) {
+      openEmployeeCreateModal();
+      openEmployeeSectorCreateModal();
+    }
+
+    applyFilters();
+  </script>
+{% endblock %}
