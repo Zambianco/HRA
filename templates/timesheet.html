@@ -28,6 +28,7 @@
       padding: 0;
       vertical-align: middle;
       background: #fff;
+      text-align: left;
     }
 
     .point-sheet thead th {
@@ -77,6 +78,7 @@
       min-height: 26px;
       padding: 0.18rem 0.3rem;
       font-size: 0.74rem;
+      text-align: left;
     }
 
     .point-sheet .sheet-input:focus {
@@ -193,11 +195,12 @@
 {% endblock %}
 
 {% block content %}
+  <section class="timesheet-page">
   <div class="row mb-4">
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
           <li class="breadcrumb-item active" aria-current="page">Timesheet</li>
         </ol>
       </nav>
@@ -207,7 +210,7 @@
   <div class="row mb-4">
     <div class="col-lg-8">
       <h1 class="fw-bold text-primary mb-1">Timesheet Mensal</h1>
-      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mes de competencia.</p>
+      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mês de competência.</p>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
@@ -221,7 +224,7 @@
     <div class="col-lg-4 mt-3 mt-lg-0">
       <form id="timesheet-month-form" method="get" class="d-flex gap-2 justify-content-lg-end align-items-end mb-2">
         <div class="me-1">
-          <label for="competence_month" class="form-label fw-semibold mb-1">Mes de competencia</label>
+          <label for="competence_month" class="form-label fw-semibold mb-1">Mês de competência</label>
           <input
             id="competence_month"
             name="competence_month"
@@ -253,7 +256,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-journal-check me-1"></i>Com lancamento
+            <i class="bi bi-journal-check me-1"></i>Com lançamento
           </h6>
           <h5 class="card-title fw-bold text-success mb-0">{{ registered_employees_count }}</h5>
         </div>
@@ -291,12 +294,12 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-stopwatch me-1"></i>Horas totais
+            <i class="bi bi-stopwatch me-1"></i>Horas lançadas
           </h6>
           <h5
             class="card-title fw-bold text-dark mb-0 timesheet-total"
-            data-minutes="{{ total_worked_minutes }}"
-            data-total-target="worked"
+            data-minutes="{{ total_worked_minutes|add:total_absence_minutes }}"
+            data-total-target="launched"
           ></h5>
         </div>
       </div>
@@ -319,7 +322,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-person-x me-1"></i>Ausencias
+            <i class="bi bi-person-x me-1"></i>Ausências
           </h6>
           <h5
             class="card-title fw-bold text-danger mb-0 timesheet-total"
@@ -331,9 +334,14 @@
     </div>
   </div>
 
-  <div class="card border-0 shadow-sm">
+  <div class="card border-0 shadow-sm print-sheet">
     <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <h5 class="fw-semibold mb-0">Tabela mensal de timesheet</h5>
+      <div>
+        <h5 class="fw-semibold mb-0 print-title">Tabela mensal de timesheet</h5>
+        <p class="print-subtitle print-only mb-0">
+          Competência {{ selected_competence_month }} · {% if is_month_closed %}Mês encerrado{% else %}Mês aberto{% endif %}
+        </p>
+      </div>
       <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
         <a
           href="{% url 'timesheet_snapshots_audit_page' %}?competence_month={{ selected_competence_month }}"
@@ -341,13 +349,33 @@
         >
           <i class="bi bi-archive me-1"></i>Snapshot
         </a>
+        <a
+          href="{% url 'timesheet_dashboard_page' %}?competence_month={{ selected_competence_month }}"
+          class="btn btn-sm btn-outline-primary"
+        >
+          <i class="bi bi-bar-chart-line me-1"></i>Painel
+        </a>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary no-print"
+          id="timesheet-print-table-btn"
+        >
+          <i class="bi bi-printer me-1"></i>Imprimir tabela
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-success no-print"
+          onclick="exportHtmlTableToCsv('timesheet-table', 'timesheet-{{ selected_competence_month }}.csv')"
+        >
+          <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
+        </button>
         <span class="badge text-bg-light border">
           Competencia: {{ selected_competence_month }}
         </span>
         {% if is_month_closed %}
-          <span class="badge text-bg-danger">Mes encerrado</span>
+          <span class="badge text-bg-danger">Mês encerrado</span>
         {% else %}
-          <span class="badge text-bg-success">Mes aberto</span>
+          <span class="badge text-bg-success">Mês aberto</span>
         {% endif %}
         <div class="form-check form-switch m-0">
           <input class="form-check-input" type="checkbox" role="switch" id="display-mode-toggle" />
@@ -368,16 +396,17 @@
       <div class="card-body p-0">
         {% if is_month_closed %}
           <div class="alert alert-warning rounded-0 border-0 border-bottom mb-0 px-3 py-2">
-            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mes de competencia. Para alterar os lancamentos, reabra o mes.
+            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mês de competência. Para alterar os lançamentos, reabra o mês.
           </div>
         {% endif %}
         <div class="point-sheet-wrapper">
-          <table class="point-sheet mb-0">
+          <table id="timesheet-table" class="point-sheet mb-0">
             <thead class="table-light">
               <tr>
-                <th class="sticky-col-1" style="width: 88px;">Matricula</th>
+                <th class="sticky-col-1" style="width: 88px;">Matrícula</th>
                 <th class="sticky-col-2" style="width: 178px;">Empregado</th>
                 <th style="min-width: 86px;">Previstas</th>
+                <th style="min-width: 86px;">Lan&ccedil;adas</th>
                 <th style="min-width: 66px;">Normais</th>
                 <th style="min-width: 66px;">Extra 60%</th>
                 <th class="col-separator-right" style="min-width: 66px;">Extra 100%</th>
@@ -392,27 +421,30 @@
                   <span class="badge text-bg-secondary">Total</span>
                 </td>
                 <td class="meta-cell sticky-col-2">
-                  <div class="fw-semibold">Totais da competencia</div>
+                  <div class="fw-semibold">Totais da competência</div>
                 </td>
-                <td class="meta-cell text-end">
+                <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_expected_minutes }}" data-total-target="expected"></span>
                 </td>
-                <td class="meta-cell text-end">
+                <td class="meta-cell text-start">
+                  <span class="fw-bold timesheet-total" data-minutes="0" data-total-target="launched"></span>
+                </td>
+                <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_regular_minutes }}" data-total-target="regular"></span>
                 </td>
-                <td class="meta-cell text-end">
+                <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_overtime_60_minutes }}" data-total-target="overtime60"></span>
                 </td>
-                <td class="meta-cell text-end col-separator-right">
+                <td class="meta-cell text-start col-separator-right">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_overtime_100_minutes }}" data-total-target="overtime100"></span>
                 </td>
-                <td class="meta-cell text-end">
+                <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_absence_unexcused_minutes }}" data-total-target="absenceUnexcused"></span>
                 </td>
-                <td class="meta-cell text-end">
+                <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_absence_excused_minutes }}" data-total-target="absenceExcused"></span>
                 </td>
-                <td class="meta-cell text-end">
+                <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_absence_bank_minutes }}" data-total-target="absenceBank"></span>
                 </td>
               </tr>
@@ -424,10 +456,17 @@
                   <td class="meta-cell sticky-col-2">
                     <div class="fw-semibold">{{ row.employee.nome_completo }}</div>
                   </td>
-                  <td class="meta-cell text-end">
+                  <td class="meta-cell text-start">
                     <span
                       class="fw-semibold text-muted timesheet-total"
                       data-minutes="{{ row.expected_minutes }}"
+                    ></span>
+                  </td>
+                  <td class="meta-cell text-start">
+                    <span
+                      class="fw-semibold timesheet-total"
+                      data-minutes="0"
+                      data-row-launched="{{ forloop.counter0 }}"
                     ></span>
                   </td>
                   <td class="sheet-edit-cell" data-col="0">
@@ -438,7 +477,7 @@
                       data-col="0"
                       data-minutes-field="regular_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -456,7 +495,7 @@
                       data-col="1"
                       data-minutes-field="overtime_60_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -474,7 +513,7 @@
                       data-col="2"
                       data-minutes-field="overtime_100_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -492,7 +531,7 @@
                       data-col="3"
                       data-minutes-field="absence_unexcused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -510,7 +549,7 @@
                       data-col="4"
                       data-minutes-field="absence_excused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -528,12 +567,12 @@
                       data-col="5"
                       data-minutes-field="absence_bank_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed or row.employee.regime_compensacao_jornada != "participante" %}disabled tabindex="-1" title="{% if is_month_closed %}Timesheet encerrado para esta competencia{% else %}Empregado nao participante do banco de horas{% endif %}"{% endif %}
+                      {% if is_month_closed or row.employee.regime_compensacao_jornada != "participante" %}disabled tabindex="-1" title="{% if is_month_closed %}Timesheet encerrado para esta competência{% else %}Empregado não participante do banco de horas{% endif %}"{% endif %}
                       value=""
                     />
                     {% if row.employee.regime_compensacao_jornada != "participante" %}
                       <div class="bank-disabled-chip">
-                        <i class="bi bi-lock-fill"></i>Nao participante
+                        <i class="bi bi-lock-fill"></i>Não participante
                       </div>
                     {% endif %}
                     <input
@@ -556,16 +595,16 @@
       </div>
       <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <small class="text-muted mb-0">
-          Linhas sem valores e sem observacao sao removidas da competencia ao salvar.
+          Linhas sem valores e sem observacao sao removidas da competência ao salvar.
         </small>
         <div class="d-flex align-items-center gap-2">
           {% if is_month_closed %}
             <button type="submit" class="btn btn-outline-warning" name="action" value="reopen_month">
-              <i class="bi bi-unlock me-1"></i>Reabrir mes
+              <i class="bi bi-unlock me-1"></i>Reabrir mês
             </button>
           {% else %}
-            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mes de competencia? Apos encerrar, alteracoes ficarao bloqueadas ate reabertura.')">
-              <i class="bi bi-lock me-1"></i>Encerrar mes
+            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mês de competência? Apos encerrar, alterações ficarao bloqueadas até reabertura.')">
+              <i class="bi bi-lock me-1"></i>Encerrar mês
             </button>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-save me-1"></i>Salvar compilado mensal
@@ -575,17 +614,23 @@
       </div>
     </form>
   </div>
+  </section>
 
   <div id="timesheet-mode-toast-stack" class="timesheet-toast-stack" aria-live="polite" aria-atomic="true"></div>
-
   <script>
     (function () {
+      const printTableButton = document.getElementById("timesheet-print-table-btn");
+      const PRINT_CLASS_TIMESHEET_TABLE = "print-timesheet-table";
+      const PRINT_STYLE_ID_TIMESHEET_TABLE = "timesheet-print-table-page-style";
       const inputs = Array.from(document.querySelectorAll(".point-sheet .sheet-input"));
       if (!inputs.length) return;
       const numericInputs = inputs.filter(function (input) {
         return input.classList.contains("sheet-number");
       });
       const sheetForm = document.querySelector("form[method='post']");
+      const sheetSaveSubmitButton = sheetForm
+        ? sheetForm.querySelector("button[type='submit']:not([name='action'])")
+        : null;
       const monthForm = document.getElementById("timesheet-month-form");
       const monthInput = document.getElementById("competence_month");
       const sheetCompetenceMonthInput = document.getElementById("timesheet_competence_month");
@@ -596,6 +641,11 @@
       const displayModeLabel = document.getElementById("display-mode-label");
       const totalElements = Array.from(document.querySelectorAll(".timesheet-total"));
       const modeToastStack = document.getElementById("timesheet-mode-toast-stack");
+      const rowLaunchedElements = new Map(
+        Array.from(document.querySelectorAll("[data-row-launched]")).map(function (element) {
+          return [String(element.dataset.rowLaunched), element];
+        })
+      );
 
       function safeStorageGet(key) {
         try {
@@ -649,6 +699,14 @@
           return (input.dataset.minutesField || "").indexOf("absence_bank_minutes_") === 0;
         }),
       };
+      const numericInputsByRow = new Map();
+      numericInputs.forEach(function (input) {
+        const rowKey = String(input.dataset.row || "");
+        if (!numericInputsByRow.has(rowKey)) {
+          numericInputsByRow.set(rowKey, []);
+        }
+        numericInputsByRow.get(rowKey).push(input);
+      });
 
       function setMinutesOnTargets(targetKey, minutes) {
         document
@@ -916,11 +974,22 @@
         const workedMinutes = regularMinutes + overtimeMinutes;
         const absenceMinutes =
           absenceUnexcusedMinutes + absenceExcusedMinutes + absenceBankMinutes;
+        const launchedMinutes = workedMinutes + absenceMinutes;
+
+        numericInputsByRow.forEach(function (rowInputs, rowKey) {
+          const rowLaunchedElement = rowLaunchedElements.get(rowKey);
+          if (!rowLaunchedElement) return;
+          const rowMinutes = rowInputs.reduce(function (sum, input) {
+            return sum + resolveMinutesForTotals(input);
+          }, 0);
+          rowLaunchedElement.dataset.minutes = String(rowMinutes);
+        });
 
         setMinutesOnTargets("regular", regularMinutes);
         setMinutesOnTargets("overtime60", overtime60Minutes);
         setMinutesOnTargets("overtime100", overtime100Minutes);
         setMinutesOnTargets("worked", workedMinutes);
+        setMinutesOnTargets("launched", launchedMinutes);
         setMinutesOnTargets("absenceUnexcused", absenceUnexcusedMinutes);
         setMinutesOnTargets("absenceExcused", absenceExcusedMinutes);
         setMinutesOnTargets("absenceBank", absenceBankMinutes);
@@ -959,6 +1028,27 @@
         }
       }
 
+      function removeTimesheetPrintPageStyle() {
+        const styleTag = document.getElementById(PRINT_STYLE_ID_TIMESHEET_TABLE);
+        if (styleTag) {
+          styleTag.remove();
+        }
+      }
+
+      function clearTimesheetPrintMode() {
+        document.body.classList.remove(PRINT_CLASS_TIMESHEET_TABLE);
+        removeTimesheetPrintPageStyle();
+      }
+
+      function applyTimesheetLandscapePageStyle() {
+        removeTimesheetPrintPageStyle();
+        const styleTag = document.createElement("style");
+        styleTag.id = PRINT_STYLE_ID_TIMESHEET_TABLE;
+        styleTag.media = "print";
+        styleTag.textContent = "@page { size: A4 landscape; margin: 12mm; }";
+        document.head.appendChild(styleTag);
+      }
+
       function clearInvalid(input) {
         input.classList.remove("is-invalid");
         input.removeAttribute("title");
@@ -974,7 +1064,7 @@
         if (!trimmed) return { ok: true, empty: true, minutes: 0 };
 
         if (!/^[0-9+\-*/().,:\s]+$/.test(trimmed)) {
-          return { ok: false, error: "Use apenas numeros e operadores matematicos." };
+          return { ok: false, error: "Use apenas números e operadores matematicos." };
         }
 
         const compact = trimmed.replace(/\s+/g, "");
@@ -1000,13 +1090,12 @@
           );
 
           normalized = normalized.replace(
-            /(^|[^\d])(\d{3,})(?=$|[^\d])/g,
+            /(^|[^\d:])(\d{3,})(?=$|[^\d:])/g,
             function (_, prefix, compactToken) {
               const hoursPart = compactToken.slice(0, -2);
               const minutesPart = compactToken.slice(-2);
               if (Number(minutesPart) > 59) {
-                invalidCompactMinutes = true;
-                return prefix + compactToken;
+                return prefix + compactToken + ":00";
               }
               return prefix + hoursPart + ":" + minutesPart;
             }
@@ -1017,7 +1106,7 @@
           }
 
           if (normalized.includes(",")) {
-            return { ok: false, error: "Formato HH:MM invalido." };
+            return { ok: false, error: "Formato HH:MM inválido." };
           }
         } else {
           normalized = normalized.replace(/,/g, ".");
@@ -1034,22 +1123,22 @@
         );
 
         if (expression.includes(":")) {
-          return { ok: false, error: "Formato HH:MM invalido." };
+          return { ok: false, error: "Formato HH:MM inválido." };
         }
 
         let result;
         try {
           result = Function('"use strict"; return (' + expression + ");")();
         } catch (error) {
-          return { ok: false, error: "Expressao invalida." };
+          return { ok: false, error: "Expressão invalida." };
         }
 
         if (typeof result !== "number" || !Number.isFinite(result)) {
-          return { ok: false, error: "Expressao invalida." };
+          return { ok: false, error: "Expressão invalida." };
         }
 
         if (result < 0) {
-          return { ok: false, error: "O resultado nao pode ser negativo." };
+          return { ok: false, error: "O resultado não pode ser negativo." };
         }
 
         if (result > 999.99) {
@@ -1082,7 +1171,7 @@
           return true;
         }
 
-        markInvalid(input, evaluated.error || "Valor invalido.");
+        markInvalid(input, evaluated.error || "Valor inválido.");
         if (useFallbackValue) {
           const fallbackMinutes = Number(input.dataset.lastMinutes || hiddenInput.value || "0");
           const safeFallbackMinutes = Number.isFinite(fallbackMinutes)
@@ -1279,6 +1368,13 @@
       });
 
       if (sheetForm) {
+        document.addEventListener("keydown", function (event) {
+          if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") return;
+          if (!sheetSaveSubmitButton || sheetSaveSubmitButton.disabled) return;
+          event.preventDefault();
+          sheetForm.requestSubmit(sheetSaveSubmitButton);
+        });
+
         sheetForm.addEventListener("submit", function (event) {
           syncCompetenceMonthToPostForm();
           let hasInvalid = false;
@@ -1321,12 +1417,24 @@
         });
       }
 
+      if (printTableButton) {
+        printTableButton.addEventListener("click", function () {
+          clearTimesheetPrintMode();
+          document.body.classList.add(PRINT_CLASS_TIMESHEET_TABLE);
+          applyTimesheetLandscapePageStyle();
+          window.print();
+        });
+      }
+
+      window.addEventListener("afterprint", clearTimesheetPrintMode);
+
       renderSummaryCardsVisibility();
       syncCompetenceMonthToPostForm();
       refreshDisplayMode();
     })();
   </script>
 {% endblock %}
+
 
 
 

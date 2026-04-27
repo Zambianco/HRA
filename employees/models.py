@@ -28,6 +28,13 @@ class Employee(models.Model):
         choices=REGIME_COMPENSACAO_JORNADA_CHOICES,
         default=REGIME_COMPENSACAO_NAO_PARTICIPANTE,
     )
+    cargo = models.ForeignKey(
+        "Cargo",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="employees",
+    )
     sector = models.ForeignKey(
         "Sector",
         on_delete=models.SET_NULL,
@@ -67,7 +74,7 @@ class EmployeeEvent(models.Model):
     EVENT_TYPE_CHOICES = (
         (EVENT_TYPE_HIRING, "Admissao"),
         (EVENT_TYPE_ALLOCATION_CHANGE, "Alteracao de setor/escala"),
-        (EVENT_TYPE_ABSENCE, "Ausencia"),
+        (EVENT_TYPE_ABSENCE, "Afastamento"),
         (EVENT_TYPE_MEDICAL_CERTIFICATE, "Atestado"),
         (EVENT_TYPE_BANK_HOURS_ADOPTION, "Adesao ao banco de horas"),
         (EVENT_TYPE_BANK_HOURS_WITHDRAWAL, "Saida do banco de horas"),
@@ -321,6 +328,26 @@ class Sector(models.Model):
                 fields=("nome",),
                 condition=models.Q(deactivated_at__isnull=True),
                 name="uniq_setor_nome_ativo_nao_desativado",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.nome
+
+
+class Cargo(models.Model):
+    nome = models.CharField(max_length=120)
+    deactivated_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cargos"
+        ordering = ("nome",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("nome",),
+                condition=models.Q(deactivated_at__isnull=True),
+                name="uniq_cargo_nome_ativo_nao_desativado",
             )
         ]
 

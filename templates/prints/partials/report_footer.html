@@ -1,0 +1,14 @@
+<div class="print-footer">
+    <div class="print-footer-meta">
+        <div>{{ print_footer_left|default:"Documento gerado pelo sistema." }}</div>
+        <div>
+            Emissao: em {% now "d/m/Y H:i" %}, por
+            {% if request.user.is_authenticated %}
+                {{ request.user.get_full_name|default:request.user.username }}
+            {% else %}
+                Sistema
+            {% endif %}
+        </div>
+    </div>
+    <div class="print-footer-state">{{ print_footer_right|default:"FIM DO RELATORIO" }}</div>
+</div>

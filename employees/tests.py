@@ -594,6 +594,19 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Auditoria de Snapshot Mensal")
 
+    def test_get_timesheet_dashboard_page(self):
+        response = self.client.get(reverse("timesheet_dashboard_page"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Painel de horas")
+
+    def test_timesheet_page_shows_dashboard_link_with_selected_month(self):
+        response = self.client.get(f"{reverse('timesheet_page')}?competence_month=2026-04")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f"{reverse('timesheet_dashboard_page')}?competence_month=2026-04",
+        )
+
     def test_timesheet_snapshots_audit_page_shows_closed_month_snapshots(self):
         sector = Sector.objects.create(nome="Setor Auditoria")
         calendar = WorkCalendar.objects.create(nome="Calendario Auditoria")
@@ -866,6 +879,39 @@ class EmployeeViewTests(TestCase):
         self.assertContains(response, "Horas extras")
         self.assertContains(response, 'data-minutes="10560"')
         self.assertContains(response, 'data-minutes="960"')
+
+    def test_save_monthly_timesheet_accepts_hhmm_above_24_hours(self):
+        sector = Sector.objects.create(nome="Financeiro")
+        employee = Employee.objects.create(
+            matricula="3004HHMM",
+            nome_completo="Ponto HHMM",
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+            sector=sector,
+        )
+
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                f"regular_minutes_{employee.id}": "26:30",
+                f"overtime_60_minutes_{employee.id}": "01:15",
+                f"overtime_100_minutes_{employee.id}": "0",
+                f"absence_unexcused_minutes_{employee.id}": "0:45",
+                f"absence_excused_minutes_{employee.id}": "0",
+                f"absence_bank_minutes_{employee.id}": "0",
+                f"notes_{employee.id}": "Entrada em HH:MM",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        entry = EmployeeTimeEntry.objects.get(employee=employee, competence_month="2026-04-01")
+        self.assertEqual(entry.regular_minutes, 1590)
+        self.assertEqual(entry.overtime_60_minutes, 75)
+        self.assertEqual(entry.overtime_100_minutes, 0)
+        self.assertEqual(entry.absence_unexcused_minutes, 45)
+        self.assertEqual(entry.absence_excused_minutes, 0)
+        self.assertEqual(entry.absence_bank_minutes, 0)
 
     def test_close_month_action_creates_month_closure(self):
         response = self.client.post(

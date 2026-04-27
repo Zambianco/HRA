@@ -1,0 +1,650 @@
+﻿{% extends "base.html" %}
+
+{% block title %}RH ABN · Dashboard de Horas{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <style>
+    .dashboard-container {
+      padding: 1.5rem 1rem 2rem 1rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      font-family: "Inter", sans-serif;
+    }
+
+    .timesheet-dashboard {
+      background: #f0f2f8;
+      border-radius: 1rem;
+    }
+
+    .custom-breadcrumb {
+      background: transparent;
+      padding: 0 0 1rem;
+      font-size: 0.85rem;
+    }
+
+    .custom-breadcrumb a {
+      text-decoration: none;
+      color: #4b5565;
+      font-weight: 500;
+    }
+
+    .custom-breadcrumb .active {
+      color: #1e293b;
+      font-weight: 600;
+    }
+
+    .card-dash {
+      background: #ffffff;
+      border: none;
+      border-radius: 1.25rem;
+      box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
+      transition: transform 0.2s, box-shadow 0.2s;
+      height: 100%;
+    }
+
+    .card-dash:hover {
+      box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header-custom {
+      padding: 1.2rem 1.2rem 0.2rem 1.2rem;
+      background: transparent;
+      border-bottom: none;
+    }
+
+    .card-title-dash {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 0.2rem;
+      letter-spacing: -0.2px;
+    }
+
+    .card-sub-dash {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #6c7a91;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.6rem;
+    }
+
+    .kpi-tile {
+      background: white;
+      border-radius: 1.2rem;
+      padding: 1rem 1rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+      border: 1px solid #edf2f7;
+      transition: all 0.2s;
+    }
+
+    .kpi-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #5b6e8c;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .kpi-number {
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #0c1b33;
+      line-height: 1.1;
+      letter-spacing: -1px;
+    }
+
+    .kpi-trend {
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .trend-up { color: #b91c1c; background: #fee2e2; }
+    .trend-down { color: #15803d; background: #dcfce7; }
+    .trend-neutral { color: #4b5563; }
+
+    .chart-wrapper {
+      position: relative;
+      height: 240px;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    .sector-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sector-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .sector-name {
+      width: 100px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-custom {
+      flex: 1;
+      height: 8px;
+      background-color: #e4e7ef;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 20px;
+      background: #3b82f6;
+      width: 0;
+    }
+
+    .progress-fill.high { background: #f97316; }
+    .progress-fill.critical { background: #ef4444; }
+
+    .sector-percent {
+      width: 48px;
+      text-align: right;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .absence-item-modern {
+      background: #f8fafd;
+      border-radius: 14px;
+      padding: 0.75rem 1rem;
+      border-left: 4px solid;
+      transition: 0.1s;
+    }
+
+    .badge-hours {
+      background: white;
+      border-radius: 30px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .dash-two-columns {
+      display: grid;
+      grid-template-columns: 2fr 1.1fr;
+      gap: 1.2rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .dash-three-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.2rem;
+    }
+
+    .dashboard-tabs {
+      margin-bottom: 1rem;
+      gap: 0.5rem;
+    }
+
+    .dashboard-tabs .nav-link {
+      border-radius: 999px;
+      font-weight: 600;
+      color: #475569;
+      border: 1px solid #dbe3ef;
+      background: #fff;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .dashboard-tabs .nav-link.active {
+      color: #fff;
+      background: #0f172a;
+      border-color: #0f172a;
+    }
+
+    .dashboard-table-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+
+    .dashboard-table-card table {
+      margin-bottom: 0;
+      font-size: 0.85rem;
+    }
+
+    .print-actions {
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .print-only {
+      display: none;
+    }
+
+    hr {
+      opacity: 0.4;
+      margin: 0.6rem 0;
+    }
+
+    footer {
+      font-size: 0.7rem;
+      text-align: center;
+      margin-top: 2rem;
+      color: #6c7a91;
+    }
+
+    @media (max-width: 1100px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+      .dash-two-columns { grid-template-columns: 1fr; gap: 1rem; }
+      .dash-three-columns { grid-template-columns: 1fr; gap: 1rem; }
+    }
+
+    @media (max-width: 700px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="dashboard-container timesheet-dashboard">
+    <div class="custom-breadcrumb">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}">Timesheet</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Painel de gráficos</li>
+        </ol>
+      </nav>
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
+        <div>
+          <h4 class="fw-bold mb-0" style="color: #0f172a;">Painel de horas · {{ competence_month_label }}</h4>
+          <p class="text-secondary-emphasis mt-1 mb-0" style="font-size: 0.8rem;">{{ month_reference_label }} · {{ employees_count }} empregados ativos</p>
+        </div>
+        <form id="dashboard-month-form" method="get" class="d-flex gap-2 align-items-center">
+          <label for="competence_month" class="fw-semibold text-secondary small">Mes referencia</label>
+          <input id="competence_month" type="month" name="competence_month" value="{{ selected_competence_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;" required>
+          <a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-table"></i> Voltar</a>
+        </form>
+      </div>
+    </div>
+
+    <ul class="nav dashboard-tabs screen-only no-print" id="dashboard-view-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-graficos" data-bs-toggle="tab" data-bs-target="#pane-graficos" type="button" role="tab" aria-controls="pane-graficos" aria-selected="true">
+          Gráficos
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-tabela" data-bs-toggle="tab" data-bs-target="#pane-tabela" type="button" role="tab" aria-controls="pane-tabela" aria-selected="false">
+          Tabela
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content dashboard-tabs-content screen-only">
+    <div class="tab-pane fade show active" id="pane-graficos" role="tabpanel" aria-labelledby="tab-graficos" tabindex="0">
+    <div class="print-actions no-print">
+      <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="print-graphs-btn">
+        <i class="bi bi-printer"></i> Imprimir gráficos
+      </button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-calendar-check"></i> Previstas</div>
+        <div class="kpi-number">{{ total_expected_hhmm }}</div>
+        <div class="kpi-trend trend-neutral"><i class="bi bi-dash-circle"></i> baseline</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-clock-history"></i> Trabalhadas</div>
+        <div class="kpi-number">{{ total_worked_hhmm }}</div>
+        <div class="kpi-trend trend-up"><i class="bi bi-arrow-up-short"></i> {{ registered_employees_count }} com lancamento</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-lightning-charge-fill"></i> Hora extra</div>
+        <div class="kpi-number">{{ total_overtime_hhmm }}</div>
+        <div class="kpi-trend trend-up"><i class="bi bi-graph-up"></i> 60% + 100%</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-calendar-x"></i> Ausencias</div>
+        <div class="kpi-number">{{ total_absence_hhmm }}</div>
+        <div class="kpi-trend trend-down"><i class="bi bi-arrow-down-short"></i> falta + justificada + banco</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-pie-chart"></i> Distribuicao</div>
+        <div class="kpi-number">{{ mod_share_percent }}% / {{ moi_share_percent }}%</div>
+        <div class="kpi-trend trend-neutral">MOD · MOI</div>
+      </div>
+    </div>
+
+    <div class="dash-two-columns">
+      <div class="card-dash">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Distribuição por setor</div>
+          <div class="card-sub-dash">Previsto vs Real (Trabalhadas + Extras 60%/100%)</div>
+        </div>
+        <div class="p-3 pt-0">
+          <div class="chart-wrapper">
+            <canvas id="stackedBarChart" role="img" aria-label="Grafico de horas por setor"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-dash d-flex flex-column">
+        <div class="card-header-custom">
+          <div class="card-title-dash">MOD vs MOI</div>
+          <div class="card-sub-dash">mao de obra direta / indireta</div>
+        </div>
+        <div class="p-3 d-flex flex-column align-items-center justify-content-center flex-grow-1">
+          <div class="chart-wrapper" style="height: 200px;">
+            <canvas id="donutChartMod" role="img" aria-label="Grafico de distribuicao MOD x MOI"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-three-columns">
+      <div class="card-dash">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Aproveitamento (%)</div>
+          <div class="card-sub-dash">realizado / previsto</div>
+        </div>
+        <div class="p-3">
+          <div class="sector-list">
+            {% for row in sector_rows %}
+                            <div class="sector-row">
+                <span class="sector-name">{{ row.name }}</span>
+                <div class="progress-custom">
+                  <div class="progress-fill{% if row.expected_minutes > 0 and row.worked_minutes > row.expected_minutes %} high{% endif %}" style="width:{% if row.expected_minutes > 0 %}{% widthratio row.worked_minutes row.expected_minutes 100 %}{% else %}0{% endif %}%;"></div>
+                </div>
+                <span class="sector-percent{% if row.expected_minutes > 0 and row.worked_minutes > row.expected_minutes %} text-warning{% endif %}">
+                  {% if row.expected_minutes > 0 %}{% widthratio row.worked_minutes row.expected_minutes 100 %}%{% else %}0%{% endif %}
+                </span>
+              </div>
+            {% empty %}
+              <div class="text-muted small">Sem dados no mes selecionado.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card-dash">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Banco de horas por setor</div>
+          <div class="card-sub-dash">horas positivas = excedente</div>
+        </div>
+        <div class="p-2">
+          <div class="chart-wrapper" style="height: 190px;">
+            <canvas id="balanceChart" role="img" aria-label="Grafico de saldo de horas por setor"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-dash">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Ausencias e faltas</div>
+          <div class="card-sub-dash">impacto das horas</div>
+        </div>
+        <div class="p-3">
+          {% for row in sector_rows %}
+            <div class="absence-item-modern {% if not forloop.first %}mt-2{% endif %}" style="border-left-color: {% if row.absence_unexcused_minutes > 0 %}#ef4444{% elif row.absence_excused_minutes > 0 %}#f97316{% else %}#94a3b8{% endif %};">
+              <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <strong>{{ row.name }}</strong>
+                <span class="badge-hours">{{ row.absence_unexcused_minutes|floatformat:0|default:"0" }} min falta</span>
+                <span class="badge-hours">{{ row.absence_excused_minutes|floatformat:0|default:"0" }} min just.</span>
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small">Sem dados no mes selecionado.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="tab-pane fade" id="pane-tabela" role="tabpanel" aria-labelledby="tab-tabela" tabindex="0">
+      <div class="print-actions no-print">
+        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="print-table-btn">
+          <i class="bi bi-printer"></i> Imprimir tabela
+        </button>
+      </div>
+      <section class="print-sheet timesheet-dashboard-print dashboard-table-card p-3">
+        <header class="print-header">
+          <div>
+            <h1 class="print-title">Dashboard de Horas</h1>
+            <p class="print-subtitle">{{ competence_month_label }} · {{ month_reference_label }}</p>
+          </div>
+          <div class="print-meta">
+            <div>{{ employees_count }} empregados ativos</div>
+            <div>{{ registered_employees_count }} com lancamento</div>
+          </div>
+        </header>
+
+        <h2 class="print-section-title">Resumo Geral</h2>
+        <div class="print-grid">
+          <div class="print-item">
+            <span class="print-label">Previstas</span>
+            <span class="print-value">{{ total_expected_hhmm }}</span>
+          </div>
+          <div class="print-item">
+            <span class="print-label">Trabalhadas</span>
+            <span class="print-value">{{ total_worked_hhmm }}</span>
+          </div>
+          <div class="print-item">
+            <span class="print-label">Hora extra</span>
+            <span class="print-value">{{ total_overtime_hhmm }}</span>
+          </div>
+          <div class="print-item">
+            <span class="print-label">Ausencias</span>
+            <span class="print-value">{{ total_absence_hhmm }}</span>
+          </div>
+          <div class="print-item">
+            <span class="print-label">MOD / MOI</span>
+            <span class="print-value">{{ mod_share_percent }}% / {{ moi_share_percent }}%</span>
+          </div>
+        </div>
+
+        <h2 class="print-section-title">Detalhe Por Setor (minutos)</h2>
+        <table class="timesheet-dashboard-print-table">
+          <thead>
+            <tr>
+              <th>Setor</th>
+              <th>Prev.</th>
+              <th>Trab.</th>
+              <th>HE 60</th>
+              <th>HE 100</th>
+              <th>Saldo</th>
+              <th>Falta</th>
+              <th>Just.</th>
+              <th>Aprov.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sector_rows %}
+              <tr>
+                <td>{{ row.name }}</td>
+                <td>{{ row.expected_minutes|floatformat:0 }}</td>
+                <td>{{ row.worked_minutes|floatformat:0 }}</td>
+                <td>{{ row.overtime_60_minutes|floatformat:0 }}</td>
+                <td>{{ row.overtime_100_minutes|floatformat:0 }}</td>
+                <td>{{ row.balance_minutes|floatformat:0 }}</td>
+                <td>{{ row.absence_unexcused_minutes|floatformat:0 }}</td>
+                <td>{{ row.absence_excused_minutes|floatformat:0 }}</td>
+                <td>{% if row.expected_minutes > 0 %}{% widthratio row.worked_minutes row.expected_minutes 100 %}%{% else %}0%{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="9">Sem dados no mes selecionado.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    </div>
+
+    <footer class="mt-4 screen-only">RH ABN · Dados consolidados por competencia</footer>
+  </div>
+
+  {{ chart_labels|json_script:"chart-labels" }}
+  {{ chart_expected_hours|json_script:"chart-expected-hours" }}
+  {{ chart_worked_hours|json_script:"chart-worked-hours" }}
+  {{ chart_overtime_60_hours|json_script:"chart-overtime-60-hours" }}
+  {{ chart_overtime_100_hours|json_script:"chart-overtime-100-hours" }}
+  {{ chart_balance_hours|json_script:"chart-balance-hours" }}
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script>
+    (function () {
+      const PRINT_CLASS_GRAPHS = "print-dashboard-graphs";
+      const PRINT_CLASS_TABLE = "print-dashboard-table";
+      const PRINT_STYLE_ID = "dashboard-print-page-style";
+      const form = document.getElementById("dashboard-month-form");
+      const monthInput = document.getElementById("competence_month");
+      monthInput.addEventListener("change", function () {
+        form.submit();
+      });
+
+      const labels = JSON.parse(document.getElementById("chart-labels").textContent);
+      const expected = JSON.parse(document.getElementById("chart-expected-hours").textContent);
+      const worked = JSON.parse(document.getElementById("chart-worked-hours").textContent);
+      const overtime60 = JSON.parse(document.getElementById("chart-overtime-60-hours").textContent);
+      const overtime100 = JSON.parse(document.getElementById("chart-overtime-100-hours").textContent);
+      const balance = JSON.parse(document.getElementById("chart-balance-hours").textContent);
+      const charts = [];
+
+      charts.push(new Chart(document.getElementById("stackedBarChart"), {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Previsto", data: expected, backgroundColor: "#cbd5e1", borderRadius: 6, stack: "stack0", barPercentage: 0.65, categoryPercentage: 0.8 },
+            { label: "Trabalhadas", data: worked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
+            { label: "HE 60%", data: overtime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
+            { label: "HE 100%", data: overtime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 } },
+            tooltip: { mode: "index", intersect: false },
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: "Horas" }, grid: { color: "#eef2f6" } },
+            x: { grid: { display: false } },
+          },
+        },
+      }));
+
+      charts.push(new Chart(document.getElementById("donutChartMod"), {
+        type: "doughnut",
+        data: {
+          labels: ["MOD", "MOI"],
+          datasets: [{ data: [{{ mod_share_percent }}, {{ moi_share_percent }}], backgroundColor: ["#2c6e49", "#9c89b8"], borderWidth: 0, hoverOffset: 8 }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: "65%",
+          plugins: { legend: { position: "bottom", labels: { font: { size: 9 } } } },
+        },
+      }));
+
+      charts.push(new Chart(document.getElementById("balanceChart"), {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{ label: "Saldo (real - previsto)", data: balance, backgroundColor: function (ctx) { return ctx.raw >= 0 ? "#10b981" : "#ef4444"; }, borderRadius: 8 }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function (ctx) { return ctx.raw + " horas " + (ctx.raw >= 0 ? "acima" : "abaixo"); } } },
+          },
+          scales: { y: { title: { display: true, text: "Horas" }, grid: { color: "#e9edf2" } } },
+        },
+      }));
+
+      function removePrintPageStyle() {
+        const tag = document.getElementById(PRINT_STYLE_ID);
+        if (tag) {
+          tag.remove();
+        }
+      }
+
+      function applyPrintPageStyle(mode) {
+        removePrintPageStyle();
+        const style = document.createElement("style");
+        style.id = PRINT_STYLE_ID;
+        style.media = "print";
+        style.textContent = mode === "graphs"
+          ? "@page { size: A4 landscape; margin: 9mm; }"
+          : "@page { size: A4 portrait; margin: 12mm; }";
+        document.head.appendChild(style);
+      }
+
+      function clearPrintMode() {
+        document.body.classList.remove(PRINT_CLASS_GRAPHS, PRINT_CLASS_TABLE);
+        removePrintPageStyle();
+      }
+
+      function printDashboard(mode) {
+        clearPrintMode();
+        if (mode === "graphs") {
+          document.body.classList.add(PRINT_CLASS_GRAPHS);
+        } else {
+          document.body.classList.add(PRINT_CLASS_TABLE);
+        }
+        applyPrintPageStyle(mode);
+        charts.forEach(function (chart) { chart.resize(); });
+        window.print();
+      }
+
+      const printGraphsBtn = document.getElementById("print-graphs-btn");
+      const printTableBtn = document.getElementById("print-table-btn");
+      if (printGraphsBtn) {
+        printGraphsBtn.addEventListener("click", function () { printDashboard("graphs"); });
+      }
+      if (printTableBtn) {
+        printTableBtn.addEventListener("click", function () { printDashboard("table"); });
+      }
+
+      window.addEventListener("afterprint", clearPrintMode);
+    })();
+  </script>
+{% endblock %}
+

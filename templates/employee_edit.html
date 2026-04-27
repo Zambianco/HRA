@@ -125,18 +125,6 @@
       margin-top: 1rem;
     }
 
-    .employee-edit-page .tab-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem;
-      margin-bottom: .8rem;
-    }
-
-    .employee-edit-page .tab-btn {
-      border-radius: 999px;
-      font-weight: 600;
-      padding: .45rem .9rem;
-    }
   </style>
 {% endblock %}
 
@@ -146,7 +134,7 @@
       <div class="col-12">
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
             <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Empregados</a></li>
             <li class="breadcrumb-item active" aria-current="page">Editar</li>
           </ol>
@@ -158,10 +146,10 @@
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
         <div>
           <h1 class="hero-name">{{ employee.nome_completo }}</h1>
-          <p class="text-muted mb-2">Atualize cadastro, vinculos e vigencia em um unico fluxo.</p>
+          <p class="text-muted mb-2">Atualize cadastro, vínculos e vigência em um único fluxo.</p>
           <div class="d-flex flex-wrap gap-2">
             <span class="meta-chip">
-              <i class="bi bi-person-vcard"></i> Matricula {{ employee.matricula }}
+              <i class="bi bi-person-vcard"></i> Matrícula {{ employee.matricula }}
             </span>
             {% if employee.deactivated_at %}
               <span class="meta-chip warn"><i class="bi bi-person-x-fill"></i> Inativo</span>
@@ -185,30 +173,38 @@
     <form method="post" id="employee-edit-page-form" action="{% url 'employee_edit_page' employee.id %}">
       {% csrf_token %}
 
-      <div class="tab-nav" role="tablist" aria-label="Abas de edicao do empregado">
-        <button type="button" class="btn btn-primary tab-btn js-edit-tab-btn" data-tab-target="info" aria-selected="true">
-          <i class="bi bi-person-lines-fill me-1"></i>Informacoes
-        </button>
-        <button type="button" class="btn btn-outline-primary tab-btn js-edit-tab-btn" data-tab-target="cargo-setor" aria-selected="false">
-          <i class="bi bi-building me-1"></i>Cargo/Setor
-        </button>
-        <button type="button" class="btn btn-outline-primary tab-btn js-edit-tab-btn" data-tab-target="escala" aria-selected="false">
-          <i class="bi bi-clock-history me-1"></i>Escala
-        </button>
-        <button type="button" class="btn btn-outline-primary tab-btn js-edit-tab-btn" data-tab-target="calendar-exceptions" aria-selected="false">
-          <i class="bi bi-calendar-range me-1"></i>Excessoes de calendario
-        </button>
-      </div>
+      <ul class="nav nav-tabs app-tabs mb-3" role="tablist" aria-label="Abas de edição do empregado">
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link active js-edit-tab-btn" role="tab" data-tab-target="info" aria-selected="true">
+            <i class="bi bi-person-lines-fill me-1"></i>Informações
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link js-edit-tab-btn" role="tab" data-tab-target="cargo-setor" aria-selected="false">
+            <i class="bi bi-building me-1"></i>Cargo/Setor
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link js-edit-tab-btn" role="tab" data-tab-target="escala" aria-selected="false">
+            <i class="bi bi-clock-history me-1"></i>Escala
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link js-edit-tab-btn" role="tab" data-tab-target="calendar-exceptions" aria-selected="false">
+            <i class="bi bi-calendar-range me-1"></i>Exceções de calendario
+          </button>
+        </li>
+      </ul>
 
       <section class="panel mb-3" data-edit-tab-panel="info">
         <div class="section-head">
-          <h2 class="section-title"><i class="bi bi-person-lines-fill text-primary"></i> Informacoes</h2>
-          <p class="section-subtitle">Dados basicos de identificacao e regra de compensacao.</p>
+          <h2 class="section-title"><i class="bi bi-person-lines-fill text-primary"></i> Informações</h2>
+          <p class="section-subtitle">Dados básicos de identificação e regra de compensação.</p>
         </div>
         <div class="section-body">
           <div class="row g-3">
             <div class="col-lg-4">
-              <label for="matricula" class="form-label fw-semibold">Matricula</label>
+              <label for="matricula" class="form-label fw-semibold">Matrícula</label>
               <div class="input-group">
                 <span class="input-group-text bg-transparent"><i class="bi bi-person-vcard text-muted"></i></span>
                 <input id="matricula" name="matricula" type="text" value="{{ employee.matricula }}" maxlength="50" class="form-control" required />
@@ -222,7 +218,7 @@
               </div>
             </div>
             <div class="col-lg-6">
-              <label for="regime_compensacao_jornada" class="form-label fw-semibold">Regime de compensacao</label>
+              <label for="regime_compensacao_jornada" class="form-label fw-semibold">Regime de compensação</label>
               <div class="input-group">
                 <span class="input-group-text bg-transparent"><i class="bi bi-hourglass-split text-muted"></i></span>
                 <select id="regime_compensacao_jornada" name="regime_compensacao_jornada" class="form-select" required>
@@ -239,7 +235,7 @@
       <section class="panel mb-3 d-none" data-edit-tab-panel="cargo-setor">
         <div class="section-head">
           <h2 class="section-title"><i class="bi bi-diagram-3 text-primary"></i> Cargo e setor</h2>
-          <p class="section-subtitle">Defina tipo do empregado e vinculacao setorial.</p>
+          <p class="section-subtitle">Defina tipo do empregado e vinculação setorial.</p>
         </div>
         <div class="section-body">
           <div class="row g-3">
@@ -253,6 +249,25 @@
                   {% endfor %}
                 </select>
               </div>
+            </div>
+            <div class="col-lg-6">
+              <label for="cargo_id" class="form-label fw-semibold">Cargo</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent"><i class="bi bi-briefcase text-muted"></i></span>
+                <select id="cargo_id" name="cargo_id" class="form-select" data-initial-value="{% if employee.cargo %}{{ employee.cargo.id }}{% endif %}" required>
+                  <option value="">Selecione um cargo...</option>
+                  {% for cargo in active_cargos %}
+                    <option value="{{ cargo.id }}" {% if employee.cargo and employee.cargo.id == cargo.id %}selected{% endif %}>{{ cargo.nome }}</option>
+                  {% endfor %}
+                  {% if employee.cargo and employee.cargo.deactivated_at %}
+                    <option value="{{ employee.cargo.id }}" selected>{{ employee.cargo.nome }} (inativo atual)</option>
+                  {% endif %}
+                </select>
+                <a href="{% url 'cargos_page' %}" class="btn btn-outline-primary"><i class="bi bi-briefcase me-1"></i>Cargos</a>
+              </div>
+              {% if not active_cargos %}
+                <small class="inline-note text-danger">Cadastre ao menos um cargo ativo para concluir a edicao.</small>
+              {% endif %}
             </div>
             <div class="col-lg-6">
               <label for="sector_id" class="form-label fw-semibold">Setor</label>
@@ -270,26 +285,26 @@
                 <a href="{% url 'sectors_page' %}" class="btn btn-outline-primary"><i class="bi bi-building-gear me-1"></i>Setores</a>
               </div>
               {% if not active_sectors %}
-                <small class="inline-note text-danger">Cadastre ao menos um setor ativo para concluir a edicao.</small>
+                <small class="inline-note text-danger">Cadastre ao menos um setor ativo para concluir a edição.</small>
               {% endif %}
             </div>
 
             <div class="col-lg-4">
-              <label for="change_effective_date_cargo" class="form-label fw-semibold">Inicio da vigencia</label>
+              <label for="change_effective_date_cargo" class="form-label fw-semibold">Início da vigência</label>
               <div class="input-group">
                 <span class="input-group-text bg-transparent"><i class="bi bi-calendar-event text-muted"></i></span>
                 <input id="change_effective_date_cargo" type="date" class="form-control js-effective-date-mirror" />
               </div>
-              <small class="inline-note">Obrigatorio somente quando cargo, setor ou escala mudarem.</small>
+              <small class="inline-note">Obrigatório somente quando cargo, setor ou escala mudarem.</small>
               <div id="effective-date-alert-cargo" class="effective-date-alert" role="alert">
                 <i class="bi bi-exclamation-circle"></i>
-                Vigencia obrigatoria: houve alteracao de cargo, setor ou escala.
+                Vigencia obrigatoria: houve alteração de cargo, setor ou escala.
               </div>
             </div>
           </div>
 
           <div class="mt-4">
-            <h3 class="h6 fw-semibold mb-2"><i class="bi bi-clock-history me-1 text-primary"></i>Historico de cargo/setor</h3>
+            <h3 class="h6 fw-semibold mb-2"><i class="bi bi-clock-history me-1 text-primary"></i>Histórico de cargo/setor</h3>
             <div class="table-responsive border rounded-3">
               <table class="table table-sm align-middle mb-0">
                 <thead class="table-light">
@@ -297,7 +312,7 @@
                     <th style="width: 130px;">Vigencia</th>
                     <th>De</th>
                     <th>Para</th>
-                    <th style="width: 170px;">Mudancas</th>
+                    <th style="width: 170px;">Mudanças</th>
                     <th>Detalhe</th>
                     <th style="width: 140px;">Registrado em</th>
                   </tr>
@@ -332,7 +347,7 @@
                     </tr>
                   {% empty %}
                     <tr>
-                      <td colspan="6" class="text-center text-muted py-3">Nenhuma alteracao de cargo/setor registrada.</td>
+                      <td colspan="6" class="text-center text-muted py-3">Nenhuma alteração de cargo/setor registrada.</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -344,8 +359,8 @@
 
       <section class="panel mb-3 d-none" data-edit-tab-panel="escala">
         <div class="section-head">
-          <h2 class="section-title"><i class="bi bi-clock-history text-primary"></i> Escala e vigencia</h2>
-          <p class="section-subtitle">Defina escala e vigencia quando houver alteracao de vinculacao.</p>
+          <h2 class="section-title"><i class="bi bi-clock-history text-primary"></i> Escala e vigência</h2>
+          <p class="section-subtitle">Defina escala e vigência quando houver alteração de vinculação.</p>
         </div>
         <div class="section-body">
           <div class="row g-3">
@@ -364,21 +379,21 @@
             </div>
 
             <div class="col-lg-4">
-              <label for="change_effective_date" class="form-label fw-semibold">Inicio da vigencia</label>
+              <label for="change_effective_date" class="form-label fw-semibold">Início da vigência</label>
               <div class="input-group">
                 <span class="input-group-text bg-transparent"><i class="bi bi-calendar-event text-muted"></i></span>
                 <input id="change_effective_date" name="change_effective_date" type="date" class="form-control" />
               </div>
-              <small class="inline-note">Obrigatorio somente quando cargo, setor ou escala mudarem.</small>
+              <small class="inline-note">Obrigatório somente quando cargo, setor ou escala mudarem.</small>
               <div id="effective-date-alert" class="effective-date-alert" role="alert">
                 <i class="bi bi-exclamation-circle"></i>
-                Vigencia obrigatoria: houve alteracao de cargo, setor ou escala.
+                Vigencia obrigatoria: houve alteração de cargo, setor ou escala.
               </div>
             </div>
           </div>
 
           <div class="mt-4">
-            <h3 class="h6 fw-semibold mb-2"><i class="bi bi-clock-history me-1 text-primary"></i>Historico de escalas</h3>
+            <h3 class="h6 fw-semibold mb-2"><i class="bi bi-clock-history me-1 text-primary"></i>Histórico de escalas</h3>
             <div class="table-responsive border rounded-3">
               <table class="table table-sm align-middle mb-0">
                 <thead class="table-light">
@@ -399,7 +414,7 @@
                     </tr>
                   {% empty %}
                     <tr>
-                      <td colspan="4" class="text-center text-muted py-3">Nenhuma alteracao de escala registrada.</td>
+                      <td colspan="4" class="text-center text-muted py-3">Nenhuma alteração de escala registrada.</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -410,11 +425,11 @@
       </section>
 
       <div class="sticky-actions d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <small class="text-muted mb-0">As alteracoes de vinculacao geram historico de evento.</small>
+        <small class="text-muted mb-0">As alterações de vinculação geram historico de evento.</small>
         <div class="d-flex gap-2">
           <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">Cancelar</a>
           <button type="submit" class="btn btn-primary" {% if not active_sectors %}disabled{% endif %}>
-            <i class="bi bi-save me-1"></i>Salvar alteracoes
+            <i class="bi bi-save me-1"></i>Salvar alterações
           </button>
         </div>
       </div>
@@ -422,8 +437,8 @@
 
     <section class="panel mb-3 d-none" data-edit-tab-panel="calendar-exceptions">
       <div class="section-head">
-        <h2 class="section-title"><i class="bi bi-calendar-range text-primary"></i> Excessoes de calendario</h2>
-        <p class="section-subtitle">Cadastre folgas, ferias e afastamentos com inicio e fim.</p>
+        <h2 class="section-title"><i class="bi bi-calendar-range text-primary"></i> Exceções de calendario</h2>
+        <p class="section-subtitle">Cadastre folgas, férias e afastamentos com inicio e fim.</p>
       </div>
       <div class="section-body">
         <form method="post" action="{% url 'employee_edit_page' employee.id %}" class="mb-4">
@@ -436,12 +451,12 @@
               <select id="exception_type" name="exception_type" class="form-select" required>
                 <option value="">Selecione...</option>
                 <option value="day_off">Folga</option>
-                <option value="vacation">Ferias</option>
+                <option value="vacation">Férias</option>
                 <option value="absence">Afastamento</option>
               </select>
             </div>
             <div class="col-lg-3">
-              <label for="start_date" class="form-label fw-semibold">Inicio</label>
+              <label for="start_date" class="form-label fw-semibold">Início</label>
               <input id="start_date" name="start_date" type="date" class="form-control" required />
             </div>
             <div class="col-lg-3">
@@ -456,13 +471,13 @@
           </div>
         </form>
 
-        <h3 class="h6 fw-semibold mb-2"><i class="bi bi-list-check me-1 text-primary"></i>Historico de excessoes</h3>
+        <h3 class="h6 fw-semibold mb-2"><i class="bi bi-list-check me-1 text-primary"></i>Histórico de excessoes</h3>
         <div class="table-responsive border rounded-3">
           <table class="table table-sm align-middle mb-0">
             <thead class="table-light">
               <tr>
                 <th style="width: 170px;">Tipo</th>
-                <th style="width: 130px;">Inicio</th>
+                <th style="width: 130px;">Início</th>
                 <th style="width: 130px;">Fim</th>
                 <th style="width: 140px;">Registrado em</th>
               </tr>
@@ -474,7 +489,7 @@
                     {% if event.event_type == "day_off" %}
                       Folga
                     {% elif event.event_type == "vacation" %}
-                      Ferias
+                      Férias
                     {% elif event.event_type == "absence" %}
                       Afastamento
                     {% else %}
@@ -500,6 +515,7 @@
   <script>
     (function () {
       const form = document.getElementById("employee-edit-page-form");
+      const cargoSelect = document.getElementById("cargo_id");
       const sectorSelect = document.getElementById("sector_id");
       const workScheduleSelect = document.getElementById("work_schedule_id");
       const effectiveDateInput = document.getElementById("change_effective_date");
@@ -514,8 +530,9 @@
         "calendar-exceptions": document.querySelector('[data-edit-tab-panel="calendar-exceptions"]'),
       };
 
-      if (!form || !sectorSelect || !workScheduleSelect || !effectiveDateInput) return;
+      if (!form || !cargoSelect || !sectorSelect || !workScheduleSelect || !effectiveDateInput) return;
 
+      const initialCargoId = cargoSelect.dataset.initialValue || "";
       const initialSectorId = sectorSelect.dataset.initialValue || "";
       const initialWorkScheduleId = workScheduleSelect.dataset.initialValue || "";
 
@@ -529,16 +546,20 @@
 
         tabButtons.forEach(function (button) {
           const isActive = button.dataset.tabTarget === tabName;
-          button.classList.toggle("btn-primary", isActive);
-          button.classList.toggle("btn-outline-primary", !isActive);
+          button.classList.toggle("active", isActive);
           button.setAttribute("aria-selected", isActive ? "true" : "false");
         });
       }
 
       function hasAllocationChange() {
+        const nextCargoId = cargoSelect.value || "";
         const nextSectorId = sectorSelect.value || "";
         const nextWorkScheduleId = workScheduleSelect.value || "";
-        return nextSectorId !== initialSectorId || nextWorkScheduleId !== initialWorkScheduleId;
+        return (
+          nextCargoId !== initialCargoId
+          || nextSectorId !== initialSectorId
+          || nextWorkScheduleId !== initialWorkScheduleId
+        );
       }
 
       function syncEffectiveDate(sourceInput, targetInput) {
@@ -566,6 +587,7 @@
         }
       }
 
+      cargoSelect.addEventListener("change", updateEffectiveDateRequirement);
       sectorSelect.addEventListener("change", updateEffectiveDateRequirement);
       workScheduleSelect.addEventListener("change", updateEffectiveDateRequirement);
       if (effectiveDateInputCargo) {
@@ -604,9 +626,9 @@
         effectiveDateInput.required = changed;
 
         if (changed && !effectiveDateInput.value) {
-          effectiveDateInput.setCustomValidity("Informe o inicio da vigencia para alteracao de cargo, setor ou escala.");
+          effectiveDateInput.setCustomValidity("Informe o inicio da vigência para alteração de cargo, setor ou escala.");
           if (effectiveDateInputCargo) {
-            effectiveDateInputCargo.setCustomValidity("Informe o inicio da vigencia para alteracao de cargo, setor ou escala.");
+            effectiveDateInputCargo.setCustomValidity("Informe o inicio da vigência para alteração de cargo, setor ou escala.");
           }
           effectiveDateInput.reportValidity();
           activateTab("cargo-setor");
@@ -625,3 +647,4 @@
     })();
   </script>
 {% endblock %}
+

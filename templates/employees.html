@@ -7,35 +7,42 @@
 {% endblock %}
 
 {% block content %}
-  <div class="row mb-4">
+  <div class="timesheet-dashboard">
+  <div class="row mb-4 no-print">
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
           <li class="breadcrumb-item active" aria-current="page">Empregados</li>
         </ol>
       </nav>
     </div>
   </div>
 
-  <div class="row mb-4">
+  <div class="row mb-4 no-print">
     <div class="col-lg-8">
       <div class="d-flex flex-wrap align-items-center gap-3">
         <div>
           <h1 class="fw-bold text-primary mb-1">Empregados</h1>
-          <p class="text-muted mb-0">Gerencie os colaboradores por matricula, status e vinculacao.</p>
+          <p class="text-muted mb-0">Gerencie os colaboradores por matricula, cargo, status e vinculacao.</p>
         </div>
       </div>
     </div>
-    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-      <button type="button" class="btn btn-primary" onclick="openEmployeeCreateModal()">
-        <i class="bi bi-plus-circle me-1"></i>
-        Novo Empregado
-      </button>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0 no-print">
+      <div class="d-inline-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" id="print-table-btn">
+          <i class="bi bi-printer me-1"></i>
+          Imprimir
+        </button>
+        <button type="button" class="btn btn-primary" onclick="openEmployeeCreateModal()">
+          <i class="bi bi-plus-circle me-1"></i>
+          Novo Empregado
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="row mb-4">
+  <div class="row mb-4 no-print">
     <div class="col-md-3 mb-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
@@ -76,7 +83,7 @@
             <i class="bi bi-person-fill-x me-1"></i>Sem setor
           </h6>
           <h5 class="card-title fw-bold text-warning" id="unassignedCount">{{ unassigned_count }}</h5>
-          <p class="card-text text-muted mb-0">Empregados sem vinculacao</p>
+          <p class="card-text text-muted mb-0">Empregados sem vinculação</p>
         </div>
       </div>
     </div>
@@ -91,7 +98,14 @@
               <i class="bi bi-people fs-5 text-primary"></i>
               <h5 class="fw-semibold mb-0">Empregados Cadastrados</h5>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
+            <div class="d-flex gap-2 flex-wrap no-print">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                onclick="exportHtmlTableToCsv('employees-table', 'empregados.csv')"
+              >
+                <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
+              </button>
               <div class="position-relative" style="width: 280px;">
                 <details id="sectorFilterDetails" class="w-100">
                   <summary
@@ -154,7 +168,7 @@
                   type="text"
                   class="form-control border-start-0"
                   id="searchInput"
-                  placeholder="Buscar por nome, matricula, tipo, regime, setor ou escala..."
+                  placeholder="Buscar por nome, matricula, cargo, tipo, regime, setor ou escala..."
                 />
               </div>
               <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de status">
@@ -174,17 +188,18 @@
 
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table id="employees-table" class="table table-hover mb-0 align-middle timesheet-dashboard-print-table">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 170px;" class="ps-4">Matricula</th>
+                  <th style="width: 170px;" class="ps-4">Matrícula</th>
                   <th class="text-nowrap">Nome completo</th>
                   <th style="width: 120px;">Tipo</th>
-                  <th style="width: 220px;">Regime de compensacao</th>
+                  <th style="width: 220px;">Banco de Horas</th>
+                  <th style="width: 220px;">Cargo</th>
                   <th style="width: 220px;">Setor</th>
                   <th style="width: 200px;">Escala</th>
                   <th style="width: 130px;">Status</th>
-                  <th style="width: 180px;" class="text-end pe-4">Acoes</th>
+                  <th style="width: 180px;" class="text-end pe-4 no-print">Ações</th>
                 </tr>
               </thead>
               <tbody id="employeeTableBody">
@@ -195,6 +210,7 @@
                     data-registration="{{ employee.matricula|lower }}"
                     data-employee-type="{{ employee.get_tipo_display|lower }}"
                     data-compensation-regime="{{ employee.get_regime_compensacao_jornada_display|lower }}"
+                    data-cargo-name="{{ employee.cargo.nome|default:'sem cargo'|lower }}"
                     data-sector-name="{{ employee.sector.nome|default:'sem setor'|lower }}"
                     data-sector-id="{% if employee.sector %}{{ employee.sector.id }}{% else %}none{% endif %}"
                     data-schedule-name="{{ employee.work_schedule.nome|default:'sem escala'|lower }}"
@@ -228,7 +244,21 @@
                         </span>
                       {% else %}
                         <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
-                          <i class="bi bi-clock me-1"></i>Nao participante
+                          <i class="bi bi-clock me-1"></i>Não participante
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if employee.cargo %}
+                        <span class="text-muted small">
+                          <i class="bi bi-briefcase me-1"></i>{{ employee.cargo.nome }}
+                          {% if employee.cargo.deactivated_at %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1">Cargo inativo</span>
+                          {% endif %}
+                        </span>
+                      {% else %}
+                        <span class="text-muted small">
+                          <i class="bi bi-exclamation-circle me-1"></i>Sem cargo
                         </span>
                       {% endif %}
                     </td>
@@ -268,12 +298,18 @@
                         </span>
                       {% endif %}
                     </td>
-                    <td class="text-end pe-4">
-                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Acoes do empregado">
+                    <td class="text-end pe-4 no-print">
+                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do empregado">
                         <a href="{% url 'employee_edit_page' employee.id %}" class="btn btn-sm btn-outline-primary sector-action-btn" title="Editar">
                           <i class="bi bi-pencil me-1"></i>Editar
                         </a>
-                        <a href="{% url 'events_page' %}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-info sector-action-btn" title="Eventos">
+                        <a
+                          class="btn btn-sm btn-outline-info sector-action-btn disabled"
+                          title="Eventos (desabilitado)"
+                          aria-disabled="true"
+                          tabindex="-1"
+                          onclick="return false;"
+                        >
                           <i class="bi bi-calendar-event me-1"></i>Eventos
                         </a>
                       </div>
@@ -291,19 +327,20 @@
           </div>
         </div>
 
-        <div class="card-footer bg-white border-top py-2">
+        <div class="card-footer bg-white border-top py-2 no-print">
           <div class="d-flex justify-content-between align-items-center">
             <small class="text-muted">
               <i class="bi bi-info-circle me-1"></i>
               <span id="visibleCount">{{ employees_count }}</span> empregado(s) exibido(s)
             </small>
             <small class="text-muted">
-              <i class="bi bi-clock me-1"></i>Ultima atualizacao: agora
+              <i class="bi bi-clock me-1"></i>Última atualização: agora
             </small>
           </div>
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <div id="employee-create-modal" class="app-modal-layer" hidden aria-hidden="true">
@@ -317,7 +354,7 @@
       <form method="post" action="{% url 'employees_page' %}" class="form-grid app-form">
         {% csrf_token %}
 
-        <label for="employee_matricula">Matricula</label>
+        <label for="employee_matricula">Matrícula</label>
         <div class="input-group">
           <span class="input-group-text bg-transparent">
             <i class="bi bi-person-vcard text-muted"></i>
@@ -361,7 +398,7 @@
           </select>
         </div>
 
-        <label for="employee_regime_compensacao_jornada">Regime de compensacao de jornada</label>
+        <label for="employee_regime_compensacao_jornada">Regime de compensação de jornada</label>
         <div class="input-group">
           <span class="input-group-text bg-transparent">
             <i class="bi bi-hourglass-split text-muted"></i>
@@ -377,7 +414,27 @@
             {% endfor %}
           </select>
         </div>
-        <small class="text-muted">Campo tecnico para adesao ao banco de horas.</small>
+        <small class="text-muted">Campo técnico para adesão ao banco de horas.</small>
+
+        <label for="employee_cargo_id">Cargo</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-briefcase text-muted"></i>
+          </span>
+          <select id="employee_cargo_id" name="cargo_id" class="form-select" required>
+            <option value="">Selecione um cargo ativo...</option>
+            {% for cargo in active_cargos %}
+              <option value="{{ cargo.id }}">{{ cargo.nome }}</option>
+            {% endfor %}
+          </select>
+          <a href="{% url 'cargos_page' %}" class="btn btn-outline-primary">
+            <i class="bi bi-list-check me-1"></i>
+            Cargos
+          </a>
+        </div>
+        {% if not active_cargos %}
+          <small class="text-danger">Cadastre ao menos um cargo ativo para incluir empregados.</small>
+        {% endif %}
 
         <label for="employee_sector_id">Setor</label>
         <div class="input-group">
@@ -423,7 +480,7 @@
         <small class="text-muted">Cadastre as escalas na tela de Escalas e selecione aqui para vincular ao empregado.</small>
 
         <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary" {% if not active_sectors %}disabled{% endif %}>
+          <button type="submit" class="btn btn-primary" {% if not active_sectors or not active_cargos %}disabled{% endif %}>
             <i class="bi bi-save me-1"></i>Cadastrar
           </button>
           <button type="button" class="btn btn-outline-secondary" onclick="closeEmployeeCreateModal()">Cancelar</button>
@@ -482,8 +539,11 @@
     const activeCountSpan = document.getElementById("activeCount");
     const inactiveCountSpan = document.getElementById("inactiveCount");
     const unassignedCountSpan = document.getElementById("unassignedCount");
+    const printTableButton = document.getElementById("print-table-btn");
     const shouldOpenEmployeeModal = "{{ open_employee_modal|yesno:'true,false' }}" === "true";
     const shouldOpenSectorModal = "{{ open_sector_modal|yesno:'true,false' }}" === "true";
+    const PRINT_CLASS_TABLE = "print-dashboard-table";
+    const PRINT_STYLE_ID_EMPLOYEES_TABLE = "employees-print-table-page-style";
 
     let currentFilter = "all";
     let selectedSectorFilters = new Set(["all"]);
@@ -631,6 +691,7 @@
         const registration = (row.dataset.registration || "").toLowerCase();
         const employeeType = (row.dataset.employeeType || "").toLowerCase();
         const compensationRegime = (row.dataset.compensationRegime || "").toLowerCase();
+        const cargo = (row.dataset.cargoName || "").toLowerCase();
         const sector = (row.dataset.sectorName || "").toLowerCase();
         const schedule = (row.dataset.scheduleName || "").toLowerCase();
         const sectorId = row.dataset.sectorId || "none";
@@ -648,6 +709,7 @@
           registration.includes(searchTerm) ||
           employeeType.includes(searchTerm) ||
           compensationRegime.includes(searchTerm) ||
+          cargo.includes(searchTerm) ||
           sector.includes(searchTerm) ||
           schedule.includes(searchTerm);
 
@@ -662,6 +724,27 @@
       visibleCountSpan.textContent = visible;
       emptyState.classList.toggle("d-none", visible > 0);
       updateCounters();
+    }
+
+    function removeEmployeesPrintPageStyle() {
+      const tag = document.getElementById(PRINT_STYLE_ID_EMPLOYEES_TABLE);
+      if (tag) {
+        tag.remove();
+      }
+    }
+
+    function applyEmployeesPortraitPageStyle() {
+      removeEmployeesPrintPageStyle();
+      const style = document.createElement("style");
+      style.id = PRINT_STYLE_ID_EMPLOYEES_TABLE;
+      style.media = "print";
+      style.textContent = "@page { size: A4 portrait; margin: 12mm; }";
+      document.head.appendChild(style);
+    }
+
+    function clearEmployeesPrintMode() {
+      document.body.classList.remove(PRINT_CLASS_TABLE);
+      removeEmployeesPrintPageStyle();
     }
 
     if (sectorFilterCheckboxes.length) {
@@ -688,6 +771,15 @@
       searchInput.addEventListener("input", function (event) {
         searchTerm = event.target.value.toLowerCase().trim();
         applyFilters();
+      });
+    }
+
+    if (printTableButton) {
+      printTableButton.addEventListener("click", function () {
+        clearEmployeesPrintMode();
+        document.body.classList.add(PRINT_CLASS_TABLE);
+        applyEmployeesPortraitPageStyle();
+        window.print();
       });
     }
 
@@ -762,5 +854,7 @@
     }
 
     applyFilters();
+    window.addEventListener("afterprint", clearEmployeesPrintMode);
   </script>
 {% endblock %}
+

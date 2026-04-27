@@ -1,0 +1,738 @@
+.print-only {
+    display: none;
+}
+
+.print-pages-output {
+    display: none;
+}
+
+body.print-pagination-measure .print-pages-output {
+    display: block !important;
+    position: absolute;
+    left: -100000px;
+    top: 0;
+    width: 210mm;
+    visibility: hidden;
+}
+
+body.print-pagination-measure .print-only {
+    display: block !important;
+}
+
+body.print-pagination-measure .print-page {
+    height: calc(297mm - 24mm);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.print-pagination-measure .print-page .print-page-body {
+    flex: 1;
+    overflow: hidden;
+}
+
+body.print-pagination-measure .print-sheet {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: #000;
+    background: #fff;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+body.print-pagination-measure .print-sheet .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #000;
+    padding: 0 0 6px;
+    margin-bottom: 10px;
+}
+
+body.print-pagination-measure .print-sheet .print-title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+body.print-pagination-measure .print-sheet .print-subtitle {
+    margin: 2px 0 0;
+    color: #000;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+body.print-pagination-measure .print-sheet .print-meta {
+    text-align: right;
+    font-size: 11px;
+    color: #000;
+    margin-left: 10px;
+}
+
+body.print-pagination-measure .print-sheet .print-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #000;
+    margin: 12px 0 4px;
+    border-bottom: 1px solid #000;
+    background: transparent;
+    padding: 0 0 2px;
+}
+
+body.print-pagination-measure .print-sheet .print-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 14px;
+    border: 0;
+}
+
+body.print-pagination-measure .print-sheet .print-item {
+    border-bottom: 1px dotted #777;
+    border-radius: 0;
+    padding: 4px 0;
+    display: block;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+body.print-pagination-measure .print-sheet .print-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #000;
+    margin: 0;
+    letter-spacing: 0.4px;
+    padding: 0;
+    background: transparent;
+    font-weight: 700;
+}
+
+body.print-pagination-measure .print-sheet .print-value {
+    font-size: 12px;
+    font-weight: 400;
+    color: #000;
+    word-break: break-word;
+    white-space: pre-line;
+    padding: 1px 0 0;
+}
+
+body.print-pagination-measure .print-sheet .print-footer {
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid #000;
+    font-size: 11px;
+    color: #000;
+    display: flex;
+    justify-content: space-between;
+}
+
+body.print-pagination-measure .print-sheet .print-tree {
+    margin-top: 4px;
+    border-top: 1px dotted #777;
+}
+
+body.print-pagination-measure .print-sheet .print-tree-item {
+    padding: 5px 0 5px calc(var(--tree-level, 0) * 14px);
+    border-bottom: 1px dotted #777;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+body.print-pagination-measure .print-sheet .print-tree-line {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+body.print-pagination-measure .print-sheet .print-tree-index {
+    font-weight: 700;
+    min-width: 32px;
+}
+
+body.print-pagination-measure .print-sheet .print-tree-name {
+    font-weight: 700;
+}
+
+body.print-pagination-measure .print-sheet .print-tree-meta {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #111;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+body.print-pagination-measure .print-sheet .print-meta-field {
+    display: inline-grid;
+    grid-template-columns: 56px auto;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+body.print-pagination-measure .print-sheet .print-meta-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #333;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-align: right;
+}
+
+body.print-pagination-measure .print-sheet .print-meta-value {
+    font-weight: 400;
+    letter-spacing: 0.1px;
+    color: #111;
+}
+
+body.print-pagination-measure .print-sheet .print-record-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+body.print-pagination-measure .print-sheet .print-record-card {
+    border: 1px solid #000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+body.print-pagination-measure .print-sheet .print-record-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid #000;
+}
+
+body.print-pagination-measure .print-sheet .print-record-id {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+body.print-pagination-measure .print-sheet .print-record-plan {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+body.print-pagination-measure .print-sheet .print-record-title {
+    padding: 4px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    border-bottom: 1px dotted #777;
+}
+
+body.print-pagination-measure .print-sheet .print-record-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 10px;
+    padding: 4px 6px;
+}
+
+body.print-pagination-measure .print-sheet .print-record-section {
+    padding: 0 6px 4px;
+}
+
+body.print-pagination-measure .print-sheet .print-record-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin: 2px 0 3px;
+}
+
+body.print-pagination-measure .print-sheet .print-record-pair-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 10px;
+}
+
+body.print-pagination-measure .print-sheet .full-width {
+    grid-column: 1 / -1;
+}
+
+@page {
+    size: A4 portrait;
+    margin: 12mm;
+}
+
+@media print {
+    nav,
+    .offcanvas,
+    .toast-container,
+    .build-indicator,
+    .no-print {
+        display: none !important;
+    }
+
+    main.container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .screen-only {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    body.print-pagination-ready .js-print-report {
+        display: none !important;
+    }
+
+    body.print-pagination-ready .print-pages-output {
+        display: block !important;
+    }
+
+    .print-sheet {
+        display: block;
+        width: 100%;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        color: #000;
+        background: #fff;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 12px;
+        line-height: 1.25;
+    }
+
+    .timesheet-dashboard {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .timesheet-dashboard .custom-breadcrumb nav,
+    .timesheet-dashboard #dashboard-month-form,
+    .timesheet-dashboard .custom-breadcrumb .btn,
+    .timesheet-dashboard .custom-breadcrumb .form-control,
+    .timesheet-dashboard .custom-breadcrumb label {
+        display: none !important;
+    }
+
+    .timesheet-dashboard .custom-breadcrumb {
+        padding: 0 !important;
+        margin: 0 0 8px !important;
+    }
+
+    .timesheet-dashboard .custom-breadcrumb h4,
+    .timesheet-dashboard .custom-breadcrumb p {
+        margin: 0 !important;
+    }
+
+    .timesheet-dashboard .timesheet-dashboard-print {
+        font-family: "Courier New", Courier, monospace;
+    }
+
+    .timesheet-dashboard .timesheet-dashboard-print-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 6px;
+        font-size: 11px;
+    }
+
+    .timesheet-dashboard .timesheet-dashboard-print-table th,
+    .timesheet-dashboard .timesheet-dashboard-print-table td {
+        border: 1px solid #000;
+        padding: 4px 5px;
+        text-align: right;
+        vertical-align: top;
+        word-break: break-word;
+    }
+
+    .timesheet-dashboard .timesheet-dashboard-print-table th:first-child,
+    .timesheet-dashboard .timesheet-dashboard-print-table td:first-child {
+        text-align: left;
+        width: 26%;
+    }
+
+    .timesheet-dashboard .timesheet-dashboard-print-table thead {
+        display: table-header-group;
+    }
+
+    .timesheet-dashboard .timesheet-dashboard-print-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    body.print-dashboard-table .timesheet-dashboard #dashboard-view-tabs,
+    body.print-dashboard-table .timesheet-dashboard #pane-graficos,
+    body.print-dashboard-table .timesheet-dashboard .print-actions,
+    body.print-dashboard-table .timesheet-dashboard footer {
+        display: none !important;
+    }
+
+    body.print-dashboard-table .timesheet-dashboard .dashboard-tabs-content.screen-only {
+        display: block !important;
+    }
+
+    body.print-dashboard-table .timesheet-dashboard #pane-tabela {
+        display: block !important;
+        opacity: 1 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .row.mb-4,
+    body.print-timesheet-table .timesheet-page #timesheet-summary-cards-row,
+    body.print-timesheet-table .timesheet-page .card-footer,
+    body.print-timesheet-table .timesheet-page .card-header .btn,
+    body.print-timesheet-table .timesheet-page .card-header .badge,
+    body.print-timesheet-table .timesheet-page .card-header .form-check,
+    body.print-timesheet-table .timesheet-page .alert,
+    body.print-timesheet-table .timesheet-toast-stack {
+        display: none !important;
+    }
+
+    body.print-timesheet-table .timesheet-page {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .card {
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .card-header {
+        padding: 0 0 6px !important;
+        border-bottom: 1px solid #000 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .card-header h5 {
+        margin: 0 !important;
+        color: #000 !important;
+        font-size: 12px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    body.print-timesheet-table .timesheet-page .card-body {
+        padding: 0 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet-wrapper {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet {
+        width: 100% !important;
+        table-layout: fixed !important;
+        font-size: 9px !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet thead th,
+    body.print-timesheet-table .timesheet-page .point-sheet .sticky-col-1,
+    body.print-timesheet-table .timesheet-page .point-sheet .sticky-col-2 {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet th,
+    body.print-timesheet-table .timesheet-page .point-sheet td {
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 2px 3px !important;
+        line-height: 1.15 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet .sheet-input {
+        border: 0 !important;
+        background: transparent !important;
+        padding: 0 !important;
+        min-height: 0 !important;
+        font-size: 9px !important;
+        color: #000 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet .sheet-input:disabled {
+        color: #000 !important;
+        opacity: 1 !important;
+    }
+
+    body.print-timesheet-table .timesheet-page .point-sheet tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-sheet .print-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1px solid #000;
+        padding: 0 0 6px;
+        margin-bottom: 10px;
+    }
+
+    .print-sheet .print-title {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        margin: 0;
+        text-transform: uppercase;
+    }
+
+    .print-sheet .print-subtitle {
+        margin: 2px 0 0;
+        color: #000;
+        font-size: 11px;
+        text-transform: uppercase;
+    }
+
+    .print-sheet .print-meta {
+        text-align: right;
+        font-size: 11px;
+        color: #000;
+        margin-left: 10px;
+    }
+
+    .print-sheet .print-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: #000;
+        margin: 12px 0 4px;
+        border-bottom: 1px solid #000;
+        background: transparent;
+        padding: 0 0 2px;
+    }
+
+    .print-sheet .print-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 14px;
+        border: 0;
+    }
+
+    .print-sheet .print-item {
+        border-bottom: 1px dotted #777;
+        border-radius: 0;
+        padding: 4px 0;
+        display: block;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-sheet .print-label {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        color: #000;
+        margin: 0;
+        letter-spacing: 0.4px;
+        padding: 0;
+        background: transparent;
+        font-weight: 700;
+    }
+
+    .print-sheet .print-value {
+        font-size: 12px;
+        font-weight: 400;
+        color: #000;
+        word-break: break-word;
+        white-space: pre-line;
+        padding: 1px 0 0;
+    }
+
+    .print-sheet .print-footer {
+        margin-top: auto;
+        padding-top: 6px;
+        border-top: 1px solid #000;
+        font-size: 11px;
+        color: #000;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .print-sheet .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .print-page {
+        height: calc(297mm - 24mm);
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .print-page:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .print-page .print-page-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .print-sheet .print-page-counter {
+        font-weight: 700;
+    }
+
+    .print-sheet .print-footer-meta {
+        display: block;
+    }
+
+    .print-sheet .print-footer-state {
+        text-align: right;
+        white-space: nowrap;
+        font-weight: 700;
+    }
+
+    .print-sheet .print-tree {
+        margin-top: 4px;
+        border-top: 1px dotted #777;
+    }
+
+    .print-sheet .print-tree-item {
+        padding: 5px 0 5px calc(var(--tree-level, 0) * 14px);
+        border-bottom: 1px dotted #777;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-sheet .print-tree-line {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+    }
+
+    .print-sheet .print-tree-index {
+        font-weight: 700;
+        min-width: 32px;
+    }
+
+    .print-sheet .print-tree-name {
+        font-weight: 700;
+    }
+
+    .print-sheet .print-tree-meta {
+        margin-top: 2px;
+        font-size: 11px;
+        color: #111;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .print-sheet .print-meta-field {
+        display: inline-grid;
+        grid-template-columns: 56px auto;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+
+    .print-sheet .print-meta-label {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #333;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+        text-align: right;
+    }
+
+    .print-sheet .print-meta-value {
+        font-weight: 400;
+        letter-spacing: 0.1px;
+        color: #111;
+    }
+
+    .print-sheet .print-record-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .print-sheet .print-record-card {
+        border: 1px solid #000;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-sheet .print-record-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 6px;
+        border-bottom: 1px solid #000;
+    }
+
+    .print-sheet .print-record-id {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .print-sheet .print-record-plan {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .print-sheet .print-record-title {
+        padding: 4px 6px;
+        font-size: 12px;
+        font-weight: 700;
+        border-bottom: 1px dotted #777;
+    }
+
+    .print-sheet .print-record-meta-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 10px;
+        padding: 4px 6px;
+    }
+
+    .print-sheet .print-record-section {
+        padding: 0 6px 4px;
+    }
+
+    .print-sheet .print-record-section-title {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin: 2px 0 3px;
+    }
+
+    .print-sheet .print-record-pair-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 10px;
+    }
+}

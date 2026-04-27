@@ -1,0 +1,16 @@
+<div class="print-header">
+    <div>
+        <h1 class="print-title">{{ print_title|default:"Relatorio" }}</h1>
+        {% if print_subtitle %}
+        <p class="print-subtitle">{{ print_subtitle }}</p>
+        {% endif %}
+    </div>
+    <div class="print-meta">
+        <div class="print-page-counter">
+            Pag. <span class="print-page-current">1</span> de <span class="print-page-total">1</span>
+        </div>
+        {% if print_meta_value %}
+        <div><strong>{{ print_meta_label|default:"ID" }}:</strong> {{ print_meta_value }}</div>
+        {% endif %}
+    </div>
+</div>

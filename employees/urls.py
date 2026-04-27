@@ -2,6 +2,10 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from .views import (
+    cargo_activate,
+    cargo_deactivate,
+    cargo_edit_page,
+    cargos_page,
     employee_activate,
     employee_create_sector,
     employee_deactivate,
@@ -13,6 +17,7 @@ from .views import (
     sector_edit_page,
     sectors_page,
     timesheet_page,
+    timesheet_dashboard_page,
     timesheet_snapshots_audit_page,
     work_schedules_page,
 )
@@ -20,12 +25,17 @@ from .views import (
 urlpatterns = [
     path("", employees_page, name="home"),
     path("empregados/", employees_page, name="employees_page"),
+    path("empregados/cargos/", cargos_page, name="cargos_page"),
+    path("empregados/cargos/<int:cargo_id>/editar/", cargo_edit_page, name="cargo_edit_page"),
+    path("empregados/cargos/<int:cargo_id>/desativar/", cargo_deactivate, name="cargo_deactivate"),
+    path("empregados/cargos/<int:cargo_id>/ativar/", cargo_activate, name="cargo_activate"),
     path("empregados/setores/novo/", employee_create_sector, name="employee_create_sector"),
     path("empregados/<int:employee_id>/editar/", employee_edit_page, name="employee_edit_page"),
     path("empregados/<int:employee_id>/desativar/", employee_deactivate, name="employee_deactivate"),
     path("empregados/<int:employee_id>/ativar/", employee_activate, name="employee_activate"),
     path("eventos/", events_page, name="events_page"),
     path("timesheet/", timesheet_page, name="timesheet_page"),
+    path("timesheet/dashboard/", timesheet_dashboard_page, name="timesheet_dashboard_page"),
     path("timesheet/snapshots/", timesheet_snapshots_audit_page, name="timesheet_snapshots_audit_page"),
     path(
         "ponto/",

@@ -2,9 +2,11 @@ from calendar import monthrange
 from urllib.parse import urlencode
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, timedelta
+import re
 
 from django.contrib import messages
-from django.db.models import Q
+from django.db import IntegrityError
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -18,6 +20,7 @@ from .models import (
     TimesheetMonthClosureCalendarPeriodSnapshot,
     TimesheetMonthClosureEmployeeEventSnapshot,
     TimesheetMonthClosureWorkScheduleSnapshot,
+    Cargo,
     Sector,
     WorkCalendar,
     WorkCalendarPeriod,
@@ -140,14 +143,23 @@ def _parse_special_period_dates(request_data):
 
 
 def _parse_non_negative_minutes(raw_value, field_label):
-    normalized_value = (raw_value or "").strip().replace(",", ".")
+    normalized_value = (raw_value or "").strip()
     if not normalized_value:
         return 0, None
 
-    if not normalized_value.isdigit():
-        return None, f'Valor invalido para "{field_label}".'
+    compact_value = normalized_value.replace(" ", "")
+    value = None
 
-    value = int(normalized_value)
+    if compact_value.isdigit():
+        value = int(compact_value)
+    else:
+        hhmm_match = re.fullmatch(r"(\d+):([0-5]?\d)", compact_value)
+        if not hhmm_match:
+            return None, f'Valor invalido para "{field_label}".'
+        hours = int(hhmm_match.group(1))
+        minutes = int(hhmm_match.group(2))
+        value = (hours * 60) + minutes
+
     if value < 0:
         return None, f'O valor de "{field_label}" nao pode ser negativo.'
 
@@ -333,6 +345,7 @@ def _parse_employee_characteristics(request_data):
 
 def employees_page(request):
     active_sectors = Sector.objects.filter(deactivated_at__isnull=True).order_by("nome")
+    active_cargos = Cargo.objects.filter(deactivated_at__isnull=True).order_by("nome")
     work_schedules = WorkSchedule.objects.all().order_by("nome")
     all_sectors = Sector.objects.all().order_by("deactivated_at", "nome")
 
@@ -342,11 +355,15 @@ def employees_page(request):
         tipo, regime_compensacao_jornada, characteristics_error = (
             _parse_employee_characteristics(request.POST)
         )
+        cargo_id = (request.POST.get("cargo_id") or "").strip()
         sector_id = (request.POST.get("sector_id") or "").strip()
         work_schedule_id = (request.POST.get("work_schedule_id") or "").strip()
 
-        if not matricula or not nome_completo or not sector_id:
-            messages.error(request, "Matricula, nome completo e setor sao obrigatorios.")
+        if not matricula or not nome_completo or not cargo_id or not sector_id:
+            messages.error(
+                request,
+                "Matricula, nome completo, cargo e setor sao obrigatorios.",
+            )
             return redirect("employees_page")
 
         if characteristics_error:
@@ -355,6 +372,11 @@ def employees_page(request):
 
         if Employee.objects.filter(matricula=matricula).exists():
             messages.error(request, "Ja existe empregado com essa matricula.")
+            return redirect("employees_page")
+
+        cargo = active_cargos.filter(id=cargo_id).first()
+        if not cargo:
+            messages.error(request, "Selecione um cargo ativo valido.")
             return redirect("employees_page")
 
         sector = active_sectors.filter(id=sector_id).first()
@@ -372,6 +394,7 @@ def employees_page(request):
             nome_completo=nome_completo,
             tipo=tipo,
             regime_compensacao_jornada=regime_compensacao_jornada,
+            cargo=cargo,
             sector=sector,
             work_schedule=work_schedule,
         )
@@ -379,7 +402,7 @@ def employees_page(request):
         messages.success(request, "Empregado cadastrado com sucesso.")
         return redirect("employees_page")
 
-    employees = Employee.objects.select_related("sector", "work_schedule").order_by(
+    employees = Employee.objects.select_related("cargo", "sector", "work_schedule").order_by(
         "deactivated_at",
         "nome_completo",
     )
@@ -397,6 +420,7 @@ def employees_page(request):
             "active_count": active_count,
             "inactive_count": inactive_count,
             "active_sectors": active_sectors,
+            "active_cargos": active_cargos,
             "work_schedules": work_schedules,
             "all_sectors": all_sectors,
             "unassigned_count": unassigned_count,
@@ -602,6 +626,12 @@ def _format_competence_month_label(competence_month):
     return competence_month.strftime("%m/%Y")
 
 
+def _format_minutes_as_hour_label(total_minutes):
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours:02d}:{minutes:02d}"
+
+
 def _get_month_date_range(month_start):
     _, days_in_month = monthrange(month_start.year, month_start.month)
     month_end = date(month_start.year, month_start.month, days_in_month)
@@ -712,6 +742,25 @@ def _create_month_closure_snapshots(closure):
         TimesheetMonthClosureEmployeeEventSnapshot.objects.bulk_create(event_snapshots)
 
 
+def _delete_month_closures_with_snapshots(closure_qs):
+    closure_ids = list(closure_qs.values_list("id", flat=True))
+    if not closure_ids:
+        return 0
+
+    TimesheetMonthClosureWorkScheduleSnapshot.objects.filter(
+        closure_id__in=closure_ids
+    )._raw_delete(closure_qs.db)
+    TimesheetMonthClosureCalendarPeriodSnapshot.objects.filter(
+        closure_id__in=closure_ids
+    )._raw_delete(closure_qs.db)
+    TimesheetMonthClosureEmployeeEventSnapshot.objects.filter(
+        closure_id__in=closure_ids
+    )._raw_delete(closure_qs.db)
+    return TimesheetMonthClosure.objects.filter(id__in=closure_ids)._raw_delete(
+        closure_qs.db
+    )
+
+
 def _get_latest_closure_for_schedule(schedule_id):
     schedule_snapshot = (
         TimesheetMonthClosureWorkScheduleSnapshot.objects.select_related("closure")
@@ -786,8 +835,22 @@ def timesheet_page(request):
             )
             was_closed = closure_qs.exists()
             if was_closed:
-                # Raw delete avoids related-object cascade traversal in inconsistent schemas.
-                closure_qs._raw_delete(closure_qs.db)
+                try:
+                    _delete_month_closures_with_snapshots(closure_qs)
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        (
+                            f"Nao foi possivel reabrir o timesheet de {competence_month_label} "
+                            "porque existem dependencias no banco. "
+                            "Revise referencias de snapshot para esta competencia."
+                        ),
+                    )
+                    return redirect(
+                        _timesheet_redirect_with_filters(
+                            competence_month=competence_month_value
+                        )
+                    )
                 messages.success(
                     request,
                     f"Timesheet de {competence_month_label} reaberto. Alteracoes estao liberadas.",
@@ -1046,6 +1109,194 @@ def timesheet_snapshots_audit_page(request):
     )
 
 
+def timesheet_dashboard_page(request):
+    competence_month, selected_competence_month, error = _resolve_competence_month(
+        request.GET.get("competence_month")
+    )
+    if error:
+        messages.error(request, error)
+        return redirect(_timesheet_redirect_with_filters())
+
+    employees = list(
+        Employee.objects.select_related("sector", "work_schedule")
+        .filter(deactivated_at__isnull=True)
+        .order_by("nome_completo")
+    )
+
+    month_entries = EmployeeTimeEntry.objects.select_related("employee", "employee__sector").filter(
+        competence_month=competence_month
+    )
+    entries_by_employee = {entry.employee_id: entry for entry in month_entries}
+
+    month_start, month_end = _get_month_date_range(competence_month)
+    calendar_ids = {
+        employee.work_schedule.calendar_id
+        for employee in employees
+        if employee.work_schedule and employee.work_schedule.calendar_id
+    }
+    employee_ids = [employee.id for employee in employees]
+
+    calendar_exception_dates_by_calendar = _build_calendar_exception_dates_by_calendar(
+        calendar_ids,
+        month_start,
+        month_end,
+    )
+    employee_exception_dates_by_employee = _build_employee_exception_dates_by_employee(
+        employee_ids,
+        month_start,
+        month_end,
+    )
+
+    sector_data = {}
+    total_expected_minutes = 0
+    total_regular_minutes = 0
+    total_overtime_60_minutes = 0
+    total_overtime_100_minutes = 0
+    total_absence_unexcused_minutes = 0
+    total_absence_excused_minutes = 0
+    total_absence_bank_minutes = 0
+    total_mod_minutes = 0
+    total_moi_minutes = 0
+
+    for employee in employees:
+        expected_minutes = _calculate_expected_minutes_for_employee(
+            employee,
+            month_start,
+            month_end,
+            calendar_exception_dates_by_calendar,
+            employee_exception_dates_by_employee,
+        )
+        total_expected_minutes += expected_minutes
+
+        entry = entries_by_employee.get(employee.id)
+        regular_minutes = entry.regular_minutes if entry else 0
+        overtime_60_minutes = entry.overtime_60_minutes if entry else 0
+        overtime_100_minutes = entry.overtime_100_minutes if entry else 0
+        absence_unexcused_minutes = entry.absence_unexcused_minutes if entry else 0
+        absence_excused_minutes = entry.absence_excused_minutes if entry else 0
+        absence_bank_minutes = 0
+        if entry and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE:
+            absence_bank_minutes = entry.absence_bank_minutes
+
+        worked_minutes = regular_minutes + overtime_60_minutes + overtime_100_minutes
+
+        total_regular_minutes += regular_minutes
+        total_overtime_60_minutes += overtime_60_minutes
+        total_overtime_100_minutes += overtime_100_minutes
+        total_absence_unexcused_minutes += absence_unexcused_minutes
+        total_absence_excused_minutes += absence_excused_minutes
+        total_absence_bank_minutes += absence_bank_minutes
+
+        if employee.tipo == Employee.TYPE_DIRETO:
+            total_mod_minutes += worked_minutes
+        else:
+            total_moi_minutes += worked_minutes
+
+        sector_name = employee.sector.nome if employee.sector else "Sem setor"
+        if sector_name not in sector_data:
+            sector_data[sector_name] = {
+                "name": sector_name,
+                "expected_minutes": 0,
+                "regular_minutes": 0,
+                "overtime_60_minutes": 0,
+                "overtime_100_minutes": 0,
+                "worked_minutes": 0,
+                "absence_unexcused_minutes": 0,
+                "absence_excused_minutes": 0,
+                "absence_bank_minutes": 0,
+            }
+
+        sector_bucket = sector_data[sector_name]
+        sector_bucket["expected_minutes"] += expected_minutes
+        sector_bucket["regular_minutes"] += regular_minutes
+        sector_bucket["overtime_60_minutes"] += overtime_60_minutes
+        sector_bucket["overtime_100_minutes"] += overtime_100_minutes
+        sector_bucket["worked_minutes"] += worked_minutes
+        sector_bucket["absence_unexcused_minutes"] += absence_unexcused_minutes
+        sector_bucket["absence_excused_minutes"] += absence_excused_minutes
+        sector_bucket["absence_bank_minutes"] += absence_bank_minutes
+
+    total_overtime_minutes = total_overtime_60_minutes + total_overtime_100_minutes
+    total_worked_minutes = total_regular_minutes + total_overtime_minutes
+    total_absence_minutes = (
+        total_absence_unexcused_minutes
+        + total_absence_excused_minutes
+        + total_absence_bank_minutes
+    )
+
+    total_type_minutes = total_mod_minutes + total_moi_minutes
+    mod_share_percent = (
+        round((total_mod_minutes * 100) / total_type_minutes) if total_type_minutes else 0
+    )
+    moi_share_percent = 100 - mod_share_percent if total_type_minutes else 0
+
+    sector_rows = sorted(
+        sector_data.values(),
+        key=lambda row: row["expected_minutes"],
+        reverse=True,
+    )[:12]
+    for row in sector_rows:
+        row["balance_minutes"] = row["worked_minutes"] - row["expected_minutes"]
+
+    top_expected_minutes = max((row["expected_minutes"] for row in sector_rows), default=0)
+
+    chart_labels = [row["name"] for row in sector_rows]
+    chart_expected_hours = [round(row["expected_minutes"] / 60, 2) for row in sector_rows]
+    chart_worked_hours = [round(row["regular_minutes"] / 60, 2) for row in sector_rows]
+    chart_overtime_60_hours = [round(row["overtime_60_minutes"] / 60, 2) for row in sector_rows]
+    chart_overtime_100_hours = [round(row["overtime_100_minutes"] / 60, 2) for row in sector_rows]
+    chart_balance_hours = [
+        round((row["worked_minutes"] - row["expected_minutes"]) / 60, 2)
+        for row in sector_rows
+    ]
+    chart_absence_hours = [
+        round(row["absence_unexcused_minutes"] / 60, 2) for row in sector_rows
+    ]
+    chart_excused_hours = [
+        round(row["absence_excused_minutes"] / 60, 2) for row in sector_rows
+    ]
+
+    month_reference_label = (
+        f"{month_start.strftime('%d/%m')} - {month_end.strftime('%d/%m/%Y')}"
+    )
+
+    return render(
+        request,
+        "dashboard_horas_grouped_stacked.html",
+        {
+            "selected_competence_month": selected_competence_month,
+            "competence_month_label": _format_competence_month_label(competence_month),
+            "month_reference_label": month_reference_label,
+            "employees_count": len(employees),
+            "registered_employees_count": len(entries_by_employee),
+            "total_expected_minutes": total_expected_minutes,
+            "total_regular_minutes": total_regular_minutes,
+            "total_worked_minutes": total_worked_minutes,
+            "total_overtime_minutes": total_overtime_minutes,
+            "total_absence_minutes": total_absence_minutes,
+            "total_absence_unexcused_minutes": total_absence_unexcused_minutes,
+            "total_absence_excused_minutes": total_absence_excused_minutes,
+            "total_absence_bank_minutes": total_absence_bank_minutes,
+            "mod_share_percent": mod_share_percent,
+            "moi_share_percent": moi_share_percent,
+            "sector_rows": sector_rows,
+            "top_expected_minutes": top_expected_minutes,
+            "chart_labels": chart_labels,
+            "chart_expected_hours": chart_expected_hours,
+            "chart_worked_hours": chart_worked_hours,
+            "chart_overtime_60_hours": chart_overtime_60_hours,
+            "chart_overtime_100_hours": chart_overtime_100_hours,
+            "chart_balance_hours": chart_balance_hours,
+            "chart_absence_hours": chart_absence_hours,
+            "chart_excused_hours": chart_excused_hours,
+            "total_expected_hhmm": _format_minutes_as_hour_label(total_expected_minutes),
+            "total_worked_hhmm": _format_minutes_as_hour_label(total_worked_minutes),
+            "total_overtime_hhmm": _format_minutes_as_hour_label(total_overtime_minutes),
+            "total_absence_hhmm": _format_minutes_as_hour_label(total_absence_minutes),
+        },
+    )
+
+
 
 
 @require_POST
@@ -1082,11 +1333,13 @@ def employee_create_sector(request):
 
 def employee_edit_page(request, employee_id):
     employee = get_object_or_404(
-        Employee.objects.select_related("sector", "work_schedule"),
+        Employee.objects.select_related("cargo", "sector", "work_schedule"),
         id=employee_id,
     )
+    active_cargos = Cargo.objects.filter(deactivated_at__isnull=True).order_by("nome")
     active_sectors = Sector.objects.filter(deactivated_at__isnull=True).order_by("nome")
     work_schedules = WorkSchedule.objects.all().order_by("nome")
+    current_cargo = employee.cargo
     current_sector = employee.sector
     allocation_events = EmployeeEvent.objects.filter(
         employee=employee,
@@ -1166,11 +1419,15 @@ def employee_edit_page(request, employee_id):
         tipo, regime_compensacao_jornada, characteristics_error = (
             _parse_employee_characteristics(request.POST)
         )
+        cargo_id = (request.POST.get("cargo_id") or "").strip()
         sector_id = (request.POST.get("sector_id") or "").strip()
         work_schedule_id = (request.POST.get("work_schedule_id") or "").strip()
 
-        if not matricula or not nome_completo or not sector_id:
-            messages.error(request, "Matricula, nome completo e setor sao obrigatorios.")
+        if not matricula or not nome_completo or not cargo_id or not sector_id:
+            messages.error(
+                request,
+                "Matricula, nome completo, cargo e setor sao obrigatorios.",
+            )
             return redirect("employee_edit_page", employee_id=employee.id)
 
         if characteristics_error:
@@ -1180,6 +1437,19 @@ def employee_edit_page(request, employee_id):
         duplicate = Employee.objects.filter(matricula=matricula).exclude(id=employee.id)
         if duplicate.exists():
             messages.error(request, "Ja existe empregado com essa matricula.")
+            return redirect("employee_edit_page", employee_id=employee.id)
+
+        cargo = active_cargos.filter(id=cargo_id).first()
+        if (
+            not cargo
+            and current_cargo
+            and current_cargo.deactivated_at
+            and str(current_cargo.id) == cargo_id
+        ):
+            cargo = current_cargo
+
+        if not cargo:
+            messages.error(request, "Selecione um cargo valido.")
             return redirect("employee_edit_page", employee_id=employee.id)
 
         sector = active_sectors.filter(id=sector_id).first()
@@ -1201,19 +1471,25 @@ def employee_edit_page(request, employee_id):
             return redirect("employee_edit_page", employee_id=employee.id)
 
         previous_tipo = employee.tipo
+        previous_cargo = employee.cargo
         previous_sector = employee.sector
         previous_work_schedule = employee.work_schedule
+        previous_cargo_id = previous_cargo.id if previous_cargo else None
         previous_sector_id = previous_sector.id if previous_sector else None
         previous_work_schedule_id = (
             previous_work_schedule.id if previous_work_schedule else None
         )
+        next_cargo_id = cargo.id if cargo else None
         next_sector_id = sector.id if sector else None
         next_work_schedule_id = work_schedule.id if work_schedule else None
 
+        cargo_changed = previous_cargo_id != next_cargo_id
         sector_changed = previous_sector_id != next_sector_id
         work_schedule_changed = previous_work_schedule_id != next_work_schedule_id
         tipo_changed = previous_tipo != tipo
-        has_allocation_change = sector_changed or work_schedule_changed or tipo_changed
+        has_allocation_change = (
+            cargo_changed or sector_changed or work_schedule_changed or tipo_changed
+        )
 
         effective_date = None
         if has_allocation_change:
@@ -1252,6 +1528,7 @@ def employee_edit_page(request, employee_id):
         employee.nome_completo = nome_completo
         employee.tipo = tipo
         employee.regime_compensacao_jornada = regime_compensacao_jornada
+        employee.cargo = cargo
         employee.sector = sector
         employee.work_schedule = work_schedule
         employee.save(
@@ -1260,21 +1537,28 @@ def employee_edit_page(request, employee_id):
                 "nome_completo",
                 "tipo",
                 "regime_compensacao_jornada",
+                "cargo",
                 "sector",
                 "work_schedule",
             ]
         )
 
         if has_allocation_change and effective_date:
-            change_notes = ""
+            change_notes_parts = []
+            if cargo_changed:
+                previous_cargo_label = previous_cargo.nome if previous_cargo else "Sem cargo"
+                next_cargo_label = cargo.nome if cargo else "Sem cargo"
+                change_notes_parts.append(
+                    f"Cargo: {previous_cargo_label} -> {next_cargo_label}"
+                )
             if tipo_changed:
-                change_notes = f"Cargo (tipo): {previous_tipo} -> {tipo}"
+                change_notes_parts.append(f"Tipo: {previous_tipo} -> {tipo}")
 
             EmployeeEvent.objects.create(
                 employee=employee,
                 event_type=EmployeeEvent.EVENT_TYPE_ALLOCATION_CHANGE,
                 effective_date=effective_date,
-                notes=change_notes,
+                notes=" | ".join(change_notes_parts),
                 previous_sector=previous_sector,
                 new_sector=sector,
                 previous_work_schedule=previous_work_schedule,
@@ -1289,6 +1573,7 @@ def employee_edit_page(request, employee_id):
         "employee_edit.html",
         {
             "employee": employee,
+            "active_cargos": active_cargos,
             "active_sectors": active_sectors,
             "work_schedules": work_schedules,
             "sector_history": sector_history,
@@ -1317,6 +1602,83 @@ def employee_activate(request, employee_id):
     employee.save(update_fields=["deactivated_at"])
     messages.success(request, "Empregado ativado com sucesso.")
     return redirect("employees_page")
+
+
+def cargos_page(request):
+    if request.method == "POST":
+        nome = (request.POST.get("nome") or "").strip()
+
+        if not nome:
+            messages.error(request, "Nome do cargo e obrigatorio.")
+            return redirect("cargos_page")
+
+        if Cargo.objects.filter(nome__iexact=nome, deactivated_at__isnull=True).exists():
+            messages.error(request, "Ja existe um cargo com esse nome.")
+            return redirect("cargos_page")
+
+        Cargo.objects.create(nome=nome)
+        messages.success(request, "Cargo cadastrado com sucesso.")
+        return redirect("cargos_page")
+
+    cargos = (
+        Cargo.objects.annotate(employee_count=Count("employees"))
+        .order_by("deactivated_at", "nome")
+    )
+    active_count = cargos.filter(deactivated_at__isnull=True).count()
+    deactivated_count = cargos.filter(deactivated_at__isnull=False).count()
+    return render(
+        request,
+        "cargos.html",
+        {
+            "cargos": cargos,
+            "active_count": active_count,
+            "deactivated_count": deactivated_count,
+        },
+    )
+
+
+def cargo_edit_page(request, cargo_id):
+    cargo = get_object_or_404(Cargo, id=cargo_id, deactivated_at__isnull=True)
+
+    if request.method == "POST":
+        nome = (request.POST.get("nome") or "").strip()
+
+        if not nome:
+            messages.error(request, "Nome do cargo e obrigatorio.")
+            return redirect("cargo_edit_page", cargo_id=cargo.id)
+
+        duplicate = Cargo.objects.filter(
+            nome__iexact=nome,
+            deactivated_at__isnull=True,
+        ).exclude(id=cargo.id)
+        if duplicate.exists():
+            messages.error(request, "Ja existe um cargo com esse nome.")
+            return redirect("cargo_edit_page", cargo_id=cargo.id)
+
+        cargo.nome = nome
+        cargo.save(update_fields=["nome"])
+        messages.success(request, "Cargo atualizado com sucesso.")
+        return redirect("cargos_page")
+
+    return render(request, "cargo_edit.html", {"cargo": cargo})
+
+
+@require_POST
+def cargo_deactivate(request, cargo_id):
+    cargo = get_object_or_404(Cargo, id=cargo_id, deactivated_at__isnull=True)
+    cargo.deactivated_at = timezone.now()
+    cargo.save(update_fields=["deactivated_at"])
+    messages.success(request, "Cargo desativado com sucesso.")
+    return redirect("cargos_page")
+
+
+@require_POST
+def cargo_activate(request, cargo_id):
+    cargo = get_object_or_404(Cargo, id=cargo_id, deactivated_at__isnull=False)
+    cargo.deactivated_at = None
+    cargo.save(update_fields=["deactivated_at"])
+    messages.success(request, "Cargo ativado com sucesso.")
+    return redirect("cargos_page")
 
 
 def sectors_page(request):

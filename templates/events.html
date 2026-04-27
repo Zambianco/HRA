@@ -7,7 +7,7 @@
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
           <li class="breadcrumb-item active" aria-current="page">Eventos</li>
         </ol>
       </nav>
@@ -17,7 +17,7 @@
   <div class="row mb-4">
     <div class="col-lg-8">
       <h1 class="fw-bold text-primary mb-1">Eventos</h1>
-      <p class="text-muted mb-0">Historico de admissao, mudancas, ausencias, banco de horas, folgas e ferias.</p>
+      <p class="text-muted mb-0">Histórico de admissão, mudanças, ausências, banco de horas, folgas e férias.</p>
     </div>
     {% if selected_employee %}
       <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
@@ -128,13 +128,13 @@
             />
           </div>
           <div class="col-md-9">
-            <label for="notes" class="form-label fw-semibold">Observacao</label>
+            <label for="notes" class="form-label fw-semibold">Observação</label>
             <textarea id="notes" name="notes" class="form-control" rows="2" maxlength="600"></textarea>
           </div>
         </div>
       </div>
       <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center">
-        <small class="text-muted mb-0">Use data fim para periodos como ferias, folgas e ausencias.</small>
+        <small class="text-muted mb-0">Use data fim para períodos como férias, folgas e ausências.</small>
         <button type="submit" class="btn btn-primary">Registrar</button>
       </div>
     </form>
@@ -142,7 +142,7 @@
 
   <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-bottom p-3">
-      <h5 class="fw-semibold mb-0">Historico</h5>
+      <h5 class="fw-semibold mb-0">Histórico</h5>
     </div>
     <div class="card-body">
       {% if events %}
@@ -154,7 +154,7 @@
                 <th>Tipo</th>
                 <th>Empregado</th>
                 <th>Detalhes</th>
-                <th>Observacao</th>
+                <th>Observação</th>
                 <th>Registro</th>
               </tr>
             </thead>
@@ -164,7 +164,7 @@
                   <td>
                     {{ event.effective_date|date:"d/m/Y" }}
                     {% if event.end_date %}
-                      <div class="text-muted small">ate {{ event.end_date|date:"d/m/Y" }}</div>
+                      <div class="text-muted small">até {{ event.end_date|date:"d/m/Y" }}</div>
                     {% endif %}
                   </td>
                   <td>{{ event.get_event_type_display }}</td>
@@ -240,3 +240,4 @@
     })();
   </script>
 {% endblock %}
+

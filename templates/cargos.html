@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Setores{% endblock %}
+{% block title %}Cargos{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
@@ -11,8 +11,8 @@
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
-          <li class="breadcrumb-item active" aria-current="page">Setores</li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Cargos</li>
         </ol>
       </nav>
     </div>
@@ -22,61 +22,50 @@
     <div class="col-lg-8">
       <div class="d-flex flex-wrap align-items-center gap-3">
         <div>
-          <h1 class="fw-bold text-primary mb-1">Setores</h1>
-          <p class="text-muted mb-0">Gerencie os departamentos e areas da empresa.</p>
+          <h1 class="fw-bold text-primary mb-1">Cargos</h1>
+          <p class="text-muted mb-0">Cadastre e mantenha os cargos dos empregados.</p>
         </div>
       </div>
     </div>
     <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-      <button type="button" class="btn btn-primary" onclick="openSectorCreateModal()">
+      <button type="button" class="btn btn-primary" onclick="openCargoCreateModal()">
         <i class="bi bi-plus-circle me-1"></i>
-        Novo Setor
+        Novo Cargo
       </button>
     </div>
   </div>
 
   <div class="row mb-4">
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-building me-1"></i>Total de setores
+            <i class="bi bi-briefcase me-1"></i>Total de cargos
           </h6>
-          <h5 class="card-title fw-bold" id="totalCount">{{ sectors|length }}</h5>
+          <h5 class="card-title fw-bold" id="totalCount">{{ cargos|length }}</h5>
           <p class="card-text text-muted mb-0">Cadastrados no sistema</p>
         </div>
       </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-check-circle-fill text-success me-1"></i>Ativos
+            <i class="bi bi-check-circle-fill text-success me-1"></i>Cargos ativos
           </h6>
           <h5 class="card-title fw-bold text-success" id="activeCount">{{ active_count }}</h5>
-          <p class="card-text text-muted mb-0">Em operação</p>
+          <p class="card-text text-muted mb-0">Disponiveis para vinculacao</p>
         </div>
       </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-x-circle-fill text-danger me-1"></i>Inativos
+            <i class="bi bi-x-circle-fill text-danger me-1"></i>Cargos inativos
           </h6>
           <h5 class="card-title fw-bold text-danger" id="inactiveCount">{{ deactivated_count }}</h5>
           <p class="card-text text-muted mb-0">Desativados</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-people me-1"></i>Empregados
-          </h6>
-          <h5 class="card-title fw-bold text-info">--</h5>
-          <p class="card-text text-muted mb-0">Distribuídos nos setores</p>
         </div>
       </div>
     </div>
@@ -88,15 +77,22 @@
         <div class="card-header bg-white border-bottom p-3">
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div class="d-flex gap-3 align-items-center">
-              <i class="bi bi-building fs-5 text-primary"></i>
-              <h5 class="fw-semibold mb-0">Setores Cadastrados</h5>
+              <i class="bi bi-briefcase fs-5 text-primary"></i>
+              <h5 class="fw-semibold mb-0">Cargos Cadastrados</h5>
             </div>
             <div class="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                onclick="exportHtmlTableToCsv('cargos-table', 'cargos.csv')"
+              >
+                <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
+              </button>
               <div class="input-group input-group-sm" style="width: 250px;">
                 <span class="input-group-text bg-transparent border-end-0">
                   <i class="bi bi-search text-muted"></i>
                 </span>
-                <input type="text" class="form-control border-start-0" id="searchInput" placeholder="Buscar setor..." />
+                <input type="text" class="form-control border-start-0" id="searchInput" placeholder="Buscar cargo..." />
               </div>
               <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de status">
                 <button type="button" class="btn btn-outline-secondary active" id="filterAllBtn" data-filter="all">
@@ -115,59 +111,65 @@
 
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table id="cargos-table" class="table table-hover mb-0 align-middle">
               <thead class="table-light">
                 <tr>
                   <th style="width: 80px;" class="ps-4">ID</th>
-                  <th>Nome do Setor</th>
-                  <th style="width: 110px;">Status</th>
-                  <th style="width: 260px;" class="text-end pe-4">Ações</th>
+                  <th>Nome do cargo</th>
+                  <th style="width: 240px;">Qtd. empregados</th>
+                  <th style="width: 120px;">Status</th>
+                  <th style="width: 260px;" class="text-end pe-4 no-print">Acoes</th>
                 </tr>
               </thead>
-              <tbody id="sectorTableBody">
-                {% for sector in sectors %}
+              <tbody id="cargoTableBody">
+                {% for cargo in cargos %}
                   <tr
-                    data-sector-id="{{ sector.id }}"
-                    data-sector-name="{{ sector.nome|lower }}"
-                    data-status="{% if sector.deactivated_at %}inactive{% else %}active{% endif %}"
-                    {% if sector.deactivated_at %}class="table-secondary opacity-75"{% endif %}
+                    data-cargo-id="{{ cargo.id }}"
+                    data-cargo-name="{{ cargo.nome|lower }}"
+                    data-status="{% if cargo.deactivated_at %}inactive{% else %}active{% endif %}"
+                    {% if cargo.deactivated_at %}class="table-secondary opacity-75"{% endif %}
                   >
-                    <td class="ps-4 fw-semibold text-primary">{{ sector.id }}</td>
+                    <td class="ps-4 fw-semibold text-primary">{{ cargo.id }}</td>
                     <td>
                       <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-building text-secondary"></i>
-                        <span class="fw-medium {% if sector.deactivated_at %}text-decoration-line-through{% endif %}">
-                          {{ sector.nome }}
+                        <i class="bi bi-briefcase text-secondary"></i>
+                        <span class="fw-medium {% if cargo.deactivated_at %}text-decoration-line-through{% endif %}">
+                          {{ cargo.nome }}
                         </span>
                       </div>
                     </td>
                     <td>
-                      {% if sector.deactivated_at %}
+                      <span class="badge bg-light text-dark border">
+                        <i class="bi bi-people me-1"></i>{{ cargo.employee_count }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if cargo.deactivated_at %}
                         <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
-                          <i class="bi bi-x-circle-fill me-1 small"></i>Desativado
+                          <i class="bi bi-x-circle-fill me-1 small"></i>Inativo
                         </span>
                       {% else %}
                         <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
-                          <i class="bi bi-check-circle-fill me-1 small"></i>Ativado
+                          <i class="bi bi-check-circle-fill me-1 small"></i>Ativo
                         </span>
                       {% endif %}
                     </td>
-                    <td class="text-end pe-4">
-                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do setor">
-                        {% if sector.deactivated_at %}
-                          <form method="post" action="{% url 'sector_activate' sector.id %}" class="d-inline">
+                    <td class="text-end pe-4 no-print">
+                      <div class="d-inline-flex gap-2" role="group" aria-label="Acoes do cargo">
+                        {% if cargo.deactivated_at %}
+                          <form method="post" action="{% url 'cargo_activate' cargo.id %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn" title="Ativar">
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="Ativar">
                               <i class="bi bi-arrow-clockwise me-1"></i>Ativar
                             </button>
                           </form>
                         {% else %}
-                          <a href="{% url 'sector_edit_page' sector.id %}" class="btn btn-sm btn-outline-primary sector-action-btn" title="Editar">
+                          <a href="{% url 'cargo_edit_page' cargo.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
                             <i class="bi bi-pencil"></i>Editar
                           </a>
-                          <form method="post" action="{% url 'sector_deactivate' sector.id %}" onsubmit="return confirmDeactivate(event, '{{ sector.nome|escapejs }}');" class="d-inline">
+                          <form method="post" action="{% url 'cargo_deactivate' cargo.id %}" onsubmit="return confirmDeactivate(event, '{{ cargo.nome|escapejs }}');" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn" title="Desativar">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Desativar">
                               <i class="bi bi-trash"></i>Desativar
                             </button>
                           </form>
@@ -180,49 +182,37 @@
             </table>
           </div>
 
-          <div id="emptyState" class="text-center py-5 {% if sectors %}d-none{% endif %}">
+          <div id="emptyState" class="text-center py-5 {% if cargos %}d-none{% endif %}">
             <i class="bi bi-inbox fs-1 text-muted opacity-50"></i>
-            <p class="text-muted mt-2 mb-0">Nenhum setor encontrado</p>
-            <small class="text-muted">Tente ajustar os filtros ou crie um novo setor</small>
-          </div>
-        </div>
-
-        <div class="card-footer bg-white border-top py-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <small class="text-muted">
-              <i class="bi bi-info-circle me-1"></i>
-              <span id="visibleCount">{{ sectors|length }}</span> setor(es) exibido(s)
-            </small>
-            <small class="text-muted">
-              <i class="bi bi-clock me-1"></i>Última atualização: agora
-            </small>
+            <p class="text-muted mt-2 mb-0">Nenhum cargo encontrado</p>
+            <small class="text-muted">Tente ajustar os filtros ou crie um novo cargo</small>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="sector-create-modal" class="app-modal-layer" hidden aria-hidden="true">
-    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="sector-create-modal-title">
+  <div id="cargo-create-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="cargo-create-modal-title">
       <div class="app-modal-header">
-        <h2 id="sector-create-modal-title"><i class="bi bi-plus-circle me-2"></i>Novo Setor</h2>
-        <button type="button" class="app-modal-close" onclick="closeSectorCreateModal()" aria-label="Fechar">
+        <h2 id="cargo-create-modal-title"><i class="bi bi-plus-circle me-2"></i>Novo Cargo</h2>
+        <button type="button" class="app-modal-close" onclick="closeCargoCreateModal()" aria-label="Fechar">
           &times;
         </button>
       </div>
-      <form method="post" action="{% url 'sectors_page' %}" class="form-grid app-form">
+      <form method="post" action="{% url 'cargos_page' %}" class="form-grid app-form">
         {% csrf_token %}
-        <label for="nome_modal">Nome do setor</label>
+        <label for="nome_modal">Nome do cargo</label>
         <div class="input-group">
           <span class="input-group-text bg-transparent">
-            <i class="bi bi-building text-muted"></i>
+            <i class="bi bi-briefcase text-muted"></i>
           </span>
           <input
             id="nome_modal"
             name="nome"
             type="text"
             class="form-control"
-            placeholder="Ex: Recursos Humanos"
+            placeholder="Ex: Soldador"
             maxlength="120"
             required
           />
@@ -231,7 +221,7 @@
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-save me-1"></i>Cadastrar
           </button>
-          <button type="button" class="btn btn-outline-secondary" onclick="closeSectorCreateModal()">Cancelar</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeCargoCreateModal()">Cancelar</button>
         </div>
       </form>
     </div>
@@ -242,18 +232,14 @@
     const filterAllBtn = document.getElementById("filterAllBtn");
     const filterActiveBtn = document.getElementById("filterActiveBtn");
     const filterInactiveBtn = document.getElementById("filterInactiveBtn");
-    const sectorTableBody = document.getElementById("sectorTableBody");
+    const cargoTableBody = document.getElementById("cargoTableBody");
     const emptyState = document.getElementById("emptyState");
-    const visibleCountSpan = document.getElementById("visibleCount");
-    const totalCountSpan = document.getElementById("totalCount");
-    const activeCountSpan = document.getElementById("activeCount");
-    const inactiveCountSpan = document.getElementById("inactiveCount");
 
     let currentFilter = "all";
     let searchTerm = "";
 
-    function openSectorCreateModal() {
-      const modal = document.getElementById("sector-create-modal");
+    function openCargoCreateModal() {
+      const modal = document.getElementById("cargo-create-modal");
       if (!modal) return;
       modal.hidden = false;
       modal.setAttribute("aria-hidden", "false");
@@ -264,44 +250,31 @@
       }, 0);
     }
 
-    function closeSectorCreateModal() {
-      const modal = document.getElementById("sector-create-modal");
+    function closeCargoCreateModal() {
+      const modal = document.getElementById("cargo-create-modal");
       if (!modal) return;
       modal.hidden = true;
       modal.setAttribute("aria-hidden", "true");
       document.body.classList.remove("modal-open");
     }
 
-    function confirmDeactivate(event, sectorName) {
+    function confirmDeactivate(event, cargoName) {
       event.preventDefault();
-      if (confirm('Confirmar desativacao do setor "' + sectorName + '"?')) {
+      if (confirm('Confirmar desativacao do cargo "' + cargoName + '"?')) {
         event.target.submit();
       }
       return false;
     }
 
-    function updateCounters() {
-      if (!sectorTableBody) return;
-
-      const allRows = Array.from(sectorTableBody.querySelectorAll("tr"));
-      totalCountSpan.textContent = allRows.length;
-      activeCountSpan.textContent = allRows.filter(function (row) {
-        return row.dataset.status === "active";
-      }).length;
-      inactiveCountSpan.textContent = allRows.filter(function (row) {
-        return row.dataset.status === "inactive";
-      }).length;
-    }
-
     function applyFilters() {
-      if (!sectorTableBody) return;
+      if (!cargoTableBody) return;
 
-      const rows = sectorTableBody.querySelectorAll("tr");
+      const rows = cargoTableBody.querySelectorAll("tr");
       let visible = 0;
 
       rows.forEach(function (row) {
         const status = row.dataset.status;
-        const name = (row.dataset.sectorName || "").toLowerCase();
+        const name = (row.dataset.cargoName || "").toLowerCase();
 
         const matchesStatus =
           currentFilter === "all" ||
@@ -317,9 +290,7 @@
         }
       });
 
-      visibleCountSpan.textContent = visible;
       emptyState.classList.toggle("d-none", visible > 0);
-      updateCounters();
     }
 
     if (searchInput) {
@@ -363,21 +334,20 @@
     }
 
     document.addEventListener("click", function (event) {
-      const modal = document.getElementById("sector-create-modal");
+      const modal = document.getElementById("cargo-create-modal");
       if (!modal || modal.hidden) return;
       if (event.target === modal) {
-        closeSectorCreateModal();
+        closeCargoCreateModal();
       }
     });
 
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
-      const modal = document.getElementById("sector-create-modal");
+      const modal = document.getElementById("cargo-create-modal");
       if (!modal || modal.hidden) return;
-      closeSectorCreateModal();
+      closeCargoCreateModal();
     });
 
     applyFilters();
   </script>
 {% endblock %}
-

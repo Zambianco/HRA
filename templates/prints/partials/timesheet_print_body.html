@@ -1,0 +1,71 @@
+<div class="print-section-title">Resumo</div>
+<div class="print-grid">
+    <div class="print-item">
+        <span class="print-label">Empregados</span>
+        <span class="print-value">{{ employees_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Com lancamento</span>
+        <span class="print-value">{{ registered_employees_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Horas previstas</span>
+        <span class="print-value">{{ total_expected_minutes }} min</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Horas normais</span>
+        <span class="print-value">{{ total_regular_minutes }} min</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Horas extras</span>
+        <span class="print-value">{{ total_overtime_minutes }} min</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Ausencias</span>
+        <span class="print-value">{{ total_absence_minutes }} min</span>
+    </div>
+</div>
+
+<div class="print-section-title">Lancamentos por Empregado</div>
+<div class="print-record-list">
+    {% for row in rows %}
+    <article class="print-record-card">
+        <div class="print-record-card-head">
+            <span class="print-record-plan">{{ row.employee.nome_completo }}</span>
+            <span class="print-record-id">Matricula {{ row.employee.matricula }}</span>
+        </div>
+        <div class="print-record-meta-grid">
+            <div class="print-item">
+                <span class="print-label">Previstas</span>
+                <span class="print-value">{{ row.expected_minutes|default:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Normais</span>
+                <span class="print-value">{% if row.entry %}{{ row.entry.regular_minutes|default:0 }}{% else %}0{% endif %} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Extra 60%</span>
+                <span class="print-value">{% if row.entry %}{{ row.entry.overtime_60_minutes|default:0 }}{% else %}0{% endif %} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Extra 100%</span>
+                <span class="print-value">{% if row.entry %}{{ row.entry.overtime_100_minutes|default:0 }}{% else %}0{% endif %} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Falta</span>
+                <span class="print-value">{% if row.entry %}{{ row.entry.absence_unexcused_minutes|default:0 }}{% else %}0{% endif %} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Justificada</span>
+                <span class="print-value">{% if row.entry %}{{ row.entry.absence_excused_minutes|default:0 }}{% else %}0{% endif %} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Banco</span>
+                <span class="print-value">{% if row.entry %}{{ row.entry.absence_bank_minutes|default:0 }}{% else %}0{% endif %} min</span>
+            </div>
+        </div>
+    </article>
+    {% empty %}
+    <div class="print-value">Sem lancamentos para a competencia selecionada.</div>
+    {% endfor %}
+</div>

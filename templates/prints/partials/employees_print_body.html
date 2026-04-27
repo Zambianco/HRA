@@ -1,0 +1,58 @@
+<div class="print-section-title">Resumo</div>
+<div class="print-grid">
+    <div class="print-item">
+        <span class="print-label">Total de empregados</span>
+        <span class="print-value">{{ employees_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Ativos</span>
+        <span class="print-value">{{ active_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Inativos</span>
+        <span class="print-value">{{ inactive_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Sem setor</span>
+        <span class="print-value">{{ unassigned_count }}</span>
+    </div>
+</div>
+
+<div class="print-section-title">Empregados</div>
+<div class="print-record-list">
+    {% for employee in employees %}
+    <article class="print-record-card">
+        <div class="print-record-card-head">
+            <span class="print-record-plan">
+                {% if employee.deactivated_at %}Inativo{% else %}Ativo{% endif %}
+            </span>
+            <span class="print-record-id">Matricula {{ employee.matricula }}</span>
+        </div>
+        <div class="print-record-title">{{ employee.nome_completo }}</div>
+        <div class="print-record-meta-grid">
+            <div class="print-item">
+                <span class="print-label">Tipo</span>
+                <span class="print-value">{{ employee.get_tipo_display|default:"-" }}</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Regime</span>
+                <span class="print-value">{{ employee.get_regime_compensacao_jornada_display|default:"-" }}</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Cargo</span>
+                <span class="print-value">{{ employee.cargo.nome|default:"-" }}</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Setor</span>
+                <span class="print-value">{{ employee.sector.nome|default:"-" }}</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Escala</span>
+                <span class="print-value">{{ employee.work_schedule.nome|default:"-" }}</span>
+            </div>
+        </div>
+    </article>
+    {% empty %}
+    <div class="print-value">Nenhum empregado encontrado.</div>
+    {% endfor %}
+</div>

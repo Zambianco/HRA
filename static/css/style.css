@@ -126,6 +126,56 @@ body {
   box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
 }
 
+.app-shell .card {
+  border: 1px solid #e5ebf3;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+}
+
+.app-shell .card.border-0 {
+  border: 1px solid #e5ebf3 !important;
+}
+
+.app-shell .card.shadow-sm {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+.app-shell .card-header {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-bottom: 1px solid #e7edf5;
+}
+
+.app-shell .card-footer {
+  background: #ffffff;
+  border-top: 1px solid #e7edf5;
+}
+
+.app-tabs {
+  border-bottom: 1px solid #dbe5f0;
+  gap: 0.25rem;
+}
+
+.app-tabs .nav-link {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 0.75rem 1rem;
+  color: #516178;
+  font-weight: 600;
+}
+
+.app-tabs .nav-link:hover {
+  color: #1f4b8f;
+  border-bottom-color: #bfd3ef;
+}
+
+.app-tabs .nav-link.active {
+  color: #0d4ea6;
+  background: transparent;
+  border-bottom-color: #0d6efd;
+}
+
 .app-card h2 {
   margin: 0 0 0.75rem;
   font-size: 1.05rem;

@@ -1,0 +1,75 @@
+<div class="print-section-title">Resumo Geral</div>
+<div class="print-grid">
+    <div class="print-item">
+        <span class="print-label">Empregados ativos</span>
+        <span class="print-value">{{ employees_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Com lancamento</span>
+        <span class="print-value">{{ registered_employees_count }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Previstas</span>
+        <span class="print-value">{{ total_expected_hhmm }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Trabalhadas</span>
+        <span class="print-value">{{ total_worked_hhmm }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Hora extra</span>
+        <span class="print-value">{{ total_overtime_hhmm }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">Ausencias</span>
+        <span class="print-value">{{ total_absence_hhmm }}</span>
+    </div>
+    <div class="print-item">
+        <span class="print-label">MOD / MOI</span>
+        <span class="print-value">{{ mod_share_percent }}% / {{ moi_share_percent }}%</span>
+    </div>
+</div>
+
+<div class="print-section-title">Detalhe por Setor</div>
+<div class="print-record-list">
+    {% for row in sector_rows %}
+    <article class="print-record-card">
+        <div class="print-record-card-head">
+            <span class="print-record-plan">{{ row.name }}</span>
+            <span class="print-record-id">Aproveitamento {% if row.expected_minutes > 0 %}{% widthratio row.worked_minutes row.expected_minutes 100 %}%{% else %}0%{% endif %}</span>
+        </div>
+        <div class="print-record-meta-grid">
+            <div class="print-item">
+                <span class="print-label">Previstas</span>
+                <span class="print-value">{{ row.expected_minutes|floatformat:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Trabalhadas</span>
+                <span class="print-value">{{ row.worked_minutes|floatformat:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">HE 60%</span>
+                <span class="print-value">{{ row.overtime_60_minutes|floatformat:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">HE 100%</span>
+                <span class="print-value">{{ row.overtime_100_minutes|floatformat:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Saldo</span>
+                <span class="print-value">{{ row.balance_minutes|floatformat:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Falta</span>
+                <span class="print-value">{{ row.absence_unexcused_minutes|floatformat:0 }} min</span>
+            </div>
+            <div class="print-item">
+                <span class="print-label">Justificada</span>
+                <span class="print-value">{{ row.absence_excused_minutes|floatformat:0 }} min</span>
+            </div>
+        </div>
+    </article>
+    {% empty %}
+    <div class="print-value">Sem dados no mes selecionado.</div>
+    {% endfor %}
+</div>

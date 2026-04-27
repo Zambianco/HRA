@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Editar Setor{% endblock %}
+{% block title %}Editar Cargo{% endblock %}
 
 {% block content %}
   <div class="row mb-4">
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
-          <li class="breadcrumb-item"><a href="{% url 'sectors_page' %}">Setores</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'cargos_page' %}">Cargos</a></li>
           <li class="breadcrumb-item active" aria-current="page">Editar</li>
         </ol>
       </nav>
@@ -17,24 +17,24 @@
 
   <div class="row mb-4">
     <div class="col-lg-8">
-      <h1 class="fw-bold text-primary mb-1">Editar Setor</h1>
-      <p class="text-muted mb-0">Atualize os dados do setor selecionado.</p>
+      <h1 class="fw-bold text-primary mb-1">Editar Cargo</h1>
+      <p class="text-muted mb-0">Atualize os dados do cargo selecionado.</p>
     </div>
   </div>
 
   <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-bottom p-3">
-      <h5 class="fw-semibold mb-0">Dados do Setor</h5>
+      <h5 class="fw-semibold mb-0">Dados do Cargo</h5>
     </div>
-    <form method="post" action="{% url 'sector_edit_page' sector.id %}">
+    <form method="post" action="{% url 'cargo_edit_page' cargo.id %}">
       {% csrf_token %}
       <div class="card-body">
-        <label for="nome" class="form-label fw-semibold">Nome do setor</label>
+        <label for="nome" class="form-label fw-semibold">Nome do cargo</label>
         <input
           id="nome"
           name="nome"
           type="text"
-          value="{{ sector.nome }}"
+          value="{{ cargo.nome }}"
           maxlength="120"
           class="form-control"
           required
@@ -43,10 +43,9 @@
       <div class="card-footer bg-white border-top py-3">
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary">Salvar</button>
-          <a class="btn btn-outline-secondary" href="{% url 'sectors_page' %}">Cancelar</a>
+          <a class="btn btn-outline-secondary" href="{% url 'cargos_page' %}">Cancelar</a>
         </div>
       </div>
     </form>
   </div>
 {% endblock %}
-
