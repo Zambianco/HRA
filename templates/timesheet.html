@@ -616,11 +616,14 @@
   </div>
   </section>
 
+  {% with print_title="Relatorio de Timesheet" print_subtitle="Consolidado mensal do timesheet por empregado" print_meta_label="Competencia" print_meta_value=selected_competence_month print_body_template="prints/partials/timesheet_print_body.html" print_footer_left="Documento gerado pelo modulo de timesheet." print_footer_right="FIM DO RELATORIO" %}
+    {% include "prints/partials/report_sheet.html" %}
+  {% endwith %}
+
   <div id="timesheet-mode-toast-stack" class="timesheet-toast-stack" aria-live="polite" aria-atomic="true"></div>
   <script>
     (function () {
       const printTableButton = document.getElementById("timesheet-print-table-btn");
-      const PRINT_CLASS_TIMESHEET_TABLE = "print-timesheet-table";
       const PRINT_STYLE_ID_TIMESHEET_TABLE = "timesheet-print-table-page-style";
       const inputs = Array.from(document.querySelectorAll(".point-sheet .sheet-input"));
       if (!inputs.length) return;
@@ -1036,7 +1039,6 @@
       }
 
       function clearTimesheetPrintMode() {
-        document.body.classList.remove(PRINT_CLASS_TIMESHEET_TABLE);
         removeTimesheetPrintPageStyle();
       }
 
@@ -1420,8 +1422,11 @@
       if (printTableButton) {
         printTableButton.addEventListener("click", function () {
           clearTimesheetPrintMode();
-          document.body.classList.add(PRINT_CLASS_TIMESHEET_TABLE);
           applyTimesheetLandscapePageStyle();
+          if (typeof window.runStandardPrint === "function") {
+            window.runStandardPrint();
+            return;
+          }
           window.print();
         });
       }

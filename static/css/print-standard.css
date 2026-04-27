@@ -264,6 +264,97 @@ body.print-pagination-measure .print-sheet .print-record-pair-grid {
     gap: 4px 10px;
 }
 
+body.print-pagination-measure .print-sheet .print-record-meta-grid.employees-meta-grid {
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 4px 8px;
+}
+
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row1-col1 { grid-column: 1; grid-row: 1; }
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row1-col2 { grid-column: 2; grid-row: 1; }
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row1-col3 { grid-column: 3; grid-row: 1; }
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row2-col1 { grid-column: 1; grid-row: 2; }
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row2-col2 { grid-column: 2; grid-row: 2; }
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row3-col1 { grid-column: 1; grid-row: 3; }
+body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row4-all { grid-column: 1 / 4; grid-row: 4; }
+
+body.print-pagination-measure .print-sheet .print-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-top: 6px;
+    font-size: 10px;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table th,
+body.print-pagination-measure .print-sheet .print-data-table td {
+    border: 1px solid #000;
+    padding: 3px 4px;
+    vertical-align: top;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table thead th {
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    background: #efefef;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table th:nth-child(1),
+body.print-pagination-measure .print-sheet .print-data-table td:nth-child(1),
+body.print-pagination-measure .print-sheet .print-data-table th:nth-child(2),
+body.print-pagination-measure .print-sheet .print-data-table td:nth-child(2),
+body.print-pagination-measure .print-sheet .print-data-table th:nth-child(4),
+body.print-pagination-measure .print-sheet .print-data-table td:nth-child(4),
+body.print-pagination-measure .print-sheet .print-data-table th:nth-child(8),
+body.print-pagination-measure .print-sheet .print-data-table td:nth-child(8) {
+    white-space: nowrap;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-card {
+    border: 1px solid #000;
+    padding: 4px 5px;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2px;
+    margin-bottom: 3px;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-name {
+    font-weight: 700;
+    font-size: 11px;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-status {
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+}
+
+body.print-pagination-measure .print-sheet .print-employee-field {
+    font-size: 10px;
+    line-height: 1.2;
+}
+
 body.print-pagination-measure .print-sheet .full-width {
     grid-column: 1 / -1;
 }
@@ -573,5 +664,96 @@ body.print-pagination-measure .print-sheet .full-width {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 4px 10px;
+    }
+
+    .print-sheet .print-record-meta-grid.employees-meta-grid {
+        grid-template-columns: 1fr 1fr 1fr !important;
+        gap: 4px 8px;
+    }
+
+    .print-sheet .employees-meta-grid .emp-row1-col1 { grid-column: 1; grid-row: 1; }
+    .print-sheet .employees-meta-grid .emp-row1-col2 { grid-column: 2; grid-row: 1; }
+    .print-sheet .employees-meta-grid .emp-row1-col3 { grid-column: 3; grid-row: 1; }
+    .print-sheet .employees-meta-grid .emp-row2-col1 { grid-column: 1; grid-row: 2; }
+    .print-sheet .employees-meta-grid .emp-row2-col2 { grid-column: 2; grid-row: 2; }
+    .print-sheet .employees-meta-grid .emp-row3-col1 { grid-column: 1; grid-row: 3; }
+    .print-sheet .employees-meta-grid .emp-row4-all { grid-column: 1 / 4; grid-row: 4; }
+
+    .print-sheet .print-data-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 6px;
+        font-size: 10px;
+    }
+
+    .print-sheet .print-data-table th,
+    .print-sheet .print-data-table td {
+        border: 1px solid #000;
+        padding: 3px 4px;
+        vertical-align: top;
+        word-break: normal;
+        overflow-wrap: break-word;
+        hyphens: none;
+    }
+
+    .print-sheet .print-data-table thead th {
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        background: #efefef;
+    }
+
+    .print-sheet .print-data-table th:nth-child(1),
+    .print-sheet .print-data-table td:nth-child(1),
+    .print-sheet .print-data-table th:nth-child(2),
+    .print-sheet .print-data-table td:nth-child(2),
+    .print-sheet .print-data-table th:nth-child(4),
+    .print-sheet .print-data-table td:nth-child(4),
+    .print-sheet .print-data-table th:nth-child(8),
+    .print-sheet .print-data-table td:nth-child(8) {
+        white-space: nowrap;
+    }
+
+    .print-sheet .print-employee-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    .print-sheet .print-employee-card {
+        border: 1px solid #000;
+        padding: 4px 5px;
+    }
+
+    .print-sheet .print-employee-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px solid #000;
+        padding-bottom: 2px;
+        margin-bottom: 3px;
+    }
+
+    .print-sheet .print-employee-name {
+        font-weight: 700;
+        font-size: 11px;
+    }
+
+    .print-sheet .print-employee-status {
+        font-size: 10px;
+        white-space: nowrap;
+    }
+
+    .print-sheet .print-employee-meta {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1px;
+    }
+
+    .print-sheet .print-employee-field {
+        font-size: 10px;
+        line-height: 1.2;
     }
 }

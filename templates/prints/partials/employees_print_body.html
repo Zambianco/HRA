@@ -24,29 +24,36 @@
     <article class="print-record-card">
         <div class="print-record-card-head">
             <span class="print-record-plan">
-                {% if employee.deactivated_at %}Inativo{% else %}Ativo{% endif %}
+                {{ employee.matricula|default:"-" }} - {{ employee.nome_completo|default:"-" }}
             </span>
-            <span class="print-record-id">Matricula {{ employee.matricula }}</span>
+            <span class="print-record-id"></span>
         </div>
-        <div class="print-record-title">{{ employee.nome_completo }}</div>
-        <div class="print-record-meta-grid">
-            <div class="print-item">
-                <span class="print-label">Tipo</span>
-                <span class="print-value">{{ employee.get_tipo_display|default:"-" }}</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Regime</span>
-                <span class="print-value">{{ employee.get_regime_compensacao_jornada_display|default:"-" }}</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Cargo</span>
-                <span class="print-value">{{ employee.cargo.nome|default:"-" }}</span>
-            </div>
-            <div class="print-item">
+        <div class="print-record-meta-grid employees-meta-grid">
+            <div class="print-item emp-row1-col1">
                 <span class="print-label">Setor</span>
                 <span class="print-value">{{ employee.sector.nome|default:"-" }}</span>
             </div>
-            <div class="print-item">
+            <div class="print-item emp-row1-col2">
+                <span class="print-label">Admissao</span>
+                <span class="print-value">{{ employee.created_at|date:"d/m/Y"|default:"-" }}</span>
+            </div>
+            <div class="print-item emp-row1-col3">
+                <span class="print-label">Banco de horas</span>
+                <span class="print-value">{{ employee.get_regime_compensacao_jornada_display|default:"-" }}</span>
+            </div>
+            <div class="print-item emp-row2-col1">
+                <span class="print-label">Cargo</span>
+                <span class="print-value">{{ employee.cargo.nome|default:"-" }}</span>
+            </div>
+            <div class="print-item emp-row2-col2">
+                <span class="print-label">Demissao</span>
+                <span class="print-value">{% if employee.deactivated_at %}{{ employee.deactivated_at|date:"d/m/Y" }}{% else %}-{% endif %}</span>
+            </div>
+            <div class="print-item emp-row3-col1">
+                <span class="print-label">Tipo</span>
+                <span class="print-value">{{ employee.get_tipo_display|default:"-" }}</span>
+            </div>
+            <div class="print-item emp-row4-all">
                 <span class="print-label">Escala</span>
                 <span class="print-value">{{ employee.work_schedule.nome|default:"-" }}</span>
             </div>
