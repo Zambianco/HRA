@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Timesheet{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="{% static 'css/print-standard.css' %}" />
   <style>
     .point-sheet-wrapper {
       max-height: 68vh;
@@ -195,7 +197,7 @@
 {% endblock %}
 
 {% block content %}
-  <section class="timesheet-page">
+  <section class="timesheet-page screen-only">
   <div class="row mb-4">
     <div class="col-12">
       <nav aria-label="breadcrumb">
@@ -620,11 +622,10 @@
     {% include "prints/partials/report_sheet.html" %}
   {% endwith %}
 
-  <div id="timesheet-mode-toast-stack" class="timesheet-toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <div id="timesheet-mode-toast-stack" class="timesheet-toast-stack screen-only" aria-live="polite" aria-atomic="true"></div>
   <script>
     (function () {
       const printTableButton = document.getElementById("timesheet-print-table-btn");
-      const PRINT_STYLE_ID_TIMESHEET_TABLE = "timesheet-print-table-page-style";
       const inputs = Array.from(document.querySelectorAll(".point-sheet .sheet-input"));
       if (!inputs.length) return;
       const numericInputs = inputs.filter(function (input) {
@@ -956,6 +957,23 @@
         return (minutes / 60).toFixed(2).replace(".", ",");
       }
 
+      function formatPrintMinutes(minutes) {
+        const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
+        if (displayMode === "decimal") {
+          return formatDecimalHours(safeMinutes);
+        }
+        const hours = Math.floor(safeMinutes / 60);
+        const mins = safeMinutes % 60;
+        return hours + ":" + String(mins).padStart(2, "0");
+      }
+
+      function refreshPrintDisplayMode() {
+        document.querySelectorAll(".timesheet-print-minutes").forEach(function (element) {
+          const rawMinutes = Number(element.dataset.minutes || "0");
+          element.textContent = formatPrintMinutes(rawMinutes);
+        });
+      }
+
       function updateTotals() {
         totalElements.forEach(function (element) {
           const rawMinutes = Number(element.dataset.minutes || "0");
@@ -1022,6 +1040,7 @@
           renderNumericInput(input);
         });
         recalculateCompetenceTotals();
+        refreshPrintDisplayMode();
       }
 
       function syncCompetenceMonthToPostForm() {
@@ -1029,26 +1048,6 @@
         if (monthInput.value) {
           sheetCompetenceMonthInput.value = monthInput.value;
         }
-      }
-
-      function removeTimesheetPrintPageStyle() {
-        const styleTag = document.getElementById(PRINT_STYLE_ID_TIMESHEET_TABLE);
-        if (styleTag) {
-          styleTag.remove();
-        }
-      }
-
-      function clearTimesheetPrintMode() {
-        removeTimesheetPrintPageStyle();
-      }
-
-      function applyTimesheetLandscapePageStyle() {
-        removeTimesheetPrintPageStyle();
-        const styleTag = document.createElement("style");
-        styleTag.id = PRINT_STYLE_ID_TIMESHEET_TABLE;
-        styleTag.media = "print";
-        styleTag.textContent = "@page { size: A4 landscape; margin: 12mm; }";
-        document.head.appendChild(styleTag);
       }
 
       function clearInvalid(input) {
@@ -1421,8 +1420,7 @@
 
       if (printTableButton) {
         printTableButton.addEventListener("click", function () {
-          clearTimesheetPrintMode();
-          applyTimesheetLandscapePageStyle();
+          refreshPrintDisplayMode();
           if (typeof window.runStandardPrint === "function") {
             window.runStandardPrint();
             return;
@@ -1431,7 +1429,7 @@
         });
       }
 
-      window.addEventListener("afterprint", clearTimesheetPrintMode);
+      window.addEventListener("beforeprint", refreshPrintDisplayMode);
 
       renderSummaryCardsVisibility();
       syncCompetenceMonthToPostForm();

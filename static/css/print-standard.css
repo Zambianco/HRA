@@ -277,6 +277,97 @@ body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row2-col2 {
 body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row3-col1 { grid-column: 1; grid-row: 3; }
 body.print-pagination-measure .print-sheet .employees-meta-grid .emp-row4-all { grid-column: 1 / 4; grid-row: 4; }
 
+body.print-pagination-measure .print-sheet .print-record-list.employees-record-list {
+    gap: 5px;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .print-record-card-head {
+    padding: 2px 5px;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .print-record-plan {
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0.1px;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .print-record-id {
+    display: none;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .print-record-meta-grid.employees-meta-grid {
+    padding: 2px 5px;
+    gap: 2px 6px;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .employees-meta-grid .print-item {
+    border-bottom: 0;
+    padding: 2px 0;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .employees-meta-grid .print-label {
+    font-size: 9px;
+    letter-spacing: 0.2px;
+    line-height: 1.1;
+}
+
+body.print-pagination-measure .print-sheet .employees-record-card .employees-meta-grid .print-value {
+    font-size: 11px;
+    line-height: 1.1;
+    padding-top: 0;
+}
+
+body.print-pagination-measure .print-sheet .print-record-list.timesheet-record-list {
+    gap: 5px;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .print-record-card-head {
+    padding: 2px 5px;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .print-record-plan {
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0.1px;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .print-record-id {
+    display: none;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .print-record-meta-grid.timesheet-meta-grid {
+    grid-template-columns: 1fr 1fr 1fr !important;
+    padding: 2px 5px;
+    gap: 2px 6px;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row1-col1 { grid-column: 1; grid-row: 1; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row1-col2 { grid-column: 2; grid-row: 1; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row1-col3 { grid-column: 3; grid-row: 1; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row2-col1 { grid-column: 1; grid-row: 2; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row2-col2 { grid-column: 2; grid-row: 2; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row2-col3 { grid-column: 3; grid-row: 2; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row3-col1 { grid-column: 1; grid-row: 3; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row3-col2 { grid-column: 2; grid-row: 3; }
+body.print-pagination-measure .print-sheet .timesheet-meta-grid .ts-row3-col3 { grid-column: 3; grid-row: 3; }
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .timesheet-meta-grid .print-item {
+    border-bottom: 0;
+    padding: 2px 0;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .timesheet-meta-grid .print-label {
+    font-size: 9px;
+    letter-spacing: 0.2px;
+    line-height: 1.1;
+}
+
+body.print-pagination-measure .print-sheet .timesheet-record-card .timesheet-meta-grid .print-value {
+    font-size: 11px;
+    line-height: 1.1;
+    padding-top: 0;
+}
+
 body.print-pagination-measure .print-sheet .print-data-table {
     width: 100%;
     border-collapse: collapse;
@@ -293,6 +384,51 @@ body.print-pagination-measure .print-sheet .print-data-table td {
     word-break: normal;
     overflow-wrap: break-word;
     hyphens: none;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table th,
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table td {
+    border: 0;
+    padding: 2px 4px;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table thead th {
+    background: transparent;
+    border-bottom: 1px solid #000;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-matr { width: 7%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-name { width: 17%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-prev { width: 8%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-lanc { width: 8%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-norm { width: 8%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-ext60 { width: 9%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-ext100 { width: 9%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-falta { width: 8%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-just { width: 8%; }
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-banco { width: 8%; }
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table th,
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table td {
+    white-space: nowrap;
+    padding-left: 3px;
+    padding-right: 3px;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table td:nth-child(2) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-head-stack {
+    display: inline-block;
+    line-height: 1.0;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table th:nth-child(8),
+body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table td:nth-child(8) {
+    border-left: 1px dotted #000 !important;
 }
 
 body.print-pagination-measure .print-sheet .print-data-table thead th {
@@ -679,6 +815,97 @@ body.print-pagination-measure .print-sheet .full-width {
     .print-sheet .employees-meta-grid .emp-row3-col1 { grid-column: 1; grid-row: 3; }
     .print-sheet .employees-meta-grid .emp-row4-all { grid-column: 1 / 4; grid-row: 4; }
 
+    .print-sheet .print-record-list.employees-record-list {
+        gap: 5px;
+    }
+
+    .print-sheet .employees-record-card .print-record-card-head {
+        padding: 2px 5px;
+    }
+
+    .print-sheet .employees-record-card .print-record-plan {
+        font-size: 10px;
+        text-transform: none;
+        letter-spacing: 0.1px;
+    }
+
+    .print-sheet .employees-record-card .print-record-id {
+        display: none;
+    }
+
+    .print-sheet .employees-record-card .print-record-meta-grid.employees-meta-grid {
+        padding: 2px 5px;
+        gap: 2px 6px;
+    }
+
+    .print-sheet .employees-record-card .employees-meta-grid .print-item {
+        border-bottom: 0;
+        padding: 2px 0;
+    }
+
+    .print-sheet .employees-record-card .employees-meta-grid .print-label {
+        font-size: 9px;
+        letter-spacing: 0.2px;
+        line-height: 1.1;
+    }
+
+    .print-sheet .employees-record-card .employees-meta-grid .print-value {
+        font-size: 11px;
+        line-height: 1.1;
+        padding-top: 0;
+    }
+
+    .print-sheet .print-record-list.timesheet-record-list {
+        gap: 5px;
+    }
+
+    .print-sheet .timesheet-record-card .print-record-card-head {
+        padding: 2px 5px;
+    }
+
+    .print-sheet .timesheet-record-card .print-record-plan {
+        font-size: 10px;
+        text-transform: none;
+        letter-spacing: 0.1px;
+    }
+
+    .print-sheet .timesheet-record-card .print-record-id {
+        display: none;
+    }
+
+    .print-sheet .timesheet-record-card .print-record-meta-grid.timesheet-meta-grid {
+        grid-template-columns: 1fr 1fr 1fr !important;
+        padding: 2px 5px;
+        gap: 2px 6px;
+    }
+
+    .print-sheet .timesheet-meta-grid .ts-row1-col1 { grid-column: 1; grid-row: 1; }
+    .print-sheet .timesheet-meta-grid .ts-row1-col2 { grid-column: 2; grid-row: 1; }
+    .print-sheet .timesheet-meta-grid .ts-row1-col3 { grid-column: 3; grid-row: 1; }
+    .print-sheet .timesheet-meta-grid .ts-row2-col1 { grid-column: 1; grid-row: 2; }
+    .print-sheet .timesheet-meta-grid .ts-row2-col2 { grid-column: 2; grid-row: 2; }
+    .print-sheet .timesheet-meta-grid .ts-row2-col3 { grid-column: 3; grid-row: 2; }
+    .print-sheet .timesheet-meta-grid .ts-row3-col1 { grid-column: 1; grid-row: 3; }
+    .print-sheet .timesheet-meta-grid .ts-row3-col2 { grid-column: 2; grid-row: 3; }
+    .print-sheet .timesheet-meta-grid .ts-row3-col3 { grid-column: 3; grid-row: 3; }
+
+    .print-sheet .timesheet-record-card .timesheet-meta-grid .print-item {
+        border-bottom: 0;
+        padding: 2px 0;
+    }
+
+    .print-sheet .timesheet-record-card .timesheet-meta-grid .print-label {
+        font-size: 9px;
+        letter-spacing: 0.2px;
+        line-height: 1.1;
+    }
+
+    .print-sheet .timesheet-record-card .timesheet-meta-grid .print-value {
+        font-size: 11px;
+        line-height: 1.1;
+        padding-top: 0;
+    }
+
     .print-sheet .print-data-table {
         width: 100%;
         border-collapse: collapse;
@@ -695,6 +922,51 @@ body.print-pagination-measure .print-sheet .full-width {
         word-break: normal;
         overflow-wrap: break-word;
         hyphens: none;
+    }
+
+    .print-sheet .print-data-table.timesheet-print-table th,
+    .print-sheet .print-data-table.timesheet-print-table td {
+        border: 0;
+        padding: 2px 4px;
+    }
+
+    .print-sheet .print-data-table.timesheet-print-table thead th {
+        background: transparent;
+        border-bottom: 1px solid #000;
+    }
+
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-matr { width: 7%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-name { width: 17%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-prev { width: 8%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-lanc { width: 8%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-norm { width: 8%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-ext60 { width: 9%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-ext100 { width: 9%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-falta { width: 8%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-just { width: 8%; }
+    .print-sheet .print-data-table.timesheet-print-table .ts-col-banco { width: 8%; }
+
+    .print-sheet .print-data-table.timesheet-print-table th,
+    .print-sheet .print-data-table.timesheet-print-table td {
+        white-space: nowrap;
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+
+    .print-sheet .print-data-table.timesheet-print-table td:nth-child(2) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .print-sheet .print-data-table.timesheet-print-table .ts-head-stack {
+        display: inline-block;
+        line-height: 1.0;
+    }
+
+    .print-sheet .print-data-table.timesheet-print-table th:nth-child(8),
+    .print-sheet .print-data-table.timesheet-print-table td:nth-child(8) {
+        border-left: 1px dotted #000 !important;
     }
 
     .print-sheet .print-data-table thead th {

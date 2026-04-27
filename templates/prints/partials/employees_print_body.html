@@ -19,9 +19,9 @@
 </div>
 
 <div class="print-section-title">Empregados</div>
-<div class="print-record-list">
+<div class="print-record-list employees-record-list">
     {% for employee in employees %}
-    <article class="print-record-card">
+    <article class="print-record-card employees-record-card">
         <div class="print-record-card-head">
             <span class="print-record-plan">
                 {{ employee.matricula|default:"-" }} - {{ employee.nome_completo|default:"-" }}

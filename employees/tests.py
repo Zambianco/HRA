@@ -599,6 +599,59 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Painel de horas")
 
+    def test_timesheet_dashboard_page_supports_month_range(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        work_schedule = WorkSchedule.objects.create(
+            nome="Escala ADM",
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="RANGE-01",
+            nome_completo="Funcionario Range",
+            sector=sector,
+            work_schedule=work_schedule,
+            tipo=Employee.TYPE_DIRETO,
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+        )
+        EmployeeTimeEntry.objects.create(
+            employee=employee,
+            competence_month="2026-04-01",
+            regular_minutes=60,
+            overtime_60_minutes=30,
+            overtime_100_minutes=0,
+            absence_unexcused_minutes=10,
+            absence_excused_minutes=0,
+            absence_bank_minutes=5,
+        )
+        EmployeeTimeEntry.objects.create(
+            employee=employee,
+            competence_month="2026-05-01",
+            regular_minutes=120,
+            overtime_60_minutes=0,
+            overtime_100_minutes=0,
+            absence_unexcused_minutes=0,
+            absence_excused_minutes=15,
+            absence_bank_minutes=0,
+        )
+
+        response = self.client.get(
+            reverse("timesheet_dashboard_page"),
+            data={"start_month": "2026-04", "end_month": "2026-05"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "04/2026 a 05/2026")
+        self.assertContains(response, "01/04 - 31/05/2026")
+        self.assertContains(response, "03:30")
+        self.assertContains(response, "00:30")
+        self.assertContains(response, "00:30")
+
     def test_timesheet_page_shows_dashboard_link_with_selected_month(self):
         response = self.client.get(f"{reverse('timesheet_page')}?competence_month=2026-04")
         self.assertEqual(response.status_code, 200)

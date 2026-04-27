@@ -184,6 +184,37 @@ def _resolve_competence_month(raw_value):
     return month_start, normalized, None
 
 
+def _resolve_competence_month_interval(raw_start, raw_end, raw_fallback=None):
+    normalized_start = (raw_start or "").strip()
+    normalized_end = (raw_end or "").strip()
+    normalized_fallback = (raw_fallback or "").strip()
+
+    # Backward compatibility for existing links that still pass competence_month.
+    if not normalized_start and not normalized_end:
+        fallback_month, fallback_value, error = _resolve_competence_month(normalized_fallback)
+        if error:
+            return None, None, None, None, error
+        return fallback_month, fallback_month, fallback_value, fallback_value, None
+
+    if not normalized_start:
+        normalized_start = normalized_end
+    if not normalized_end:
+        normalized_end = normalized_start
+
+    start_month, start_value, start_error = _resolve_competence_month(normalized_start)
+    if start_error:
+        return None, None, None, None, "Informe um mes inicial valido."
+
+    end_month, end_value, end_error = _resolve_competence_month(normalized_end)
+    if end_error:
+        return None, None, None, None, "Informe um mes final valido."
+
+    if end_month < start_month:
+        return None, None, None, None, "O mes final deve ser maior ou igual ao mes inicial."
+
+    return start_month, end_month, start_value, end_value, None
+
+
 def _count_weekday_occurrences_in_month(month_start):
     weekday_occurrences = [0] * 7
     _, days_in_month = monthrange(month_start.year, month_start.month)
@@ -1110,8 +1141,12 @@ def timesheet_snapshots_audit_page(request):
 
 
 def timesheet_dashboard_page(request):
-    competence_month, selected_competence_month, error = _resolve_competence_month(
-        request.GET.get("competence_month")
+    start_month, end_month, selected_start_month, selected_end_month, error = (
+        _resolve_competence_month_interval(
+            request.GET.get("start_month"),
+            request.GET.get("end_month"),
+            request.GET.get("competence_month"),
+        )
     )
     if error:
         messages.error(request, error)
@@ -1123,12 +1158,30 @@ def timesheet_dashboard_page(request):
         .order_by("nome_completo")
     )
 
+    competence_months = list(_iterate_competence_months(start_month, end_month))
     month_entries = EmployeeTimeEntry.objects.select_related("employee", "employee__sector").filter(
-        competence_month=competence_month
+        competence_month__in=competence_months
     )
-    entries_by_employee = {entry.employee_id: entry for entry in month_entries}
+    entries_by_employee = {}
+    for entry in month_entries:
+        employee_entry = entries_by_employee.setdefault(
+            entry.employee_id,
+            {
+                "regular_minutes": 0,
+                "overtime_60_minutes": 0,
+                "overtime_100_minutes": 0,
+                "absence_unexcused_minutes": 0,
+                "absence_excused_minutes": 0,
+                "absence_bank_minutes": 0,
+            },
+        )
+        employee_entry["regular_minutes"] += entry.regular_minutes
+        employee_entry["overtime_60_minutes"] += entry.overtime_60_minutes
+        employee_entry["overtime_100_minutes"] += entry.overtime_100_minutes
+        employee_entry["absence_unexcused_minutes"] += entry.absence_unexcused_minutes
+        employee_entry["absence_excused_minutes"] += entry.absence_excused_minutes
+        employee_entry["absence_bank_minutes"] += entry.absence_bank_minutes
 
-    month_start, month_end = _get_month_date_range(competence_month)
     calendar_ids = {
         employee.work_schedule.calendar_id
         for employee in employees
@@ -1138,13 +1191,13 @@ def timesheet_dashboard_page(request):
 
     calendar_exception_dates_by_calendar = _build_calendar_exception_dates_by_calendar(
         calendar_ids,
-        month_start,
-        month_end,
+        start_month,
+        _get_month_date_range(end_month)[1],
     )
     employee_exception_dates_by_employee = _build_employee_exception_dates_by_employee(
         employee_ids,
-        month_start,
-        month_end,
+        start_month,
+        _get_month_date_range(end_month)[1],
     )
 
     sector_data = {}
@@ -1159,24 +1212,27 @@ def timesheet_dashboard_page(request):
     total_moi_minutes = 0
 
     for employee in employees:
-        expected_minutes = _calculate_expected_minutes_for_employee(
-            employee,
-            month_start,
-            month_end,
-            calendar_exception_dates_by_calendar,
-            employee_exception_dates_by_employee,
-        )
+        expected_minutes = 0
+        for competence_month in competence_months:
+            month_start, month_end = _get_month_date_range(competence_month)
+            expected_minutes += _calculate_expected_minutes_for_employee(
+                employee,
+                month_start,
+                month_end,
+                calendar_exception_dates_by_calendar,
+                employee_exception_dates_by_employee,
+            )
         total_expected_minutes += expected_minutes
 
         entry = entries_by_employee.get(employee.id)
-        regular_minutes = entry.regular_minutes if entry else 0
-        overtime_60_minutes = entry.overtime_60_minutes if entry else 0
-        overtime_100_minutes = entry.overtime_100_minutes if entry else 0
-        absence_unexcused_minutes = entry.absence_unexcused_minutes if entry else 0
-        absence_excused_minutes = entry.absence_excused_minutes if entry else 0
+        regular_minutes = entry["regular_minutes"] if entry else 0
+        overtime_60_minutes = entry["overtime_60_minutes"] if entry else 0
+        overtime_100_minutes = entry["overtime_100_minutes"] if entry else 0
+        absence_unexcused_minutes = entry["absence_unexcused_minutes"] if entry else 0
+        absence_excused_minutes = entry["absence_excused_minutes"] if entry else 0
         absence_bank_minutes = 0
         if entry and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE:
-            absence_bank_minutes = entry.absence_bank_minutes
+            absence_bank_minutes = entry["absence_bank_minutes"]
 
         worked_minutes = regular_minutes + overtime_60_minutes + overtime_100_minutes
 
@@ -1256,16 +1312,25 @@ def timesheet_dashboard_page(request):
         round(row["absence_excused_minutes"] / 60, 2) for row in sector_rows
     ]
 
-    month_reference_label = (
-        f"{month_start.strftime('%d/%m')} - {month_end.strftime('%d/%m/%Y')}"
-    )
+    range_start = _get_month_date_range(start_month)[0]
+    range_end = _get_month_date_range(end_month)[1]
+    month_reference_label = f"{range_start.strftime('%d/%m')} - {range_end.strftime('%d/%m/%Y')}"
+    if start_month == end_month:
+        competence_month_label = _format_competence_month_label(start_month)
+    else:
+        competence_month_label = (
+            f"{_format_competence_month_label(start_month)} a "
+            f"{_format_competence_month_label(end_month)}"
+        )
 
     return render(
         request,
         "dashboard_horas_grouped_stacked.html",
         {
-            "selected_competence_month": selected_competence_month,
-            "competence_month_label": _format_competence_month_label(competence_month),
+            "selected_competence_month": selected_end_month,
+            "selected_start_month": selected_start_month,
+            "selected_end_month": selected_end_month,
+            "competence_month_label": competence_month_label,
             "month_reference_label": month_reference_label,
             "employees_count": len(employees),
             "registered_employees_count": len(entries_by_employee),

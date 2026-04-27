@@ -291,9 +291,11 @@
           <h4 class="fw-bold mb-0" style="color: #0f172a;">Painel de horas · {{ competence_month_label }}</h4>
           <p class="text-secondary-emphasis mt-1 mb-0" style="font-size: 0.8rem;">{{ month_reference_label }} · {{ employees_count }} empregados ativos</p>
         </div>
-        <form id="dashboard-month-form" method="get" class="d-flex gap-2 align-items-center">
-          <label for="competence_month" class="fw-semibold text-secondary small">Mes referencia</label>
-          <input id="competence_month" type="month" name="competence_month" value="{{ selected_competence_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;" required>
+        <form id="dashboard-month-form" method="get" class="d-flex gap-2 align-items-center flex-wrap">
+          <label for="start_month" class="fw-semibold text-secondary small">De</label>
+          <input id="start_month" type="month" name="start_month" value="{{ selected_start_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;">
+          <label for="end_month" class="fw-semibold text-secondary small">Ate</label>
+          <input id="end_month" type="month" name="end_month" value="{{ selected_end_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;">
           <a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-table"></i> Voltar</a>
         </form>
       </div>
@@ -530,10 +532,19 @@
       const PRINT_CLASS_TABLE = "print-dashboard-table";
       const PRINT_STYLE_ID = "dashboard-print-page-style";
       const form = document.getElementById("dashboard-month-form");
-      const monthInput = document.getElementById("competence_month");
-      monthInput.addEventListener("change", function () {
-        form.submit();
-      });
+      const startMonthInput = document.getElementById("start_month");
+      const endMonthInput = document.getElementById("end_month");
+      function maybeSubmitRange() {
+        if (startMonthInput && endMonthInput && startMonthInput.value && endMonthInput.value) {
+          form.submit();
+        }
+      }
+      if (startMonthInput) {
+        startMonthInput.addEventListener("change", maybeSubmitRange);
+      }
+      if (endMonthInput) {
+        endMonthInput.addEventListener("change", maybeSubmitRange);
+      }
 
       const labels = JSON.parse(document.getElementById("chart-labels").textContent);
       const expected = JSON.parse(document.getElementById("chart-expected-hours").textContent);

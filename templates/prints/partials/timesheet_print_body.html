@@ -10,62 +10,68 @@
     </div>
     <div class="print-item">
         <span class="print-label">Horas previstas</span>
-        <span class="print-value">{{ total_expected_minutes }} min</span>
+        <span class="print-value timesheet-print-minutes" data-minutes="{{ total_expected_minutes }}">0:00</span>
     </div>
     <div class="print-item">
         <span class="print-label">Horas normais</span>
-        <span class="print-value">{{ total_regular_minutes }} min</span>
+        <span class="print-value timesheet-print-minutes" data-minutes="{{ total_regular_minutes }}">0:00</span>
     </div>
     <div class="print-item">
         <span class="print-label">Horas extras</span>
-        <span class="print-value">{{ total_overtime_minutes }} min</span>
+        <span class="print-value timesheet-print-minutes" data-minutes="{{ total_overtime_minutes }}">0:00</span>
     </div>
     <div class="print-item">
         <span class="print-label">Ausencias</span>
-        <span class="print-value">{{ total_absence_minutes }} min</span>
+        <span class="print-value timesheet-print-minutes" data-minutes="{{ total_absence_minutes }}">0:00</span>
     </div>
 </div>
 
 <div class="print-section-title">Lancamentos por Empregado</div>
-<div class="print-record-list">
-    {% for row in rows %}
-    <article class="print-record-card">
-        <div class="print-record-card-head">
-            <span class="print-record-plan">{{ row.employee.nome_completo }}</span>
-            <span class="print-record-id">Matricula {{ row.employee.matricula }}</span>
-        </div>
-        <div class="print-record-meta-grid">
-            <div class="print-item">
-                <span class="print-label">Previstas</span>
-                <span class="print-value">{{ row.expected_minutes|default:0 }} min</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Normais</span>
-                <span class="print-value">{% if row.entry %}{{ row.entry.regular_minutes|default:0 }}{% else %}0{% endif %} min</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Extra 60%</span>
-                <span class="print-value">{% if row.entry %}{{ row.entry.overtime_60_minutes|default:0 }}{% else %}0{% endif %} min</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Extra 100%</span>
-                <span class="print-value">{% if row.entry %}{{ row.entry.overtime_100_minutes|default:0 }}{% else %}0{% endif %} min</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Falta</span>
-                <span class="print-value">{% if row.entry %}{{ row.entry.absence_unexcused_minutes|default:0 }}{% else %}0{% endif %} min</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Justificada</span>
-                <span class="print-value">{% if row.entry %}{{ row.entry.absence_excused_minutes|default:0 }}{% else %}0{% endif %} min</span>
-            </div>
-            <div class="print-item">
-                <span class="print-label">Banco</span>
-                <span class="print-value">{% if row.entry %}{{ row.entry.absence_bank_minutes|default:0 }}{% else %}0{% endif %} min</span>
-            </div>
-        </div>
-    </article>
-    {% empty %}
-    <div class="print-value">Sem lancamentos para a competencia selecionada.</div>
-    {% endfor %}
-</div>
+<table class="print-data-table timesheet-print-table">
+    <colgroup>
+        <col class="ts-col-matr" />
+        <col class="ts-col-name" />
+        <col class="ts-col-prev" />
+        <col class="ts-col-lanc" />
+        <col class="ts-col-norm" />
+        <col class="ts-col-ext60" />
+        <col class="ts-col-ext100" />
+        <col class="ts-col-falta" />
+        <col class="ts-col-just" />
+        <col class="ts-col-banco" />
+    </colgroup>
+    <thead>
+        <tr>
+            <th>MATR.</th>
+            <th>NOME</th>
+            <th>PREV.</th>
+            <th>LAN&Ccedil;.</th>
+            <th>NORMAIS</th>
+            <th><span class="ts-head-stack">EXT.<br>60%</span></th>
+            <th><span class="ts-head-stack">EXT.<br>100%</span></th>
+            <th>FALTA</th>
+            <th>JUST.</th>
+            <th>BANCO</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.employee.matricula|default:"-" }}</td>
+            <td>{{ row.employee.nome_completo|default:"-" }}</td>
+            <td><span class="timesheet-print-minutes" data-minutes="{{ row.expected_minutes|default:0 }}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.regular_minutes|add:row.entry.overtime_60_minutes|add:row.entry.overtime_100_minutes|add:row.entry.absence_unexcused_minutes|add:row.entry.absence_excused_minutes|add:row.entry.absence_bank_minutes }}{% else %}0{% endif %}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.regular_minutes|default:0 }}{% else %}0{% endif %}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.overtime_60_minutes|default:0 }}{% else %}0{% endif %}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.overtime_100_minutes|default:0 }}{% else %}0{% endif %}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.absence_unexcused_minutes|default:0 }}{% else %}0{% endif %}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.absence_excused_minutes|default:0 }}{% else %}0{% endif %}">0:00</span></td>
+            <td><span class="timesheet-print-minutes" data-minutes="{% if row.entry %}{{ row.entry.absence_bank_minutes|default:0 }}{% else %}0{% endif %}">0:00</span></td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="10">Sem lancamentos para a competencia selecionada.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
