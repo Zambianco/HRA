@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Snapshot{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'timesheet_page' %}">Timesheet</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Snapshot</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row mb-4 align-items-end">
+    <div class="col-lg-8">
+      <h1 class="fw-bold text-primary mb-1">Snapshot Mensal</h1>
+      <p class="text-muted mb-0">Consulte os dados congelados no fechamento do timesheet por competencia.</p>
+    </div>
+    <div class="col-lg-4 mt-3 mt-lg-0">
+      <form method="get" class="d-flex gap-2 justify-content-lg-end align-items-end">
+        <div>
+          <label for="competence_month" class="form-label fw-semibold mb-1">Mes de competencia</label>
+          <input
+            id="competence_month"
+            name="competence_month"
+            type="month"
+            class="form-control"
+            value="{{ selected_competence_month }}"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Consultar</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-journal-check me-1"></i>Status</h6>
+          {% if closure %}
+            <h5 class="card-title fw-bold text-success mb-1">Mes encerrado</h5>
+            <small class="text-muted">Fechado em {{ closure.closed_at|date:"d/m/Y H:i" }}</small>
+          {% else %}
+            <h5 class="card-title fw-bold text-warning mb-1">Sem snapshot</h5>
+            <small class="text-muted">Nao ha fechamento para este mes.</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-calendar-week me-1"></i>Escalas snapshot</h6>
+          <h5 class="card-title fw-bold mb-0">{{ schedule_snapshots|length }}</h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-calendar-range me-1"></i>Excecoes snapshot</h6>
+          <h5 class="card-title fw-bold mb-0">{{ calendar_period_snapshots|length }}</h5>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-person-lines-fill me-1"></i>Excecoes individuais</h6>
+          <h5 class="card-title fw-bold mb-0">{{ employee_event_snapshots|length }}</h5>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+      <h5 class="fw-semibold mb-0">Snapshot de Escalas</h5>
+      <span class="badge text-bg-light border">{{ schedule_snapshots|length }} registro(s)</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4" style="width: 90px;">ID Escala</th>
+              <th style="width: 220px;">Escala</th>
+              <th style="width: 220px;">Calendario</th>
+              <th style="width: 90px;">Seg</th>
+              <th style="width: 90px;">Ter</th>
+              <th style="width: 90px;">Qua</th>
+              <th style="width: 90px;">Qui</th>
+              <th style="width: 90px;">Sex</th>
+              <th style="width: 90px;">Sab</th>
+              <th style="width: 90px;">Dom</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in schedule_snapshots %}
+              <tr>
+                <td class="ps-4 fw-semibold text-primary">{{ item.source_work_schedule_id }}</td>
+                <td>{{ item.work_schedule_name }}</td>
+                <td>{{ item.calendar_name|default:"-" }}</td>
+                <td>{{ item.horas_segunda|floatformat:2 }}</td>
+                <td>{{ item.horas_terca|floatformat:2 }}</td>
+                <td>{{ item.horas_quarta|floatformat:2 }}</td>
+                <td>{{ item.horas_quinta|floatformat:2 }}</td>
+                <td>{{ item.horas_sexta|floatformat:2 }}</td>
+                <td>{{ item.horas_sabado|floatformat:2 }}</td>
+                <td>{{ item.horas_domingo|floatformat:2 }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="10" class="text-center text-muted py-4">Nenhum snapshot de escala para esta competencia.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+      <h5 class="fw-semibold mb-0">Snapshot de Excecoes de Calendario</h5>
+      <span class="badge text-bg-light border">{{ calendar_period_snapshots|length }} registro(s)</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4" style="width: 220px;">Calendario</th>
+              <th style="width: 180px;">Tipo</th>
+              <th style="width: 130px;">Inicio</th>
+              <th style="width: 130px;">Fim</th>
+              <th>Descricao</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in calendar_period_snapshots %}
+              <tr>
+                <td class="ps-4">{{ item.calendar_name }}</td>
+                <td>{{ item.period_type }}</td>
+                <td>{{ item.start_date|date:"d/m/Y" }}</td>
+                <td>{{ item.end_date|date:"d/m/Y" }}</td>
+                <td>{{ item.description|default:"-" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">Nenhum snapshot de excecao para esta competencia.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+      <h5 class="fw-semibold mb-0">Snapshot de Excecoes Individuais por Empregado</h5>
+      <span class="badge text-bg-light border">{{ employee_event_snapshots|length }} registro(s)</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4" style="width: 120px;">Matricula</th>
+              <th style="width: 240px;">Empregado</th>
+              <th style="width: 180px;">Tipo</th>
+              <th style="width: 130px;">Inicio</th>
+              <th style="width: 130px;">Fim</th>
+              <th>Observacao</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in employee_event_snapshots %}
+              <tr>
+                <td class="ps-4"><span class="badge text-bg-light border">{{ item.employee_registration }}</span></td>
+                <td>{{ item.employee_name }}</td>
+                <td>
+                  {% if item.event_type == 'vacation' %}Ferias
+                  {% elif item.event_type == 'day_off' %}Folga
+                  {% elif item.event_type == 'absence' %}Ausencia
+                  {% elif item.event_type == 'medical_certificate' %}Atestado
+                  {% else %}{{ item.event_type }}
+                  {% endif %}
+                </td>
+                <td>{{ item.effective_date|date:"d/m/Y" }}</td>
+                <td>{{ item.end_date|date:"d/m/Y"|default:"-" }}</td>
+                <td>{{ item.notes|default:"-" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">Nenhum snapshot de excecao individual para esta competencia.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if closed_months %}
+    <div class="text-muted small mt-3">
+      <i class="bi bi-info-circle me-1"></i>
+      Competencias encerradas disponiveis: {{ closed_months_count }}
+    </div>
+  {% endif %}
+{% endblock %}
+

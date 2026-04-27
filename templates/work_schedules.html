@@ -1,9 +1,15 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}Escalas{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    .old-period-row {
+      opacity: 0.5;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -18,49 +24,23 @@
     </div>
   </div>
 
-  <div class="row mb-4">
+  <div class="row mb-3">
     <div class="col-lg-8">
-      <div class="d-flex flex-wrap align-items-center gap-3">
-        <div>
-          <h1 class="fw-bold text-primary mb-1">Escalas</h1>
-          <p class="text-muted mb-0">Cadastre cargas horarias diarias de segunda a domingo para vincular aos empregados.</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-      <button type="button" class="btn btn-primary" onclick="openWorkScheduleCreateModal()">
-        <i class="bi bi-plus-circle me-1"></i>
-        Nova Escala
-      </button>
+      <h1 class="fw-bold text-primary mb-1">Escalas e Calendarios</h1>
+      <p class="text-muted mb-0">Separe o cadastro de escalas e de excecoes por calendario.</p>
     </div>
   </div>
 
-  <div class="row mb-4">
-    <div class="col-md-6 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-calendar-week me-1"></i>Total de escalas
-          </h6>
-          <h5 class="card-title fw-bold" id="totalCount">{{ work_schedules|length }}</h5>
-          <p class="card-text text-muted mb-0">Disponiveis para vinculo com empregado</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-clock-history me-1"></i>Carga diaria
-          </h6>
-          <h5 class="card-title fw-bold text-info">0.00 a 24.00 h</h5>
-          <p class="card-text text-muted mb-0">Faixa aceita por dia da semana</p>
-        </div>
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="btn-group" role="tablist" aria-label="Abas de escalas e calendarios">
+        <button type="button" class="btn btn-primary" id="tabButtonSchedules" onclick="activateTab('schedules')">Escalas</button>
+        <button type="button" class="btn btn-outline-primary" id="tabButtonCalendars" onclick="activateTab('calendars')">Calendarios</button>
       </div>
     </div>
   </div>
 
-  <div class="row">
+  <div id="tabSchedules" class="row">
     <div class="col-12">
       <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom p-3">
@@ -69,16 +49,14 @@
               <i class="bi bi-calendar-week fs-5 text-primary"></i>
               <h5 class="fw-semibold mb-0">Escalas Cadastradas</h5>
             </div>
-            <div class="input-group input-group-sm" style="width: 280px;">
-              <span class="input-group-text bg-transparent border-end-0">
-                <i class="bi bi-search text-muted"></i>
-              </span>
-              <input
-                type="text"
-                class="form-control border-start-0"
-                id="searchInput"
-                placeholder="Buscar por nome da escala..."
-              />
+            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+              <div class="input-group input-group-sm" style="width: 280px;">
+                <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" class="form-control border-start-0" id="searchInput" placeholder="Buscar por nome da escala..." />
+              </div>
+              <button type="button" class="btn btn-sm btn-primary" onclick="openWorkScheduleCreateModal()">
+                <i class="bi bi-plus-circle me-1"></i>Nova Escala
+              </button>
             </div>
           </div>
         </div>
@@ -90,6 +68,7 @@
                 <tr>
                   <th style="width: 70px;" class="ps-4">ID</th>
                   <th style="width: 220px;">Nome</th>
+                  <th style="width: 180px;">Calendario</th>
                   <th style="width: 90px;">Seg</th>
                   <th style="width: 90px;">Ter</th>
                   <th style="width: 90px;">Qua</th>
@@ -98,7 +77,7 @@
                   <th style="width: 90px;">Sab</th>
                   <th style="width: 90px;">Dom</th>
                   <th style="width: 110px;">Semanal</th>
-                  <th style="width: 180px;">Criacao</th>
+                  <th style="width: 120px;">Acoes</th>
                 </tr>
               </thead>
               <tbody id="workScheduleTableBody">
@@ -106,6 +85,7 @@
                   <tr data-work-schedule-name="{{ work_schedule.nome|lower }}">
                     <td class="ps-4 fw-semibold text-primary">{{ work_schedule.id }}</td>
                     <td class="fw-medium">{{ work_schedule.nome }}</td>
+                    <td>{{ work_schedule.calendar.nome|default:"-" }}</td>
                     <td>{{ work_schedule.horas_segunda|floatformat:2 }}</td>
                     <td>{{ work_schedule.horas_terca|floatformat:2 }}</td>
                     <td>{{ work_schedule.horas_quarta|floatformat:2 }}</td>
@@ -113,10 +93,29 @@
                     <td>{{ work_schedule.horas_sexta|floatformat:2 }}</td>
                     <td>{{ work_schedule.horas_sabado|floatformat:2 }}</td>
                     <td>{{ work_schedule.horas_domingo|floatformat:2 }}</td>
-                    <td class="fw-semibold text-primary">
-                      {{ work_schedule.horas_segunda|add:work_schedule.horas_terca|add:work_schedule.horas_quarta|add:work_schedule.horas_quinta|add:work_schedule.horas_sexta|add:work_schedule.horas_sabado|add:work_schedule.horas_domingo|floatformat:2 }}
+                    <td class="fw-semibold text-primary">{{ work_schedule.horas_segunda|add:work_schedule.horas_terca|add:work_schedule.horas_quarta|add:work_schedule.horas_quinta|add:work_schedule.horas_sexta|add:work_schedule.horas_sabado|add:work_schedule.horas_domingo|floatformat:2 }}</td>
+                    <td class="text-end pe-4">
+                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Acoes da escala">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary sector-action-btn"
+                          title="Editar"
+                          data-work-schedule-id="{{ work_schedule.id }}"
+                          data-work-schedule-name="{{ work_schedule.nome }}"
+                          data-work-schedule-calendar-id="{% if work_schedule.calendar %}{{ work_schedule.calendar.id }}{% endif %}"
+                          data-horas-segunda="{{ work_schedule.horas_segunda|unlocalize }}"
+                          data-horas-terca="{{ work_schedule.horas_terca|unlocalize }}"
+                          data-horas-quarta="{{ work_schedule.horas_quarta|unlocalize }}"
+                          data-horas-quinta="{{ work_schedule.horas_quinta|unlocalize }}"
+                          data-horas-sexta="{{ work_schedule.horas_sexta|unlocalize }}"
+                          data-horas-sabado="{{ work_schedule.horas_sabado|unlocalize }}"
+                          data-horas-domingo="{{ work_schedule.horas_domingo|unlocalize }}"
+                          onclick="openWorkScheduleEditModal(this)"
+                        >
+                          <i class="bi bi-pencil me-1"></i>Editar
+                        </button>
+                      </div>
                     </td>
-                    <td class="text-muted small">{{ work_schedule.created_at|date:"d/m/Y H:i" }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -126,22 +125,149 @@
           <div id="emptyState" class="text-center py-5 {% if work_schedules %}d-none{% endif %}">
             <i class="bi bi-inbox fs-1 text-muted opacity-50"></i>
             <p class="text-muted mt-2 mb-0">Nenhuma escala encontrada</p>
-            <small class="text-muted">Tente ajustar a busca ou crie uma nova escala</small>
+            <small class="text-muted">Cadastre um calendario e depois uma nova escala.</small>
           </div>
         </div>
 
         <div class="card-footer bg-white border-top py-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <small class="text-muted">
-              <i class="bi bi-info-circle me-1"></i>
-              <span id="visibleCount">{{ work_schedules|length }}</span> escala(s) exibida(s)
-            </small>
-            <small class="text-muted">
-              <i class="bi bi-clock me-1"></i>Ultima atualizacao: agora
-            </small>
-          </div>
+          <small class="text-muted"><i class="bi bi-info-circle me-1"></i><span id="visibleCount">{{ work_schedules|length }}</span> escala(s) exibida(s)</small>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="tabCalendars" class="row d-none">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div class="d-flex gap-3 align-items-center">
+            <i class="bi bi-calendar-range fs-5 text-secondary"></i>
+            <h5 class="fw-semibold mb-0">Excecoes de Calendario</h5>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap justify-content-end">
+            <form method="get" action="{% url 'work_schedules_page' %}" class="d-flex align-items-center gap-2 mb-0">
+              <input type="hidden" name="tab" value="calendars" />
+              <label for="calendarFilter" class="small text-muted mb-0">Calendario</label>
+              <select id="calendarFilter" name="calendar_id" class="form-select form-select-sm" style="min-width: 240px;" onchange="this.form.submit()">
+                <option value="">Selecione...</option>
+                {% for calendar in work_calendars %}
+                  <option value="{{ calendar.id }}" {% if selected_calendar_id == calendar.id|stringformat:'s' %}selected{% endif %}>{{ calendar.nome }}</option>
+                {% endfor %}
+              </select>
+            </form>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openSpecialPeriodCreateModal()">
+              <i class="bi bi-plus-circle me-1"></i>Nova Excecao
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="openCalendarCreateModal()">
+              <i class="bi bi-plus-circle me-1"></i>Novo Calendario
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          {% if selected_calendar %}
+            <div class="table-responsive">
+              <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 180px;" class="ps-4">Tipo</th>
+                    <th style="width: 130px;">Inicio</th>
+                    <th style="width: 130px;">Fim</th>
+                    <th>Descricao</th>
+                    <th style="width: 140px;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for period in recent_special_periods %}
+                    <tr>
+                      <td class="ps-4"><span class="badge text-bg-light border">{{ period.get_period_type_display }}</span></td>
+                      <td>{{ period.start_date|date:"d/m/Y" }}</td>
+                      <td>{{ period.end_date|date:"d/m/Y" }}</td>
+                      <td>{{ period.description|default:"-" }}</td>
+                      <td>
+                        {% if period.end_date < today %}
+                          <span class="badge text-bg-secondary">Encerrado</span>
+                        {% else %}
+                          <span class="badge text-bg-success">Ativo/Futuro</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% empty %}
+                    {% if not old_special_periods %}
+                      <tr>
+                        <td colspan="5" class="text-center text-muted py-4">Nenhuma excecao cadastrada para este calendario.</td>
+                      </tr>
+                    {% else %}
+                      <tr>
+                        <td colspan="5" class="text-center text-muted py-4">Sem excecoes recentes para este calendario.</td>
+                      </tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% if old_special_periods %}
+              <div class="border-top p-3 bg-light-subtle">
+                <details>
+                  <summary class="text-muted">
+                    Excecoes antigas (mais de 60 dias): {{ old_special_periods|length }} item(ns)
+                  </summary>
+                  <div class="table-responsive mt-3">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th style="width: 180px;" class="ps-3">Tipo</th>
+                          <th style="width: 130px;">Inicio</th>
+                          <th style="width: 130px;">Fim</th>
+                          <th>Descricao</th>
+                          <th style="width: 140px;">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for period in old_special_periods %}
+                          <tr class="old-period-row text-muted">
+                            <td class="ps-3"><span class="badge text-bg-light border">{{ period.get_period_type_display }}</span></td>
+                            <td>{{ period.start_date|date:"d/m/Y" }}</td>
+                            <td>{{ period.end_date|date:"d/m/Y" }}</td>
+                            <td>{{ period.description|default:"-" }}</td>
+                            <td><span class="badge text-bg-secondary">Encerrado</span></td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              </div>
+            {% endif %}
+            <div class="text-center py-4 border-top bg-light-subtle">
+              <small class="text-muted">Excecoes em ordem cronologica para o calendario <strong>{{ selected_calendar.nome }}</strong>.</small>
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <i class="bi bi-funnel fs-1 text-muted opacity-50"></i>
+              <p class="text-muted mt-2 mb-0">Selecione um calendario para visualizar as excecoes.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="calendar-create-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="calendar-create-modal-title">
+      <div class="app-modal-header">
+        <h2 id="calendar-create-modal-title"><i class="bi bi-calendar-plus me-2"></i>Novo Calendario</h2>
+        <button type="button" class="app-modal-close" onclick="closeCalendarCreateModal()" aria-label="Fechar">&times;</button>
+      </div>
+      <form method="post" action="{% url 'work_schedules_page' %}" class="form-grid app-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="calendar" />
+        <label for="calendar_name">Nome do calendario</label>
+        <input id="calendar_name" name="calendar_name" type="text" class="form-control" maxlength="120" placeholder="Ex: Calendario Administrativo" required />
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Cadastrar</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeCalendarCreateModal()">Cancelar</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -149,57 +275,127 @@
     <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="work-schedule-create-modal-title">
       <div class="app-modal-header">
         <h2 id="work-schedule-create-modal-title"><i class="bi bi-plus-circle me-2"></i>Nova Escala</h2>
-        <button type="button" class="app-modal-close" onclick="closeWorkScheduleCreateModal()" aria-label="Fechar">
-          &times;
-        </button>
+        <button type="button" class="app-modal-close" onclick="closeWorkScheduleCreateModal()" aria-label="Fechar">&times;</button>
       </div>
       <form method="post" action="{% url 'work_schedules_page' %}" class="form-grid app-form">
         {% csrf_token %}
+        <input type="hidden" name="form_type" value="work_schedule" />
 
         <label for="work_schedule_nome">Nome da escala</label>
-        <div class="input-group">
-          <span class="input-group-text bg-transparent">
-            <i class="bi bi-card-text text-muted"></i>
-          </span>
-          <input
-            id="work_schedule_nome"
-            name="nome"
-            type="text"
-            class="form-control"
-            maxlength="120"
-            placeholder="Ex: Escala Comercial"
-            required
-          />
-        </div>
+        <input id="work_schedule_nome" name="nome" type="text" class="form-control" maxlength="120" placeholder="Ex: Escala Comercial" required />
+
+        <label for="work_schedule_calendar_id">Calendario</label>
+        <select id="work_schedule_calendar_id" name="calendar_id" class="form-select" required>
+          <option value="">Selecione</option>
+          {% for calendar in work_calendars %}
+            <option value="{{ calendar.id }}" {% if selected_calendar_id == calendar.id|stringformat:'s' %}selected{% endif %}>{{ calendar.nome }}</option>
+          {% endfor %}
+        </select>
 
         <label for="horas_segunda">Segunda-feira</label>
-        <input id="horas_segunda" name="horas_segunda" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 8.00" required />
-
+        <input id="horas_segunda" name="horas_segunda" type="number" class="form-control" min="0" max="24" step="0.25" required />
         <label for="horas_terca">Terca-feira</label>
-        <input id="horas_terca" name="horas_terca" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 8.00" required />
-
+        <input id="horas_terca" name="horas_terca" type="number" class="form-control" min="0" max="24" step="0.25" required />
         <label for="horas_quarta">Quarta-feira</label>
-        <input id="horas_quarta" name="horas_quarta" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 8.00" required />
-
+        <input id="horas_quarta" name="horas_quarta" type="number" class="form-control" min="0" max="24" step="0.25" required />
         <label for="horas_quinta">Quinta-feira</label>
-        <input id="horas_quinta" name="horas_quinta" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 8.00" required />
-
+        <input id="horas_quinta" name="horas_quinta" type="number" class="form-control" min="0" max="24" step="0.25" required />
         <label for="horas_sexta">Sexta-feira</label>
-        <input id="horas_sexta" name="horas_sexta" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 8.00" required />
-
+        <input id="horas_sexta" name="horas_sexta" type="number" class="form-control" min="0" max="24" step="0.25" required />
         <label for="horas_sabado">Sabado</label>
-        <input id="horas_sabado" name="horas_sabado" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 0.00" required />
-
+        <input id="horas_sabado" name="horas_sabado" type="number" class="form-control" min="0" max="24" step="0.25" required />
         <label for="horas_domingo">Domingo</label>
-        <input id="horas_domingo" name="horas_domingo" type="number" class="form-control" min="0" max="24" step="0.25" placeholder="Ex: 0.00" required />
-
-        <small class="text-muted">Use valores de 0 a 24 horas por dia (aceita casas decimais).</small>
+        <input id="horas_domingo" name="horas_domingo" type="number" class="form-control" min="0" max="24" step="0.25" required />
 
         <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save me-1"></i>Cadastrar
-          </button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Cadastrar</button>
           <button type="button" class="btn btn-outline-secondary" onclick="closeWorkScheduleCreateModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="work-schedule-edit-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="work-schedule-edit-modal-title">
+      <div class="app-modal-header">
+        <h2 id="work-schedule-edit-modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Escala</h2>
+        <button type="button" class="app-modal-close" onclick="closeWorkScheduleEditModal()" aria-label="Fechar">&times;</button>
+      </div>
+      <form method="post" action="{% url 'work_schedules_page' %}" class="form-grid app-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="work_schedule_edit" />
+        <input type="hidden" id="edit_work_schedule_id" name="work_schedule_id" />
+
+        <label for="edit_work_schedule_nome">Nome da escala</label>
+        <input id="edit_work_schedule_nome" name="nome" type="text" class="form-control" maxlength="120" required />
+
+        <label for="edit_work_schedule_calendar_id">Calendario</label>
+        <select id="edit_work_schedule_calendar_id" name="calendar_id" class="form-select" required>
+          <option value="">Selecione</option>
+          {% for calendar in work_calendars %}
+            <option value="{{ calendar.id }}" {% if selected_calendar_id == calendar.id|stringformat:'s' %}selected{% endif %}>{{ calendar.nome }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="edit_horas_segunda">Segunda-feira</label>
+        <input id="edit_horas_segunda" name="horas_segunda" type="number" class="form-control" min="0" max="24" step="0.25" required />
+        <label for="edit_horas_terca">Terca-feira</label>
+        <input id="edit_horas_terca" name="horas_terca" type="number" class="form-control" min="0" max="24" step="0.25" required />
+        <label for="edit_horas_quarta">Quarta-feira</label>
+        <input id="edit_horas_quarta" name="horas_quarta" type="number" class="form-control" min="0" max="24" step="0.25" required />
+        <label for="edit_horas_quinta">Quinta-feira</label>
+        <input id="edit_horas_quinta" name="horas_quinta" type="number" class="form-control" min="0" max="24" step="0.25" required />
+        <label for="edit_horas_sexta">Sexta-feira</label>
+        <input id="edit_horas_sexta" name="horas_sexta" type="number" class="form-control" min="0" max="24" step="0.25" required />
+        <label for="edit_horas_sabado">Sabado</label>
+        <input id="edit_horas_sabado" name="horas_sabado" type="number" class="form-control" min="0" max="24" step="0.25" required />
+        <label for="edit_horas_domingo">Domingo</label>
+        <input id="edit_horas_domingo" name="horas_domingo" type="number" class="form-control" min="0" max="24" step="0.25" required />
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeWorkScheduleEditModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="special-period-create-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="special-period-create-modal-title">
+      <div class="app-modal-header">
+        <h2 id="special-period-create-modal-title"><i class="bi bi-calendar-event me-2"></i>Nova Excecao</h2>
+        <button type="button" class="app-modal-close" onclick="closeSpecialPeriodCreateModal()" aria-label="Fechar">&times;</button>
+      </div>
+      <form method="post" action="{% url 'work_schedules_page' %}" class="form-grid app-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="special_period" />
+
+        <label for="period_calendar_id">Calendario</label>
+        <select id="period_calendar_id" name="calendar_id" class="form-select" required>
+          <option value="">Selecione</option>
+          {% for calendar in work_calendars %}
+            <option value="{{ calendar.id }}">{{ calendar.nome }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="period_type">Tipo</label>
+        <select id="period_type" name="period_type" class="form-select" required>
+          <option value="">Selecione</option>
+          <option value="holiday">Feriado</option>
+          <option value="bridge">Ponte</option>
+          <option value="collective_vacation">Ferias coletivas</option>
+        </select>
+
+        <label for="period_start_date">Inicio</label>
+        <input id="period_start_date" name="start_date" type="date" class="form-control" min="{{ today_iso }}" required />
+        <label for="period_end_date">Fim</label>
+        <input id="period_end_date" name="end_date" type="date" class="form-control" min="{{ today_iso }}" required />
+        <label for="period_description">Descricao (opcional)</label>
+        <input id="period_description" name="description" type="text" class="form-control" maxlength="150" />
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Cadastrar</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeSpecialPeriodCreateModal()">Cancelar</button>
         </div>
       </form>
     </div>
@@ -210,50 +406,98 @@
     const workScheduleTableBody = document.getElementById("workScheduleTableBody");
     const emptyState = document.getElementById("emptyState");
     const visibleCountSpan = document.getElementById("visibleCount");
-    const totalCountSpan = document.getElementById("totalCount");
 
     let searchTerm = "";
 
-    function openWorkScheduleCreateModal() {
-      const modal = document.getElementById("work-schedule-create-modal");
+    function activateTab(tabName) {
+      const schedulesTab = document.getElementById("tabSchedules");
+      const calendarsTab = document.getElementById("tabCalendars");
+      const schedulesBtn = document.getElementById("tabButtonSchedules");
+      const calendarsBtn = document.getElementById("tabButtonCalendars");
+
+      if (tabName === "calendars") {
+        schedulesTab.classList.add("d-none");
+        calendarsTab.classList.remove("d-none");
+        schedulesBtn.classList.remove("btn-primary");
+        schedulesBtn.classList.add("btn-outline-primary");
+        calendarsBtn.classList.remove("btn-outline-primary");
+        calendarsBtn.classList.add("btn-primary");
+        return;
+      }
+
+      calendarsTab.classList.add("d-none");
+      schedulesTab.classList.remove("d-none");
+      calendarsBtn.classList.remove("btn-primary");
+      calendarsBtn.classList.add("btn-outline-primary");
+      schedulesBtn.classList.remove("btn-outline-primary");
+      schedulesBtn.classList.add("btn-primary");
+    }
+
+    function openModal(id, focusId) {
+      const modal = document.getElementById(id);
       if (!modal) return;
       modal.hidden = false;
       modal.setAttribute("aria-hidden", "false");
       document.body.classList.add("modal-open");
       setTimeout(function () {
-        const input = document.getElementById("work_schedule_nome");
+        const input = document.getElementById(focusId);
         if (input) input.focus();
       }, 0);
     }
 
-    function closeWorkScheduleCreateModal() {
-      const modal = document.getElementById("work-schedule-create-modal");
+    function closeModal(id) {
+      const modal = document.getElementById(id);
       if (!modal) return;
       modal.hidden = true;
       modal.setAttribute("aria-hidden", "true");
       document.body.classList.remove("modal-open");
     }
 
+    function openCalendarCreateModal() { openModal("calendar-create-modal", "calendar_name"); }
+    function closeCalendarCreateModal() { closeModal("calendar-create-modal"); }
+    function openWorkScheduleCreateModal() { openModal("work-schedule-create-modal", "work_schedule_nome"); }
+    function closeWorkScheduleCreateModal() { closeModal("work-schedule-create-modal"); }
+    function openSpecialPeriodCreateModal() { openModal("special-period-create-modal", "period_calendar_id"); }
+    function closeSpecialPeriodCreateModal() { closeModal("special-period-create-modal"); }
+
+    function openWorkScheduleEditModal(button) {
+      if (!button) return;
+      const setValue = function (id, value) {
+        const input = document.getElementById(id);
+        if (input) input.value = value || "";
+      };
+
+      setValue("edit_work_schedule_id", button.getAttribute("data-work-schedule-id"));
+      setValue("edit_work_schedule_nome", button.getAttribute("data-work-schedule-name"));
+      setValue("edit_work_schedule_calendar_id", button.getAttribute("data-work-schedule-calendar-id"));
+      const normalizeNumber = function (value) {
+        return (value || "").toString().replace(",", ".");
+      };
+
+      setValue("edit_horas_segunda", normalizeNumber(button.getAttribute("data-horas-segunda")));
+      setValue("edit_horas_terca", normalizeNumber(button.getAttribute("data-horas-terca")));
+      setValue("edit_horas_quarta", normalizeNumber(button.getAttribute("data-horas-quarta")));
+      setValue("edit_horas_quinta", normalizeNumber(button.getAttribute("data-horas-quinta")));
+      setValue("edit_horas_sexta", normalizeNumber(button.getAttribute("data-horas-sexta")));
+      setValue("edit_horas_sabado", normalizeNumber(button.getAttribute("data-horas-sabado")));
+      setValue("edit_horas_domingo", normalizeNumber(button.getAttribute("data-horas-domingo")));
+
+      openModal("work-schedule-edit-modal", "edit_work_schedule_nome");
+    }
+
+    function closeWorkScheduleEditModal() { closeModal("work-schedule-edit-modal"); }
+
     function applyFilters() {
       if (!workScheduleTableBody) return;
-
       const rows = workScheduleTableBody.querySelectorAll("tr");
       let visible = 0;
-
       rows.forEach(function (row) {
         const name = (row.dataset.workScheduleName || "").toLowerCase();
         const matchesSearch = name.includes(searchTerm);
-
-        if (matchesSearch) {
-          row.style.display = "";
-          visible += 1;
-        } else {
-          row.style.display = "none";
-        }
+        row.style.display = matchesSearch ? "" : "none";
+        if (matchesSearch) visible += 1;
       });
-
       visibleCountSpan.textContent = visible;
-      totalCountSpan.textContent = rows.length;
       emptyState.classList.toggle("d-none", visible > 0);
     }
 
@@ -265,19 +509,30 @@
     }
 
     document.addEventListener("click", function (event) {
-      const modal = document.getElementById("work-schedule-create-modal");
-      if (!modal || modal.hidden) return;
-      if (event.target === modal) {
-        closeWorkScheduleCreateModal();
-      }
+      ["calendar-create-modal", "work-schedule-create-modal", "work-schedule-edit-modal", "special-period-create-modal"].forEach(function (id) {
+        const modal = document.getElementById(id);
+        if (modal && !modal.hidden && event.target === modal) {
+          closeModal(id);
+        }
+      });
     });
 
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
-      const modal = document.getElementById("work-schedule-create-modal");
-      if (!modal || modal.hidden) return;
-      closeWorkScheduleCreateModal();
+      ["calendar-create-modal", "work-schedule-create-modal", "work-schedule-edit-modal", "special-period-create-modal"].forEach(function (id) {
+        const modal = document.getElementById(id);
+        if (modal && !modal.hidden) {
+          closeModal(id);
+        }
+      });
     });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("tab") === "calendars") {
+      activateTab("calendars");
+    } else {
+      activateTab("schedules");
+    }
 
     applyFilters();
   </script>

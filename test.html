@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Editar Maria Silva - RH Local</title>
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/abn-icon.png" />
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/static/css/Navbar-Right-Links-Dark-icons.css" />
+    <link rel="stylesheet" href="/static/css/custom.css" />
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/css/print-standard.css" media="print" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <style>
+      /* Design minimalista e moderno */
+      body {
+        background-color: #f8f9fa;
+      }
+      
+      .app-shell {
+        max-width: 800px;
+        padding: 1.5rem;
+      }
+      
+      /* Header minimalista */
+      .employee-header {
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+      }
+      
+      /* Badge de status */
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background-color: #d1e7dd;
+        color: #0a3622;
+        border-radius: 2rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+      
+      /* Cards de informação simplificados */
+      .info-card {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e9ecef;
+        transition: all 0.2s;
+      }
+      
+      .info-card:hover {
+        border-color: #dee2e6;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      }
+      
+      /* Seções do formulário */
+      .form-section {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e9ecef;
+      }
+      
+      .form-section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #f1f3f5;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #495057;
+      }
+      
+      /* Campos com melhor espaçamento */
+      .form-group {
+        margin-bottom: 1rem;
+      }
+      
+      .form-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+        color: #495057;
+      }
+      
+      /* Divider visual entre seções */
+      .section-divider {
+        height: 1px;
+        background: linear-gradient(to right, #e9ecef, transparent);
+        margin: 1.5rem 0;
+      }
+      
+      /* Botões mais clean */
+      .btn-action {
+        border-radius: 2rem;
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+      }
+      
+      /* Alerta de alterações */
+      .change-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background-color: #fff3cd;
+        color: #856404;
+        border-radius: 2rem;
+        font-size: 0.75rem;
+      }
+      
+      /* Responsividade */
+      @media (max-width: 768px) {
+        .app-shell {
+          padding: 1rem;
+        }
+        
+        .form-section {
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    
+    <!-- Navbar simplificada -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-2">
+      <div class="container">
+        <a class="navbar-brand" href="/empregados/">
+          <img src="/static/img/logotipo.png" alt="RH Local" height="32">
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item"><a class="nav-link" href="/empregados/">Empregados</a></li>
+            <li class="nav-item"><a class="nav-link disabled" href="#">Eventos</a></li>
+            <li class="nav-item"><a class="nav-link" href="/timesheet/">Timesheet</a></li>
+            <li class="nav-item"><a class="nav-link" href="/setores/">Setores</a></li>
+            <li class="nav-item"><a class="nav-link" href="/escalas/">Escalas</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container app-shell">
+      
+      <!-- Breadcrumb simplificado -->
+      <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small mb-0">
+          <li class="breadcrumb-item"><a href="/empregados/">Empregados</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Editar</li>
+        </ol>
+      </nav>
+
+      <!-- Header do empregado (compacto) -->
+      <div class="employee-header">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div>
+            <h1 class="h3 fw-bold mb-1">Maria Silva</h1>
+            <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+              <span class="status-badge">
+                <i class="bi bi-person-check-fill"></i>
+                Ativo
+              </span>
+              <span class="text-muted small">
+                <i class="bi bi-person-vcard"></i> Matrícula 115
+              </span>
+              <span class="text-muted small">
+                <i class="bi bi-building"></i> Administrativo
+              </span>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="/empregados/" class="btn btn-outline-secondary btn-sm btn-action">
+              <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+            <a href="/eventos/?employee_id=1" class="btn btn-outline-info btn-sm btn-action">
+              <i class="bi bi-calendar3"></i> Eventos
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulário principal (um só, sem abas confusas) -->
+      <form method="post" id="editForm" action="/empregados/1/editar/">
+        <input type="hidden" name="csrfmiddlewaretoken" value="PiRYt67hznItQKN6uCWm8NuVRFZdFeYXumq3zRoMQFm6x7mOD32pZkcyRArqh6eH">
+
+        <!-- SEÇÃO 1: Dados Pessoais -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="bi bi-person-badge text-primary"></i>
+            Dados Pessoais
+          </div>
+          
+          <div class="row g-3">
+            <div class="col-md-8">
+              <div class="form-group">
+                <label class="form-label">Nome completo</label>
+                <input 
+                  type="text" 
+                  name="nome_completo" 
+                  class="form-control" 
+                  value="Maria Silva"
+                  required
+                >
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label class="form-label">Matrícula</label>
+                <input 
+                  type="text" 
+                  name="matricula" 
+                  class="form-control" 
+                  value="115"
+                  required
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">Tipo</label>
+                <select name="tipo" class="form-select">
+                  <option value="direto" selected>Direto</option>
+                  <option value="indireto">Indireto</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">Compensação de Jornada</label>
+                <select name="regime_compensacao_jornada" class="form-select">
+                  <option value="participante" selected>Participante (banco de horas)</option>
+                  <option value="nao_participante">Não participante</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 2: Vínculos Atuais (somente leitura) -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="bi bi-link text-primary"></i>
+            Vínculos Atuais
+          </div>
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="info-card">
+                <div class="small text-muted mb-1">
+                  <i class="bi bi-building"></i> Setor
+                </div>
+                <div class="fw-semibold">Administrativo</div>
+                <div class="small text-muted mt-1">ID: 1</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="info-card">
+                <div class="small text-muted mb-1">
+                  <i class="bi bi-clock"></i> Escala
+                </div>
+                <div class="fw-semibold">Diurno</div>
+                <div class="small text-muted mt-1">ID: 1</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 3: Alterar Vínculos -->
+        <div class="form-section" id="changeAllocationSection">
+          <div class="form-section-title">
+            <i class="bi bi-arrow-repeat text-warning"></i>
+            Alterar Vínculos
+            <span class="badge bg-warning text-dark ms-2" id="changeBadge" style="display: none;">
+              <i class="bi bi-clock"></i> Pendente
+            </span>
+          </div>
+          
+          <div class="alert alert-light border small mb-3">
+            <i class="bi bi-info-circle-fill text-info me-2"></i>
+            Preencha apenas se precisar alterar o setor ou escala do empregado.
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">Novo Setor</label>
+                <select name="sector_id" id="sectorSelect" class="form-select">
+                  <option value="">Manter atual (Administrativo)</option>
+                  <option value="1">Administrativo</option>
+                  <option value="2">Operações</option>
+                  <option value="3">Comercial</option>
+                  <option value="4">TI</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="form-label">Nova Escala</label>
+                <select name="work_schedule_id" id="scheduleSelect" class="form-select">
+                  <option value="">Manter atual (Diurno)</option>
+                  <option value="1">Diurno</option>
+                  <option value="2">Noturno</option>
+                  <option value="3">Misto</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="row" id="effectiveDateGroup" style="display: none;">
+            <div class="col-md-12">
+              <div class="form-group">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-calendar-date"></i> Data de Vigência 
+                  <span class="text-danger">*</span>
+                </label>
+                <input 
+                  type="date" 
+                  name="change_effective_date" 
+                  id="effectiveDate" 
+                  class="form-control"
+                  min="2024-01-01"
+                >
+                <div class="small text-muted mt-1">
+                  Quando esta alteração deve entrar em vigor?
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ações do formulário -->
+        <div class="d-flex gap-2 justify-content-end sticky-bottom bg-white py-3 border-top mt-4">
+          <a href="/empregados/" class="btn btn-light btn-action">
+            Cancelar
+          </a>
+          <button type="submit" class="btn btn-primary btn-action" id="submitBtn">
+            <i class="bi bi-check-lg"></i> Salvar Alterações
+          </button>
+        </div>
+      </form>
+
+    </main>
+
+    <script>
+      (function() {
+        const sectorSelect = document.getElementById('sectorSelect');
+        const scheduleSelect = document.getElementById('scheduleSelect');
+        const effectiveDateGroup = document.getElementById('effectiveDateGroup');
+        const effectiveDateInput = document.getElementById('effectiveDate');
+        const changeBadge = document.getElementById('changeBadge');
+        const form = document.getElementById('editForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Valores iniciais
+        const initialSector = '1'; // Administrativo
+        const initialSchedule = '1'; // Diurno
+
+        // Verifica se houve mudança
+        function hasAllocationChange() {
+          const newSector = sectorSelect.value;
+          const newSchedule = scheduleSelect.value;
+          return (newSector !== '' && newSector !== initialSector) || 
+                 (newSchedule !== '' && newSchedule !== initialSchedule);
+        }
+
+        // Mostra/esconde campo de data
+        function toggleEffectiveDate() {
+          const changed = hasAllocationChange();
+          
+          if (changed) {
+            effectiveDateGroup.style.display = 'block';
+            changeBadge.style.display = 'inline-block';
+            effectiveDateInput.required = true;
+          } else {
+            effectiveDateGroup.style.display = 'none';
+            changeBadge.style.display = 'none';
+            effectiveDateInput.required = false;
+            effectiveDateInput.value = '';
+          }
+        }
+
+        // Validação da data
+        function validateDate() {
+          if (!hasAllocationChange()) return true;
+          
+          const dateValue = effectiveDateInput.value;
+          if (!dateValue) {
+            effectiveDateInput.setCustomValidity('A data de vigência é obrigatória para alterações');
+            effectiveDateInput.classList.add('is-invalid');
+            return false;
+          }
+          
+          const today = new Date().toISOString().split('T')[0];
+          if (dateValue < today) {
+            effectiveDateInput.setCustomValidity('A data não pode ser anterior a hoje');
+            effectiveDateInput.classList.add('is-invalid');
+            return false;
+          }
+          
+          effectiveDateInput.setCustomValidity('');
+          effectiveDateInput.classList.remove('is-invalid');
+          return true;
+        }
+
+        // Event listeners
+        sectorSelect.addEventListener('change', () => {
+          toggleEffectiveDate();
+          validateDate();
+        });
+        
+        scheduleSelect.addEventListener('change', () => {
+          toggleEffectiveDate();
+          validateDate();
+        });
+        
+        effectiveDateInput.addEventListener('change', validateDate);
+        effectiveDateInput.addEventListener('input', validateDate);
+
+        // Submit com feedback
+        form.addEventListener('submit', (e) => {
+          if (hasAllocationChange() && !validateDate()) {
+            e.preventDefault();
+            effectiveDateInput.focus();
+            alert('Por favor, informe uma data de vigência válida para as alterações.');
+            return;
+          }
+          
+          // Feedback visual de salvamento
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Salvando...';
+          
+          // Aqui o form vai submeter normalmente
+          // Se quiser simular, pode remover o setTimeout
+          setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> Salvar Alterações';
+          }, 2000);
+        });
+
+        // Tooltip para ajudar o usuário
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'small text-muted text-center mt-3';
+        infoDiv.innerHTML = '<i class="bi bi-question-circle"></i> Dica: Preencha apenas o que for alterar. Campos em branco manterão os valores atuais.';
+        document.querySelector('.sticky-bottom').insertAdjacentElement('beforebegin', infoDiv);
+
+        // Inicialização
+        toggleEffectiveDate();
+      })();
+    </script>
+
+    <!-- Bootstrap JS para toggle da navbar -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

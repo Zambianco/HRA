@@ -335,9 +335,20 @@
     <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
       <h5 class="fw-semibold mb-0">Tabela mensal de timesheet</h5>
       <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+        <a
+          href="{% url 'timesheet_snapshots_audit_page' %}?competence_month={{ selected_competence_month }}"
+          class="btn btn-sm btn-outline-secondary"
+        >
+          <i class="bi bi-archive me-1"></i>Snapshot
+        </a>
         <span class="badge text-bg-light border">
           Competencia: {{ selected_competence_month }}
         </span>
+        {% if is_month_closed %}
+          <span class="badge text-bg-danger">Mes encerrado</span>
+        {% else %}
+          <span class="badge text-bg-success">Mes aberto</span>
+        {% endif %}
         <div class="form-check form-switch m-0">
           <input class="form-check-input" type="checkbox" role="switch" id="display-mode-toggle" />
           <label class="form-check-label small text-muted" for="display-mode-toggle">
@@ -346,7 +357,7 @@
         </div>
       </div>
     </div>
-    <form method="post">
+    <form method="post" id="timesheet-sheet-form" data-month-closed="{% if is_month_closed %}1{% else %}0{% endif %}">
       {% csrf_token %}
       <input
         type="hidden"
@@ -355,6 +366,11 @@
         value="{{ selected_competence_month }}"
       />
       <div class="card-body p-0">
+        {% if is_month_closed %}
+          <div class="alert alert-warning rounded-0 border-0 border-bottom mb-0 px-3 py-2">
+            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mes de competencia. Para alterar os lancamentos, reabra o mes.
+          </div>
+        {% endif %}
         <div class="point-sheet-wrapper">
           <table class="point-sheet mb-0">
             <thead class="table-light">
@@ -422,6 +438,7 @@
                       data-col="0"
                       data-minutes-field="regular_minutes_{{ row.employee.id }}"
                       autocomplete="off"
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
                       value=""
                     />
                     <input
@@ -439,6 +456,7 @@
                       data-col="1"
                       data-minutes-field="overtime_60_minutes_{{ row.employee.id }}"
                       autocomplete="off"
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
                       value=""
                     />
                     <input
@@ -456,6 +474,7 @@
                       data-col="2"
                       data-minutes-field="overtime_100_minutes_{{ row.employee.id }}"
                       autocomplete="off"
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
                       value=""
                     />
                     <input
@@ -473,6 +492,7 @@
                       data-col="3"
                       data-minutes-field="absence_unexcused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
                       value=""
                     />
                     <input
@@ -490,6 +510,7 @@
                       data-col="4"
                       data-minutes-field="absence_excused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competencia"{% endif %}
                       value=""
                     />
                     <input
@@ -507,7 +528,7 @@
                       data-col="5"
                       data-minutes-field="absence_bank_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if row.employee.regime_compensacao_jornada != "participante" %}disabled tabindex="-1" title="Empregado nao participante do banco de horas"{% endif %}
+                      {% if is_month_closed or row.employee.regime_compensacao_jornada != "participante" %}disabled tabindex="-1" title="{% if is_month_closed %}Timesheet encerrado para esta competencia{% else %}Empregado nao participante do banco de horas{% endif %}"{% endif %}
                       value=""
                     />
                     {% if row.employee.regime_compensacao_jornada != "participante" %}
@@ -537,9 +558,20 @@
         <small class="text-muted mb-0">
           Linhas sem valores e sem observacao sao removidas da competencia ao salvar.
         </small>
-        <button type="submit" class="btn btn-primary">
-          <i class="bi bi-save me-1"></i>Salvar compilado mensal
-        </button>
+        <div class="d-flex align-items-center gap-2">
+          {% if is_month_closed %}
+            <button type="submit" class="btn btn-outline-warning" name="action" value="reopen_month">
+              <i class="bi bi-unlock me-1"></i>Reabrir mes
+            </button>
+          {% else %}
+            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mes de competencia? Apos encerrar, alteracoes ficarao bloqueadas ate reabertura.')">
+              <i class="bi bi-lock me-1"></i>Encerrar mes
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>Salvar compilado mensal
+            </button>
+          {% endif %}
+        </div>
       </div>
     </form>
   </div>
@@ -1295,3 +1327,8 @@
     })();
   </script>
 {% endblock %}
+
+
+
+
+

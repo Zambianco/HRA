@@ -1,4 +1,4 @@
-from django.db import models
+﻿from django.db import models
 
 
 class Employee(models.Model):
@@ -163,8 +163,101 @@ class EmployeeTimeEntry(models.Model):
         return f"{self.employee_id} - {self.competence_month}"
 
 
+class TimesheetMonthClosure(models.Model):
+    competence_month = models.DateField(unique=True, db_index=True)
+    closed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-competence_month", "-closed_at", "-id")
+
+    def __str__(self) -> str:
+        return f"{self.competence_month} - encerrado"
+
+
+class TimesheetMonthClosureWorkScheduleSnapshot(models.Model):
+    closure = models.ForeignKey(
+        "TimesheetMonthClosure",
+        on_delete=models.CASCADE,
+        related_name="work_schedule_snapshots",
+    )
+    source_work_schedule_id = models.IntegerField(db_index=True)
+    work_schedule_name = models.CharField(max_length=120)
+    source_calendar_id = models.IntegerField(null=True, blank=True, db_index=True)
+    calendar_name = models.CharField(max_length=120, blank=True)
+    horas_segunda = models.DecimalField(max_digits=4, decimal_places=2)
+    horas_terca = models.DecimalField(max_digits=4, decimal_places=2)
+    horas_quarta = models.DecimalField(max_digits=4, decimal_places=2)
+    horas_quinta = models.DecimalField(max_digits=4, decimal_places=2)
+    horas_sexta = models.DecimalField(max_digits=4, decimal_places=2)
+    horas_sabado = models.DecimalField(max_digits=4, decimal_places=2)
+    horas_domingo = models.DecimalField(max_digits=4, decimal_places=2)
+
+    class Meta:
+        ordering = ("closure__competence_month", "work_schedule_name", "id")
+
+
+class TimesheetMonthClosureCalendarPeriodSnapshot(models.Model):
+    closure = models.ForeignKey(
+        "TimesheetMonthClosure",
+        on_delete=models.CASCADE,
+        related_name="calendar_period_snapshots",
+    )
+    source_calendar_id = models.IntegerField(db_index=True)
+    calendar_name = models.CharField(max_length=120)
+    period_type = models.CharField(max_length=20)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    description = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ("closure__competence_month", "start_date", "id")
+
+
+class TimesheetMonthClosureEmployeeEventSnapshot(models.Model):
+    closure = models.ForeignKey(
+        "TimesheetMonthClosure",
+        on_delete=models.CASCADE,
+        related_name="employee_event_snapshots",
+    )
+    source_employee_event_id = models.IntegerField(db_index=True)
+    source_employee_id = models.IntegerField(db_index=True)
+    employee_registration = models.CharField(max_length=50)
+    employee_name = models.CharField(max_length=150)
+    event_type = models.CharField(max_length=40)
+    effective_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = (
+            "closure__competence_month",
+            "employee_name",
+            "effective_date",
+            "source_employee_event_id",
+        )
+
+
+
+class WorkCalendar(models.Model):
+    nome = models.CharField(max_length=120, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("nome",)
+
+    def __str__(self) -> str:
+        return self.nome
+
+
 class WorkSchedule(models.Model):
     nome = models.CharField(max_length=120, unique=True)
+    calendar = models.ForeignKey(
+        "WorkCalendar",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="work_schedules",
+    )
     horas_segunda = models.DecimalField(max_digits=4, decimal_places=2)
     horas_terca = models.DecimalField(max_digits=4, decimal_places=2)
     horas_quarta = models.DecimalField(max_digits=4, decimal_places=2)
@@ -179,6 +272,40 @@ class WorkSchedule(models.Model):
 
     def __str__(self) -> str:
         return self.nome
+
+
+class WorkCalendarPeriod(models.Model):
+    TYPE_HOLIDAY = "holiday"
+    TYPE_BRIDGE = "bridge"
+    TYPE_COLLECTIVE_VACATION = "collective_vacation"
+    TYPE_CHOICES = (
+        (TYPE_HOLIDAY, "Feriado"),
+        (TYPE_BRIDGE, "Ponte"),
+        (TYPE_COLLECTIVE_VACATION, "Ferias coletivas"),
+    )
+
+    calendar = models.ForeignKey(
+        "WorkCalendar",
+        on_delete=models.CASCADE,
+        related_name="periods",
+    )
+    period_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    start_date = models.DateField(db_index=True)
+    end_date = models.DateField(db_index=True)
+    description = models.CharField(max_length=150, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-start_date", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_date__gte=models.F("start_date")),
+                name="work_calendar_period_end_after_start",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.calendar} - {self.get_period_type_display()} - {self.start_date} a {self.end_date}"
 
 
 class Sector(models.Model):
@@ -199,3 +326,4 @@ class Sector(models.Model):
 
     def __str__(self) -> str:
         return self.nome
+

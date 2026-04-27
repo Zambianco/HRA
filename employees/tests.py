@@ -1,8 +1,21 @@
+from datetime import date, timedelta
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Employee, EmployeeEvent, EmployeeTimeEntry, Sector, WorkSchedule
+from .models import (
+    Employee,
+    EmployeeEvent,
+    EmployeeTimeEntry,
+    TimesheetMonthClosure,
+    TimesheetMonthClosureCalendarPeriodSnapshot,
+    TimesheetMonthClosureEmployeeEventSnapshot,
+    TimesheetMonthClosureWorkScheduleSnapshot,
+    Sector,
+    WorkCalendar,
+    WorkCalendarPeriod,
+    WorkSchedule,
+)
 
 
 class EmployeeViewTests(TestCase):
@@ -177,6 +190,83 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Editar Empregado")
         self.assertContains(response, employee.matricula)
+        self.assertContains(response, "Excessoes de calendario")
+
+    def test_create_calendar_exception_via_employee_edit_page(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3001EX",
+            nome_completo="Editar com Excecao",
+            sector=sector,
+        )
+
+        response = self.client.post(
+            reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
+            data={
+                "form_type": "calendar_exception",
+                "exception_type": EmployeeEvent.EVENT_TYPE_VACATION,
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-10",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeEvent.objects.count(), 1)
+        event = EmployeeEvent.objects.first()
+        self.assertEqual(event.employee, employee)
+        self.assertEqual(event.event_type, EmployeeEvent.EVENT_TYPE_VACATION)
+        self.assertEqual(str(event.effective_date), "2026-05-01")
+        self.assertEqual(str(event.end_date), "2026-05-10")
+        self.assertContains(response, "Excessao de calendario registrada com sucesso.")
+        self.assertEqual(response.request["PATH_INFO"], reverse("employee_edit_page", kwargs={"employee_id": employee.id}))
+        self.assertIn("tab=calendar-exceptions", response.request.get("QUERY_STRING", ""))
+
+    def test_create_calendar_exception_rejects_invalid_type(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3001EX2",
+            nome_completo="Tipo Invalido",
+            sector=sector,
+        )
+
+        response = self.client.post(
+            reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
+            data={
+                "form_type": "calendar_exception",
+                "exception_type": EmployeeEvent.EVENT_TYPE_MEDICAL_CERTIFICATE,
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-10",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeEvent.objects.count(), 0)
+        self.assertContains(response, "Selecione um tipo de excessao valido.")
+
+    def test_create_calendar_exception_rejects_end_date_before_start_date(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3001EX3",
+            nome_completo="Periodo Invalido",
+            sector=sector,
+        )
+
+        response = self.client.post(
+            reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
+            data={
+                "form_type": "calendar_exception",
+                "exception_type": EmployeeEvent.EVENT_TYPE_DAY_OFF,
+                "start_date": "2026-05-10",
+                "end_date": "2026-05-01",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeEvent.objects.count(), 0)
+        self.assertContains(response, "A data de fim deve ser maior ou igual a data de inicio.")
 
     def test_edit_employee_via_page(self):
         sector_a = Sector.objects.create(nome="RH")
@@ -262,6 +352,68 @@ class EmployeeViewTests(TestCase):
         )
         self.assertEqual(EmployeeEvent.objects.count(), 0)
 
+    def test_edit_employee_rejects_effective_date_older_than_30_days(self):
+        sector_a = Sector.objects.create(nome="RH")
+        sector_b = Sector.objects.create(nome="Financeiro")
+        employee = Employee.objects.create(
+            matricula="3002B30",
+            nome_completo="Data Antiga",
+            sector=sector_a,
+        )
+
+        old_date = timezone.localdate() - timedelta(days=31)
+        response = self.client.post(
+            reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
+            data={
+                "matricula": "3002B30",
+                "nome_completo": "Data Antiga",
+                "tipo": Employee.TYPE_DIRETO,
+                "regime_compensacao_jornada": Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+                "sector_id": str(sector_b.id),
+                "work_schedule_id": "",
+                "change_effective_date": old_date.isoformat(),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        employee.refresh_from_db()
+        self.assertEqual(employee.sector, sector_a)
+        self.assertContains(
+            response,
+            "Nao e permitido registrar alteracoes de cargo/setor/escala com vigencia superior a 30 dias no passado.",
+        )
+        self.assertEqual(EmployeeEvent.objects.count(), 0)
+
+    def test_edit_employee_rejects_effective_date_in_closed_competence_month(self):
+        sector_a = Sector.objects.create(nome="RH")
+        sector_b = Sector.objects.create(nome="Financeiro")
+        employee = Employee.objects.create(
+            matricula="3002BLOCK",
+            nome_completo="Mes Fechado",
+            sector=sector_a,
+        )
+        TimesheetMonthClosure.objects.create(competence_month="2026-04-01")
+
+        response = self.client.post(
+            reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
+            data={
+                "matricula": "3002BLOCK",
+                "nome_completo": "Mes Fechado",
+                "tipo": Employee.TYPE_DIRETO,
+                "regime_compensacao_jornada": Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+                "sector_id": str(sector_b.id),
+                "work_schedule_id": "",
+                "change_effective_date": "2026-04-24",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        employee.refresh_from_db()
+        self.assertEqual(employee.sector, sector_a)
+        self.assertContains(response, "vigencia em competencia encerrada")
+        self.assertEqual(EmployeeEvent.objects.count(), 0)
     def test_edit_employee_allows_update_without_effective_date_when_no_allocation_change(self):
         sector = Sector.objects.create(nome="RH")
         work_schedule = WorkSchedule.objects.create(
@@ -361,6 +513,30 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(event.notes, "Ausencia justificada")
         self.assertContains(response, "Evento registrado com sucesso.")
 
+    def test_create_event_is_blocked_when_competence_month_is_closed(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3004ALOCK",
+            nome_completo="Evento Bloqueado",
+            sector=sector,
+        )
+        TimesheetMonthClosure.objects.create(competence_month="2026-04-01")
+
+        response = self.client.post(
+            reverse("events_page"),
+            data={
+                "employee_id": str(employee.id),
+                "event_type": EmployeeEvent.EVENT_TYPE_ABSENCE,
+                "effective_date": "2026-04-24",
+                "end_date": "2026-04-25",
+                "notes": "Tentativa bloqueada",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeEvent.objects.count(), 0)
+        self.assertContains(response, "competencia encerrada")
     def test_create_bank_hours_event_requires_amount(self):
         sector = Sector.objects.create(nome="RH")
         employee = Employee.objects.create(
@@ -412,6 +588,72 @@ class EmployeeViewTests(TestCase):
         response = self.client.get(reverse("timesheet_page"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Timesheet Mensal")
+
+    def test_get_timesheet_snapshots_audit_page(self):
+        response = self.client.get(reverse("timesheet_snapshots_audit_page"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Auditoria de Snapshot Mensal")
+
+    def test_timesheet_snapshots_audit_page_shows_closed_month_snapshots(self):
+        sector = Sector.objects.create(nome="Setor Auditoria")
+        calendar = WorkCalendar.objects.create(nome="Calendario Auditoria")
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=date(2026, 4, 21),
+            end_date=date(2026, 4, 21),
+            description="Feriado Auditoria",
+        )
+        work_schedule = WorkSchedule.objects.create(
+            nome="Escala Auditoria",
+            calendar=calendar,
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="AUD-01",
+            nome_completo="Funcionario Auditoria",
+            sector=sector,
+            work_schedule=work_schedule,
+        )
+        EmployeeEvent.objects.create(
+            employee=employee,
+            event_type=EmployeeEvent.EVENT_TYPE_VACATION,
+            effective_date=date(2026, 4, 10),
+            end_date=date(2026, 4, 14),
+            notes="Ferias programadas",
+        )
+
+        self.client.post(
+            reverse("timesheet_page"),
+            data={"competence_month": "2026-04", "action": "close_month"},
+            follow=True,
+        )
+
+        closure = TimesheetMonthClosure.objects.get(competence_month="2026-04-01")
+        self.assertTrue(
+            TimesheetMonthClosureEmployeeEventSnapshot.objects.filter(
+                closure=closure,
+                source_employee_id=employee.id,
+                event_type=EmployeeEvent.EVENT_TYPE_VACATION,
+            ).exists()
+        )
+
+        response = self.client.get(
+            reverse("timesheet_snapshots_audit_page"),
+            data={"competence_month": "2026-04"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Escala Auditoria")
+        self.assertContains(response, "Calendario Auditoria")
+        self.assertContains(response, "Feriado Auditoria")
+        self.assertContains(response, "Funcionario Auditoria")
+        self.assertContains(response, "Ferias programadas")
 
     def test_timesheet_page_calculates_total_expected_minutes_from_work_schedules(self):
         sector = Sector.objects.create(nome="Engenharia")
@@ -465,6 +707,110 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(rows_by_employee[sem_escala_employee.id], 0)
         self.assertContains(response, 'data-minutes="10560"')
         self.assertContains(response, 'data-minutes="12240"')
+
+    def test_timesheet_expected_minutes_subtracts_calendar_exceptions_by_weekday_hours(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        calendar = WorkCalendar.objects.create(nome="Calendario Operacional")
+        schedule = WorkSchedule.objects.create(
+            nome="Escala Operacional",
+            calendar=calendar,
+            horas_segunda="8.00",
+            horas_terca="0.00",
+            horas_quarta="0.00",
+            horas_quinta="0.00",
+            horas_sexta="0.00",
+            horas_sabado="4.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="3004I",
+            nome_completo="Calendario com Excecao",
+            sector=sector,
+            work_schedule=schedule,
+        )
+
+        baseline_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-04"
+        )
+        baseline_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in baseline_response.context["rows"]
+        }
+        baseline_minutes = baseline_rows[employee.id]
+
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=date(2026, 4, 6),
+            end_date=date(2026, 4, 6),
+            description="Feriado segunda",
+        )
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar,
+            period_type=WorkCalendarPeriod.TYPE_BRIDGE,
+            start_date=date(2026, 4, 11),
+            end_date=date(2026, 4, 11),
+            description="Ponte sabado",
+        )
+
+        response = self.client.get(f"{reverse('timesheet_page')}?competence_month=2026-04")
+        self.assertEqual(response.status_code, 200)
+        rows_by_employee = {
+            row["employee"].id: row["expected_minutes"] for row in response.context["rows"]
+        }
+        self.assertEqual(rows_by_employee[employee.id], baseline_minutes - 720)
+
+    def test_timesheet_expected_minutes_uses_union_of_calendar_and_employee_exceptions(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        calendar = WorkCalendar.objects.create(nome="Calendario Integrado")
+        schedule = WorkSchedule.objects.create(
+            nome="Escala Integrada",
+            calendar=calendar,
+            horas_segunda="8.00",
+            horas_terca="7.00",
+            horas_quarta="0.00",
+            horas_quinta="0.00",
+            horas_sexta="0.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="3004J",
+            nome_completo="Excecao Individual",
+            sector=sector,
+            work_schedule=schedule,
+        )
+
+        baseline_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-04"
+        )
+        baseline_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in baseline_response.context["rows"]
+        }
+        baseline_minutes = baseline_rows[employee.id]
+
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=date(2026, 4, 6),
+            end_date=date(2026, 4, 6),
+            description="Feriado",
+        )
+        EmployeeEvent.objects.create(
+            employee=employee,
+            event_type=EmployeeEvent.EVENT_TYPE_VACATION,
+            effective_date=date(2026, 4, 6),
+            end_date=date(2026, 4, 7),
+            notes="Ferias com sobreposicao",
+        )
+
+        response = self.client.get(f"{reverse('timesheet_page')}?competence_month=2026-04")
+        self.assertEqual(response.status_code, 200)
+        rows_by_employee = {
+            row["employee"].id: row["expected_minutes"] for row in response.context["rows"]
+        }
+        self.assertEqual(rows_by_employee[employee.id], baseline_minutes - 900)
 
     def test_legacy_point_url_redirects_to_timesheet(self):
         response = self.client.get("/ponto/?competence_month=2026-04")
@@ -521,6 +867,121 @@ class EmployeeViewTests(TestCase):
         self.assertContains(response, 'data-minutes="10560"')
         self.assertContains(response, 'data-minutes="960"')
 
+    def test_close_month_action_creates_month_closure(self):
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                "action": "close_month",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            TimesheetMonthClosure.objects.filter(competence_month="2026-04-01").exists()
+        )
+        self.assertContains(response, "Timesheet de 04/2026 encerrado")
+
+    def test_close_month_action_creates_schedule_snapshot(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        calendar = WorkCalendar.objects.create(nome="Calendario Snapshot")
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=date(2026, 4, 21),
+            end_date=date(2026, 4, 21),
+            description="Tiradentes",
+        )
+        work_schedule = WorkSchedule.objects.create(
+            nome="Escala Snapshot",
+            calendar=calendar,
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        Employee.objects.create(
+            matricula="TS-SNAP-01",
+            nome_completo="Funcionario Snapshot",
+            sector=sector,
+            work_schedule=work_schedule,
+        )
+
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                "action": "close_month",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        closure = TimesheetMonthClosure.objects.get(competence_month="2026-04-01")
+        self.assertTrue(
+            TimesheetMonthClosureWorkScheduleSnapshot.objects.filter(
+                closure=closure,
+                source_work_schedule_id=work_schedule.id,
+            ).exists()
+        )
+        self.assertTrue(
+            TimesheetMonthClosureCalendarPeriodSnapshot.objects.filter(
+                closure=closure,
+                source_calendar_id=calendar.id,
+                start_date="2026-04-21",
+            ).exists()
+        )
+
+    def test_save_monthly_timesheet_is_blocked_when_month_is_closed(self):
+        sector = Sector.objects.create(nome="Qualidade")
+        employee = Employee.objects.create(
+            matricula="3004LOCK",
+            nome_completo="Mes Encerrado",
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+            sector=sector,
+        )
+        TimesheetMonthClosure.objects.create(competence_month="2026-04-01")
+
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                f"regular_minutes_{employee.id}": "9600",
+                f"overtime_60_minutes_{employee.id}": "0",
+                f"overtime_100_minutes_{employee.id}": "0",
+                f"absence_unexcused_minutes_{employee.id}": "0",
+                f"absence_excused_minutes_{employee.id}": "0",
+                f"absence_bank_minutes_{employee.id}": "0",
+                f"notes_{employee.id}": "Tentativa bloqueada",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeTimeEntry.objects.count(), 0)
+        self.assertContains(response, "esta encerrado")
+
+    def test_reopen_month_action_removes_month_closure(self):
+        TimesheetMonthClosure.objects.create(competence_month="2026-04-01")
+
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                "action": "reopen_month",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            TimesheetMonthClosure.objects.filter(competence_month="2026-04-01").exists()
+        )
+        self.assertContains(response, "Timesheet de 04/2026 reaberto")
     def test_save_timesheet_for_non_participant_forces_bank_minutes_zero(self):
         sector = Sector.objects.create(nome="Logistica")
         employee = Employee.objects.create(
@@ -750,11 +1211,24 @@ class EmployeeViewTests(TestCase):
         response = self.client.get(reverse("work_schedules_page"))
         self.assertEqual(response.status_code, 200)
 
+    def test_create_calendar_via_work_schedules_page(self):
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={"form_type": "calendar", "calendar_name": "Calendario ADM"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(WorkCalendar.objects.count(), 1)
+        self.assertContains(response, "Calendario cadastrado com sucesso.")
+
     def test_create_work_schedule_via_page(self):
+        calendar = WorkCalendar.objects.create(nome="Calendario ADM")
         response = self.client.post(
             reverse("work_schedules_page"),
             data={
+                "form_type": "work_schedule",
                 "nome": "Escala Comercial",
+                "calendar_id": str(calendar.id),
                 "horas_segunda": "8",
                 "horas_terca": "8",
                 "horas_quarta": "8",
@@ -767,11 +1241,104 @@ class EmployeeViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(WorkSchedule.objects.count(), 1)
+        self.assertEqual(WorkSchedule.objects.first().calendar, calendar)
         self.assertContains(response, "Escala cadastrada com sucesso.")
 
+    def test_edit_work_schedule_via_page(self):
+        calendar_a = WorkCalendar.objects.create(nome="Calendario A")
+        calendar_b = WorkCalendar.objects.create(nome="Calendario B")
+        work_schedule = WorkSchedule.objects.create(
+            nome="Escala Original",
+            calendar=calendar_a,
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={
+                "form_type": "work_schedule_edit",
+                "work_schedule_id": str(work_schedule.id),
+                "nome": "Escala Atualizada",
+                "calendar_id": str(calendar_b.id),
+                "horas_segunda": "7.5",
+                "horas_terca": "7.5",
+                "horas_quarta": "7.5",
+                "horas_quinta": "7.5",
+                "horas_sexta": "7.5",
+                "horas_sabado": "0",
+                "horas_domingo": "0",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        work_schedule.refresh_from_db()
+        self.assertEqual(work_schedule.nome, "Escala Atualizada")
+        self.assertEqual(work_schedule.calendar, calendar_b)
+        self.assertContains(response, "Escala atualizada com sucesso.")
+
+    def test_edit_work_schedule_is_blocked_when_month_closed_snapshot_exists(self):
+        sector = Sector.objects.create(nome="Bloqueio Setor")
+        calendar = WorkCalendar.objects.create(nome="Calendario Bloqueio")
+        work_schedule = WorkSchedule.objects.create(
+            nome="Escala Bloqueada",
+            calendar=calendar,
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        Employee.objects.create(
+            matricula="BLK-ESC-01",
+            nome_completo="Funcionario Bloqueio Escala",
+            sector=sector,
+            work_schedule=work_schedule,
+        )
+        self.client.post(
+            reverse("timesheet_page"),
+            data={"competence_month": "2026-04", "action": "close_month"},
+            follow=True,
+        )
+
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={
+                "form_type": "work_schedule_edit",
+                "work_schedule_id": str(work_schedule.id),
+                "nome": "Escala Tentativa",
+                "calendar_id": str(calendar.id),
+                "horas_segunda": "7.5",
+                "horas_terca": "7.5",
+                "horas_quarta": "7.5",
+                "horas_quinta": "7.5",
+                "horas_sexta": "7.5",
+                "horas_sabado": "0",
+                "horas_domingo": "0",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        work_schedule.refresh_from_db()
+        self.assertEqual(work_schedule.nome, "Escala Bloqueada")
+        self.assertContains(
+            response,
+            "Nao e permitido alterar esta escala, pois ela ja foi usada em mes fechado",
+        )
+
     def test_duplicate_work_schedule_via_page(self):
+        calendar = WorkCalendar.objects.create(nome="Calendario ADM")
         WorkSchedule.objects.create(
             nome="Escala Comercial",
+            calendar=calendar,
             horas_segunda="8.00",
             horas_terca="8.00",
             horas_quarta="8.00",
@@ -783,7 +1350,9 @@ class EmployeeViewTests(TestCase):
         response = self.client.post(
             reverse("work_schedules_page"),
             data={
+                "form_type": "work_schedule",
                 "nome": "escala comercial",
+                "calendar_id": str(calendar.id),
                 "horas_segunda": "8",
                 "horas_terca": "8",
                 "horas_quarta": "8",
@@ -798,12 +1367,13 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(WorkSchedule.objects.count(), 1)
         self.assertContains(response, "Ja existe uma escala com esse nome.")
 
-    def test_create_work_schedule_rejects_hour_above_24(self):
+    def test_create_work_schedule_requires_calendar(self):
         response = self.client.post(
             reverse("work_schedules_page"),
             data={
-                "nome": "Escala Invalida",
-                "horas_segunda": "25",
+                "form_type": "work_schedule",
+                "nome": "Escala sem calendario",
+                "horas_segunda": "8",
                 "horas_terca": "8",
                 "horas_quarta": "8",
                 "horas_quinta": "8",
@@ -815,10 +1385,159 @@ class EmployeeViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(WorkSchedule.objects.count(), 0)
-        self.assertContains(response, "deve estar entre 0 e 24")
+        self.assertContains(response, "Selecione um calendario valido.")
+
+    def test_create_special_period_via_work_schedules_page(self):
+        calendar = WorkCalendar.objects.create(nome="Calendario Operacao")
+        start_date = timezone.localdate() + timedelta(days=2)
+        end_date = start_date + timedelta(days=2)
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={
+                "form_type": "special_period",
+                "calendar_id": str(calendar.id),
+                "period_type": WorkCalendarPeriod.TYPE_HOLIDAY,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "description": "Natal",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(WorkCalendarPeriod.objects.count(), 1)
+        period = WorkCalendarPeriod.objects.first()
+        self.assertEqual(period.calendar, calendar)
+        self.assertEqual(period.start_date, start_date)
+        self.assertEqual(period.end_date, end_date)
+        self.assertContains(response, "Periodo especial cadastrado com sucesso.")
+
+    def test_create_special_period_is_blocked_when_calendar_has_closed_snapshot(self):
+        sector = Sector.objects.create(nome="Setor Calendario Bloq")
+        calendar = WorkCalendar.objects.create(nome="Calendario Fechado")
+        work_schedule = WorkSchedule.objects.create(
+            nome="Escala Calendario Fechado",
+            calendar=calendar,
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        Employee.objects.create(
+            matricula="BLK-CAL-01",
+            nome_completo="Funcionario Bloqueio Calendario",
+            sector=sector,
+            work_schedule=work_schedule,
+        )
+        self.client.post(
+            reverse("timesheet_page"),
+            data={"competence_month": "2026-04", "action": "close_month"},
+            follow=True,
+        )
+
+        start_date = timezone.localdate() + timedelta(days=2)
+        end_date = start_date + timedelta(days=2)
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={
+                "form_type": "special_period",
+                "calendar_id": str(calendar.id),
+                "period_type": WorkCalendarPeriod.TYPE_HOLIDAY,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "description": "Tentativa Bloqueada",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(WorkCalendarPeriod.objects.filter(description="Tentativa Bloqueada").count(), 0)
+        self.assertContains(
+            response,
+            "Nao e permitido alterar este calendario, pois ele ja foi usado em mes fechado",
+        )
+
+    def test_create_special_period_rejects_end_date_before_start_date(self):
+        calendar = WorkCalendar.objects.create(nome="Calendario Ponte")
+        start_date = timezone.localdate() + timedelta(days=10)
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={
+                "form_type": "special_period",
+                "calendar_id": str(calendar.id),
+                "period_type": WorkCalendarPeriod.TYPE_BRIDGE,
+                "start_date": start_date.isoformat(),
+                "end_date": (start_date - timedelta(days=1)).isoformat(),
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(WorkCalendarPeriod.objects.count(), 0)
+        self.assertContains(response, "A data de fim deve ser maior ou igual a data de inicio.")
+
+    def test_create_special_period_rejects_past_dates(self):
+        calendar = WorkCalendar.objects.create(nome="Calendario Expirado")
+        start_date = timezone.localdate() - timedelta(days=5)
+        end_date = timezone.localdate() - timedelta(days=1)
+        response = self.client.post(
+            reverse("work_schedules_page"),
+            data={
+                "form_type": "special_period",
+                "calendar_id": str(calendar.id),
+                "period_type": WorkCalendarPeriod.TYPE_HOLIDAY,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(WorkCalendarPeriod.objects.count(), 0)
+        self.assertContains(response, "Nao e permitido incluir excecoes com datas que ja passaram.")
+
+    def test_work_schedules_page_filters_periods_by_selected_calendar(self):
+        calendar_a = WorkCalendar.objects.create(nome="Calendario A")
+        calendar_b = WorkCalendar.objects.create(nome="Calendario B")
+        today = timezone.localdate()
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar_a,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=today + timedelta(days=1),
+            end_date=today + timedelta(days=1),
+            description="Periodo A",
+        )
+        WorkCalendarPeriod.objects.create(
+            calendar=calendar_b,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=today + timedelta(days=2),
+            end_date=today + timedelta(days=2),
+            description="Periodo B",
+        )
+
+        response_without_filter = self.client.get(reverse("work_schedules_page"))
+        self.assertEqual(response_without_filter.status_code, 200)
+        self.assertContains(
+            response_without_filter,
+            "Selecione um calendario para visualizar as excecoes.",
+        )
+        self.assertNotContains(response_without_filter, "Periodo A")
+        self.assertNotContains(response_without_filter, "Periodo B")
+
+        response_with_filter = self.client.get(
+            reverse("work_schedules_page"),
+            data={"calendar_id": str(calendar_a.id)},
+        )
+        self.assertEqual(response_with_filter.status_code, 200)
+        self.assertContains(response_with_filter, "Periodo A")
+        self.assertNotContains(response_with_filter, "Periodo B")
 
 
 class SectorModelTests(TestCase):
     def test_create_sector(self):
         Sector.objects.create(nome="Financeiro")
         self.assertEqual(Sector.objects.count(), 1)
+
+
+
+

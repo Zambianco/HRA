@@ -13,6 +13,7 @@ from .views import (
     sector_edit_page,
     sectors_page,
     timesheet_page,
+    timesheet_snapshots_audit_page,
     work_schedules_page,
 )
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path("empregados/<int:employee_id>/ativar/", employee_activate, name="employee_activate"),
     path("eventos/", events_page, name="events_page"),
     path("timesheet/", timesheet_page, name="timesheet_page"),
+    path("timesheet/snapshots/", timesheet_snapshots_audit_page, name="timesheet_snapshots_audit_page"),
     path(
         "ponto/",
         RedirectView.as_view(pattern_name="timesheet_page", permanent=True, query_string=True),

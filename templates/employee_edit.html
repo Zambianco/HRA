@@ -4,416 +4,527 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    .employee-edit-page {
+      --surface: #ffffff;
+      --surface-muted: #f7f9fc;
+      --line: #e8edf3;
+      --text-soft: #667085;
+      --ok-bg: #e8f7ee;
+      --ok-text: #12663a;
+      --warn-bg: #fff5dd;
+      --warn-text: #946200;
+    }
+
+    .employee-edit-page .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
+    }
+
+    .employee-edit-page .hero {
+      background: linear-gradient(150deg, #ffffff 0%, #f8fbff 65%, #eef5ff 100%);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.15rem;
+    }
+
+    .employee-edit-page .hero-name {
+      font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+      font-weight: 700;
+      margin: 0;
+      color: #101828;
+    }
+
+    .employee-edit-page .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .3rem .65rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #344054;
+    }
+
+    .employee-edit-page .meta-chip.ok {
+      background: var(--ok-bg);
+      border-color: #b7ebc8;
+      color: var(--ok-text);
+    }
+
+    .employee-edit-page .meta-chip.warn {
+      background: var(--warn-bg);
+      border-color: #ffe0a3;
+      color: var(--warn-text);
+    }
+
+    .employee-edit-page .section-title {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1d2939;
+    }
+
+    .employee-edit-page .section-subtitle {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: .88rem;
+    }
+
+    .employee-edit-page .section-head {
+      border-bottom: 1px solid var(--line);
+      padding: .95rem 1.1rem;
+      background: var(--surface-muted);
+      border-top-left-radius: 14px;
+      border-top-right-radius: 14px;
+    }
+
+    .employee-edit-page .section-body {
+      padding: 1rem 1.1rem 1.1rem;
+    }
+
+    .employee-edit-page .inline-note {
+      color: var(--text-soft);
+      font-size: .8rem;
+      margin-top: .35rem;
+      display: block;
+    }
+
+    .employee-edit-page .effective-date-alert {
+      display: none;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+      border-radius: 10px;
+      padding: .65rem .75rem;
+      font-size: .85rem;
+      margin-top: .6rem;
+    }
+
+    .employee-edit-page .effective-date-alert.is-visible {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+    }
+
+    .employee-edit-page .sticky-actions {
+      position: sticky;
+      bottom: .6rem;
+      z-index: 20;
+      background: rgba(255,255,255,.92);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      padding: .7rem;
+      margin-top: 1rem;
+    }
+
+    .employee-edit-page .tab-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-bottom: .8rem;
+    }
+
+    .employee-edit-page .tab-btn {
+      border-radius: 999px;
+      font-weight: 600;
+      padding: .45rem .9rem;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
-  <div class="row mb-4">
-    <div class="col-12">
-      <nav aria-label="breadcrumb">
-        <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Empregados</a></li>
-          <li class="breadcrumb-item active" aria-current="page">Editar</li>
-        </ol>
-      </nav>
+  <div class="employee-edit-page">
+    <div class="row mb-3">
+      <div class="col-12">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Empregados</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Editar</li>
+          </ol>
+        </nav>
+      </div>
     </div>
-  </div>
 
-  <div class="row mb-4">
-    <div class="col-lg-7">
-      <h1 class="fw-bold text-primary mb-1">Editar Empregado</h1>
-      <p class="text-muted mb-0">Atualize os dados cadastrais e os vinculos do empregado selecionado.</p>
-    </div>
-    <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
-      <div class="d-inline-flex flex-wrap gap-2">
-        <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">
-          <i class="bi bi-arrow-left me-1"></i>Voltar para Empregados
-        </a>
-        <a class="btn btn-outline-info" href="{% url 'events_page' %}?employee_id={{ employee.id }}">
-          <i class="bi bi-calendar-event me-1"></i>Ver Eventos
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <div class="row mb-4">
-    <div class="col-md-3 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-person-vcard me-1"></i>Matricula
-          </h6>
-          <h5 class="card-title fw-bold mb-1">{{ employee.matricula }}</h5>
-          <p class="card-text text-muted mb-0">Identificacao no sistema</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-person-check me-1"></i>Status
-          </h6>
-          {% if employee.deactivated_at %}
-            <h5 class="card-title fw-bold text-danger mb-1">Inativo</h5>
-            <p class="card-text text-muted mb-0">Empregado desativado</p>
-          {% else %}
-            <h5 class="card-title fw-bold text-success mb-1">Ativo</h5>
-            <p class="card-text text-muted mb-0">Empregado em operacao</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-building me-1"></i>Setor atual
-          </h6>
-          {% if employee.sector %}
-            <h5 class="card-title fw-bold mb-1 text-truncate" title="{{ employee.sector.nome }}">{{ employee.sector.nome }}</h5>
-            <p class="card-text text-muted mb-0">
-              {% if employee.sector.deactivated_at %}Setor inativo atual{% else %}Vinculo ativo{% endif %}
-            </p>
-          {% else %}
-            <h5 class="card-title fw-bold text-warning mb-1">Sem setor</h5>
-            <p class="card-text text-muted mb-0">Sem vinculacao setorial</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-clock-history me-1"></i>Escala atual
-          </h6>
-          {% if employee.work_schedule %}
-            <h5 class="card-title fw-bold mb-1 text-truncate" title="{{ employee.work_schedule.nome }}">{{ employee.work_schedule.nome }}</h5>
-            <p class="card-text text-muted mb-0">Escala vinculada</p>
-          {% else %}
-            <h5 class="card-title fw-bold text-warning mb-1">Sem escala</h5>
-            <p class="card-text text-muted mb-0">Sem vinculacao de jornada</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body py-2">
-          <div class="d-flex flex-wrap gap-2" role="tablist" aria-label="Abas da edicao de empregado">
-            <button
-              type="button"
-              class="btn btn-sm btn-primary js-employee-tab"
-              data-tab-target="overview"
-              aria-selected="true"
-            >
-              <i class="bi bi-grid me-1"></i>Visao Geral
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-primary js-employee-tab"
-              data-tab-target="edit"
-              aria-selected="false"
-            >
-              <i class="bi bi-pencil-square me-1"></i>Editar Dados
-            </button>
+    <div class="hero mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+          <h1 class="hero-name">{{ employee.nome_completo }}</h1>
+          <p class="text-muted mb-2">Atualize cadastro, vinculos e vigencia em um unico fluxo.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="meta-chip">
+              <i class="bi bi-person-vcard"></i> Matricula {{ employee.matricula }}
+            </span>
+            {% if employee.deactivated_at %}
+              <span class="meta-chip warn"><i class="bi bi-person-x-fill"></i> Inativo</span>
+            {% else %}
+              <span class="meta-chip ok"><i class="bi bi-person-check-fill"></i> Ativo</span>
+            {% endif %}
+            <span class="meta-chip"><i class="bi bi-diagram-2"></i> {{ employee.get_tipo_display }}</span>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <section id="employee-tab-overview">
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-white border-bottom p-3">
-        <h5 class="fw-semibold mb-0">
-          <i class="bi bi-info-circle text-primary me-2"></i>Resumo e Vinculos Atuais
-        </h5>
-      </div>
-      <div class="card-body">
-        {% if employee.deactivated_at %}
-          <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            <span>Este empregado esta inativo. Revise os dados e utilize a lista de Empregados para reativacao quando necessario.</span>
-          </div>
-        {% endif %}
-
-        <div class="row g-3">
-          <div class="col-lg-8">
-            <div class="list-group border rounded">
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Nome completo</span>
-                <span class="fw-medium text-end">{{ employee.nome_completo }}</span>
-              </div>
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Matricula</span>
-                <span class="fw-medium text-end">{{ employee.matricula }}</span>
-              </div>
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Tipo</span>
-                <span class="fw-medium text-end">{{ employee.get_tipo_display }}</span>
-              </div>
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Regime de compensacao de jornada</span>
-                <span class="fw-medium text-end">
-                  {{ employee.get_regime_compensacao_jornada_display }}
-                </span>
-              </div>
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Setor atual</span>
-                <span class="fw-medium text-end">
-                  {% if employee.sector %}
-                    {{ employee.sector.nome }}
-                    {% if employee.sector.deactivated_at %}
-                      <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1">Setor inativo</span>
-                    {% endif %}
-                  {% else %}
-                    Sem setor
-                  {% endif %}
-                </span>
-              </div>
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Escala atual</span>
-                <span class="fw-medium text-end">
-                  {% if employee.work_schedule %}{{ employee.work_schedule.nome }}{% else %}Sem escala{% endif %}
-                </span>
-              </div>
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-3">
-                <span class="text-muted">Status</span>
-                <span class="fw-medium text-end">
-                  {% if employee.deactivated_at %}Inativo{% else %}Ativo{% endif %}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-4">
-            <div class="card bg-light border h-100">
-              <div class="card-body d-flex flex-column">
-                <h6 class="fw-semibold mb-2">Edicao de vinculos</h6>
-                <p class="text-muted small mb-3">
-                  Setor e escala permanecem visiveis nesta aba. Use os botoes abaixo para editar.
-                </p>
-                <button type="button" class="btn btn-primary mb-2 js-open-edit-tab" data-focus-field="sector_id">
-                  <i class="bi bi-pencil-square me-1"></i>Editar Setor e Escala
-                </button>
-                <button type="button" class="btn btn-outline-primary js-open-edit-tab" data-focus-field="matricula">
-                  <i class="bi bi-person-gear me-1"></i>Editar Dados Cadastrais
-                </button>
-                <small class="text-muted mt-3">
-                  Ao alterar setor ou escala, o inicio da vigencia sera obrigatorio.
-                </small>
-              </div>
-            </div>
-          </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">
+            <i class="bi bi-arrow-left me-1"></i>Voltar
+          </a>
+          <a class="btn btn-outline-info" href="{% url 'events_page' %}?employee_id={{ employee.id }}">
+            <i class="bi bi-calendar-event me-1"></i>Eventos
+          </a>
         </div>
       </div>
     </div>
-  </section>
 
-  <section id="employee-tab-edit" class="d-none">
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-white border-bottom p-3">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <h5 class="fw-semibold mb-0">
-            <i class="bi bi-pencil-square text-primary me-2"></i>Formulario de Edicao
-          </h5>
-          <small class="text-muted">ID interno: {{ employee.id }}</small>
-        </div>
+    <form method="post" id="employee-edit-page-form" action="{% url 'employee_edit_page' employee.id %}">
+      {% csrf_token %}
+
+      <div class="tab-nav" role="tablist" aria-label="Abas de edicao do empregado">
+        <button type="button" class="btn btn-primary tab-btn js-edit-tab-btn" data-tab-target="info" aria-selected="true">
+          <i class="bi bi-person-lines-fill me-1"></i>Informacoes
+        </button>
+        <button type="button" class="btn btn-outline-primary tab-btn js-edit-tab-btn" data-tab-target="cargo-setor" aria-selected="false">
+          <i class="bi bi-building me-1"></i>Cargo/Setor
+        </button>
+        <button type="button" class="btn btn-outline-primary tab-btn js-edit-tab-btn" data-tab-target="escala" aria-selected="false">
+          <i class="bi bi-clock-history me-1"></i>Escala
+        </button>
+        <button type="button" class="btn btn-outline-primary tab-btn js-edit-tab-btn" data-tab-target="calendar-exceptions" aria-selected="false">
+          <i class="bi bi-calendar-range me-1"></i>Excessoes de calendario
+        </button>
       </div>
 
-      <form
-        method="post"
-        id="employee-edit-page-form"
-        action="{% url 'employee_edit_page' employee.id %}"
-      >
-        {% csrf_token %}
-        <div class="card-body">
+      <section class="panel mb-3" data-edit-tab-panel="info">
+        <div class="section-head">
+          <h2 class="section-title"><i class="bi bi-person-lines-fill text-primary"></i> Informacoes</h2>
+          <p class="section-subtitle">Dados basicos de identificacao e regra de compensacao.</p>
+        </div>
+        <div class="section-body">
           <div class="row g-3">
             <div class="col-lg-4">
               <label for="matricula" class="form-label fw-semibold">Matricula</label>
               <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-person-vcard text-muted"></i>
-                </span>
-                <input
-                  id="matricula"
-                  name="matricula"
-                  type="text"
-                  value="{{ employee.matricula }}"
-                  maxlength="50"
-                  class="form-control"
-                  required
-                />
+                <span class="input-group-text bg-transparent"><i class="bi bi-person-vcard text-muted"></i></span>
+                <input id="matricula" name="matricula" type="text" value="{{ employee.matricula }}" maxlength="50" class="form-control" required />
               </div>
             </div>
-
             <div class="col-lg-8">
               <label for="nome_completo" class="form-label fw-semibold">Nome completo</label>
               <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-person text-muted"></i>
-                </span>
-                <input
-                  id="nome_completo"
-                  name="nome_completo"
-                  type="text"
-                  value="{{ employee.nome_completo }}"
-                  maxlength="150"
-                  class="form-control"
-                  required
-                />
+                <span class="input-group-text bg-transparent"><i class="bi bi-person text-muted"></i></span>
+                <input id="nome_completo" name="nome_completo" type="text" value="{{ employee.nome_completo }}" maxlength="150" class="form-control" required />
               </div>
             </div>
+            <div class="col-lg-6">
+              <label for="regime_compensacao_jornada" class="form-label fw-semibold">Regime de compensacao</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent"><i class="bi bi-hourglass-split text-muted"></i></span>
+                <select id="regime_compensacao_jornada" name="regime_compensacao_jornada" class="form-select" required>
+                  {% for regime_value, regime_label in compensation_regime_choices %}
+                    <option value="{{ regime_value }}" {% if employee.regime_compensacao_jornada == regime_value %}selected{% endif %}>{{ regime_label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <div class="col-lg-4">
+      <section class="panel mb-3 d-none" data-edit-tab-panel="cargo-setor">
+        <div class="section-head">
+          <h2 class="section-title"><i class="bi bi-diagram-3 text-primary"></i> Cargo e setor</h2>
+          <p class="section-subtitle">Defina tipo do empregado e vinculacao setorial.</p>
+        </div>
+        <div class="section-body">
+          <div class="row g-3">
+            <div class="col-lg-6">
               <label for="tipo" class="form-label fw-semibold">Tipo</label>
               <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-diagram-2 text-muted"></i>
-                </span>
+                <span class="input-group-text bg-transparent"><i class="bi bi-diagram-2 text-muted"></i></span>
                 <select id="tipo" name="tipo" class="form-select" required>
                   {% for type_value, type_label in employee_type_choices %}
-                    <option value="{{ type_value }}" {% if employee.tipo == type_value %}selected{% endif %}>
-                      {{ type_label }}
-                    </option>
+                    <option value="{{ type_value }}" {% if employee.tipo == type_value %}selected{% endif %}>{{ type_label }}</option>
                   {% endfor %}
                 </select>
               </div>
             </div>
-
-            <div class="col-lg-4">
-              <label for="regime_compensacao_jornada" class="form-label fw-semibold">Regime de compensacao de jornada</label>
-              <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-hourglass-split text-muted"></i>
-                </span>
-                <select
-                  id="regime_compensacao_jornada"
-                  name="regime_compensacao_jornada"
-                  class="form-select"
-                  required
-                >
-                  {% for regime_value, regime_label in compensation_regime_choices %}
-                    <option value="{{ regime_value }}" {% if employee.regime_compensacao_jornada == regime_value %}selected{% endif %}>
-                      {{ regime_label }}
-                    </option>
-                  {% endfor %}
-                </select>
-              </div>
-              <small class="text-muted">Define a adesao ao banco de horas.</small>
-            </div>
-
             <div class="col-lg-6">
               <label for="sector_id" class="form-label fw-semibold">Setor</label>
               <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-building text-muted"></i>
-                </span>
-                <select
-                  id="sector_id"
-                  name="sector_id"
-                  class="form-select"
-                  data-initial-value="{% if employee.sector %}{{ employee.sector.id }}{% endif %}"
-                  required
-                >
+                <span class="input-group-text bg-transparent"><i class="bi bi-building text-muted"></i></span>
+                <select id="sector_id" name="sector_id" class="form-select" data-initial-value="{% if employee.sector %}{{ employee.sector.id }}{% endif %}" required>
                   <option value="">Selecione um setor...</option>
                   {% for sector in active_sectors %}
-                    <option value="{{ sector.id }}" {% if employee.sector and employee.sector.id == sector.id %}selected{% endif %}>
-                      {{ sector.nome }}
-                    </option>
+                    <option value="{{ sector.id }}" {% if employee.sector and employee.sector.id == sector.id %}selected{% endif %}>{{ sector.nome }}</option>
                   {% endfor %}
                   {% if employee.sector and employee.sector.deactivated_at %}
-                    <option value="{{ employee.sector.id }}" selected>
-                      {{ employee.sector.nome }} (inativo atual)
-                    </option>
+                    <option value="{{ employee.sector.id }}" selected>{{ employee.sector.nome }} (inativo atual)</option>
                   {% endif %}
                 </select>
-                <a href="{% url 'sectors_page' %}" class="btn btn-outline-primary">
-                  <i class="bi bi-building-gear me-1"></i>Setores
-                </a>
+                <a href="{% url 'sectors_page' %}" class="btn btn-outline-primary"><i class="bi bi-building-gear me-1"></i>Setores</a>
               </div>
               {% if not active_sectors %}
-                <small class="text-danger">Cadastre ao menos um setor ativo para concluir a edicao.</small>
+                <small class="inline-note text-danger">Cadastre ao menos um setor ativo para concluir a edicao.</small>
               {% endif %}
             </div>
 
+            <div class="col-lg-4">
+              <label for="change_effective_date_cargo" class="form-label fw-semibold">Inicio da vigencia</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent"><i class="bi bi-calendar-event text-muted"></i></span>
+                <input id="change_effective_date_cargo" type="date" class="form-control js-effective-date-mirror" />
+              </div>
+              <small class="inline-note">Obrigatorio somente quando cargo, setor ou escala mudarem.</small>
+              <div id="effective-date-alert-cargo" class="effective-date-alert" role="alert">
+                <i class="bi bi-exclamation-circle"></i>
+                Vigencia obrigatoria: houve alteracao de cargo, setor ou escala.
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <h3 class="h6 fw-semibold mb-2"><i class="bi bi-clock-history me-1 text-primary"></i>Historico de cargo/setor</h3>
+            <div class="table-responsive border rounded-3">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 130px;">Vigencia</th>
+                    <th>De</th>
+                    <th>Para</th>
+                    <th style="width: 170px;">Mudancas</th>
+                    <th>Detalhe</th>
+                    <th style="width: 140px;">Registrado em</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for event in sector_history %}
+                    <tr>
+                      <td>{{ event.effective_date|date:"d/m/Y" }}</td>
+                      <td>{% if event.previous_sector %}{{ event.previous_sector.nome }}{% else %}<span class="text-muted">Sem setor</span>{% endif %}</td>
+                      <td>{% if event.new_sector %}{{ event.new_sector.nome }}{% else %}<span class="text-muted">Sem setor</span>{% endif %}</td>
+                      <td>
+                        {% if event.previous_sector_id != event.new_sector_id %}
+                          <span class="badge rounded-pill text-bg-primary me-1 mb-1">Setor alterado</span>
+                        {% endif %}
+                        {% if event.notes %}
+                          <span class="badge rounded-pill text-bg-info me-1 mb-1">Cargo alterado</span>
+                        {% endif %}
+                        {% if event.previous_sector_id == event.new_sector_id and not event.notes %}
+                          <span class="text-muted">-</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if event.notes %}
+                          {{ event.notes }}
+                        {% elif event.previous_sector_id != event.new_sector_id %}
+                          Alteracao de setor
+                        {% else %}
+                          <span class="text-muted">-</span>
+                        {% endif %}
+                      </td>
+                      <td>{{ event.created_at|date:"d/m/Y" }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="6" class="text-center text-muted py-3">Nenhuma alteracao de cargo/setor registrada.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel mb-3 d-none" data-edit-tab-panel="escala">
+        <div class="section-head">
+          <h2 class="section-title"><i class="bi bi-clock-history text-primary"></i> Escala e vigencia</h2>
+          <p class="section-subtitle">Defina escala e vigencia quando houver alteracao de vinculacao.</p>
+        </div>
+        <div class="section-body">
+          <div class="row g-3">
             <div class="col-lg-6">
               <label for="work_schedule_id" class="form-label fw-semibold">Escala</label>
               <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-clock-history text-muted"></i>
-                </span>
-                <select
-                  id="work_schedule_id"
-                  name="work_schedule_id"
-                  class="form-select"
-                  data-initial-value="{% if employee.work_schedule %}{{ employee.work_schedule.id }}{% endif %}"
-                >
+                <span class="input-group-text bg-transparent"><i class="bi bi-clock-history text-muted"></i></span>
+                <select id="work_schedule_id" name="work_schedule_id" class="form-select" data-initial-value="{% if employee.work_schedule %}{{ employee.work_schedule.id }}{% endif %}">
                   <option value="">Sem escala</option>
                   {% for work_schedule in work_schedules %}
-                    <option value="{{ work_schedule.id }}" {% if employee.work_schedule and employee.work_schedule.id == work_schedule.id %}selected{% endif %}>
-                      {{ work_schedule.nome }}
-                    </option>
+                    <option value="{{ work_schedule.id }}" {% if employee.work_schedule and employee.work_schedule.id == work_schedule.id %}selected{% endif %}>{{ work_schedule.nome }}</option>
                   {% endfor %}
                 </select>
-                <a href="{% url 'work_schedules_page' %}" class="btn btn-outline-primary">
-                  <i class="bi bi-list-check me-1"></i>Escalas
-                </a>
+                <a href="{% url 'work_schedules_page' %}" class="btn btn-outline-primary"><i class="bi bi-list-check me-1"></i>Escalas</a>
               </div>
             </div>
 
             <div class="col-lg-4">
-              <label for="change_effective_date" class="form-label fw-semibold">Inicio da vigencia da alteracao</label>
+              <label for="change_effective_date" class="form-label fw-semibold">Inicio da vigencia</label>
               <div class="input-group">
-                <span class="input-group-text bg-transparent">
-                  <i class="bi bi-calendar-event text-muted"></i>
-                </span>
-                <input
-                  id="change_effective_date"
-                  name="change_effective_date"
-                  type="date"
-                  class="form-control"
-                />
+                <span class="input-group-text bg-transparent"><i class="bi bi-calendar-event text-muted"></i></span>
+                <input id="change_effective_date" name="change_effective_date" type="date" class="form-control" />
               </div>
-              <small class="text-muted">Obrigatoria quando houver alteracao de setor ou escala.</small>
+              <small class="inline-note">Obrigatorio somente quando cargo, setor ou escala mudarem.</small>
+              <div id="effective-date-alert" class="effective-date-alert" role="alert">
+                <i class="bi bi-exclamation-circle"></i>
+                Vigencia obrigatoria: houve alteracao de cargo, setor ou escala.
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <h3 class="h6 fw-semibold mb-2"><i class="bi bi-clock-history me-1 text-primary"></i>Historico de escalas</h3>
+            <div class="table-responsive border rounded-3">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 130px;">Vigencia</th>
+                    <th>De</th>
+                    <th>Para</th>
+                    <th style="width: 140px;">Registrado em</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for event in work_schedule_history %}
+                    <tr>
+                      <td>{{ event.effective_date|date:"d/m/Y" }}</td>
+                      <td>{% if event.previous_work_schedule %}{{ event.previous_work_schedule.nome }}{% else %}<span class="text-muted">Sem escala</span>{% endif %}</td>
+                      <td>{% if event.new_work_schedule %}{{ event.new_work_schedule.nome }}{% else %}<span class="text-muted">Sem escala</span>{% endif %}</td>
+                      <td>{{ event.created_at|date:"d/m/Y" }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="4" class="text-center text-muted py-3">Nenhuma alteracao de escala registrada.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="card-footer bg-white border-top py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <small class="text-muted mb-0">As alteracoes de setor/escala exigem inicio da vigencia para gerar historico de evento.</small>
-          <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">Cancelar</a>
-            <button type="submit" class="btn btn-primary" {% if not active_sectors %}disabled{% endif %}>
-              <i class="bi bi-save me-1"></i>Salvar alteracoes
-            </button>
-          </div>
+      <div class="sticky-actions d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <small class="text-muted mb-0">As alteracoes de vinculacao geram historico de evento.</small>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-secondary" href="{% url 'employees_page' %}">Cancelar</a>
+          <button type="submit" class="btn btn-primary" {% if not active_sectors %}disabled{% endif %}>
+            <i class="bi bi-save me-1"></i>Salvar alteracoes
+          </button>
         </div>
-      </form>
-    </div>
-  </section>
+      </div>
+    </form>
+
+    <section class="panel mb-3 d-none" data-edit-tab-panel="calendar-exceptions">
+      <div class="section-head">
+        <h2 class="section-title"><i class="bi bi-calendar-range text-primary"></i> Excessoes de calendario</h2>
+        <p class="section-subtitle">Cadastre folgas, ferias e afastamentos com inicio e fim.</p>
+      </div>
+      <div class="section-body">
+        <form method="post" action="{% url 'employee_edit_page' employee.id %}" class="mb-4">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="calendar_exception" />
+
+          <div class="row g-3 align-items-end">
+            <div class="col-lg-4">
+              <label for="exception_type" class="form-label fw-semibold">Tipo</label>
+              <select id="exception_type" name="exception_type" class="form-select" required>
+                <option value="">Selecione...</option>
+                <option value="day_off">Folga</option>
+                <option value="vacation">Ferias</option>
+                <option value="absence">Afastamento</option>
+              </select>
+            </div>
+            <div class="col-lg-3">
+              <label for="start_date" class="form-label fw-semibold">Inicio</label>
+              <input id="start_date" name="start_date" type="date" class="form-control" required />
+            </div>
+            <div class="col-lg-3">
+              <label for="end_date" class="form-label fw-semibold">Fim</label>
+              <input id="end_date" name="end_date" type="date" class="form-control" required />
+            </div>
+            <div class="col-lg-2 d-grid">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>Adicionar
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <h3 class="h6 fw-semibold mb-2"><i class="bi bi-list-check me-1 text-primary"></i>Historico de excessoes</h3>
+        <div class="table-responsive border rounded-3">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 170px;">Tipo</th>
+                <th style="width: 130px;">Inicio</th>
+                <th style="width: 130px;">Fim</th>
+                <th style="width: 140px;">Registrado em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in calendar_exception_events %}
+                <tr>
+                  <td>
+                    {% if event.event_type == "day_off" %}
+                      Folga
+                    {% elif event.event_type == "vacation" %}
+                      Ferias
+                    {% elif event.event_type == "absence" %}
+                      Afastamento
+                    {% else %}
+                      {{ event.get_event_type_display }}
+                    {% endif %}
+                  </td>
+                  <td>{{ event.effective_date|date:"d/m/Y" }}</td>
+                  <td>{{ event.end_date|date:"d/m/Y" }}</td>
+                  <td>{{ event.created_at|date:"d/m/Y" }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="text-center text-muted py-3">Nenhuma excessao de calendario registrada.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
 
   <script>
     (function () {
-      const tabButtons = Array.from(document.querySelectorAll(".js-employee-tab"));
+      const form = document.getElementById("employee-edit-page-form");
+      const sectorSelect = document.getElementById("sector_id");
+      const workScheduleSelect = document.getElementById("work_schedule_id");
+      const effectiveDateInput = document.getElementById("change_effective_date");
+      const effectiveDateInputCargo = document.getElementById("change_effective_date_cargo");
+      const alertBox = document.getElementById("effective-date-alert");
+      const alertBoxCargo = document.getElementById("effective-date-alert-cargo");
+      const tabButtons = Array.from(document.querySelectorAll(".js-edit-tab-btn"));
       const tabPanels = {
-        overview: document.getElementById("employee-tab-overview"),
-        edit: document.getElementById("employee-tab-edit"),
+        info: document.querySelector('[data-edit-tab-panel="info"]'),
+        "cargo-setor": document.querySelector('[data-edit-tab-panel="cargo-setor"]'),
+        escala: document.querySelector('[data-edit-tab-panel="escala"]'),
+        "calendar-exceptions": document.querySelector('[data-edit-tab-panel="calendar-exceptions"]'),
       };
-      const defaultTab = "{% if messages %}edit{% else %}overview{% endif %}";
+
+      if (!form || !sectorSelect || !workScheduleSelect || !effectiveDateInput) return;
+
+      const initialSectorId = sectorSelect.dataset.initialValue || "";
+      const initialWorkScheduleId = workScheduleSelect.dataset.initialValue || "";
 
       function activateTab(tabName) {
         if (!tabPanels[tabName]) return;
 
         Object.keys(tabPanels).forEach(function (key) {
-          const panel = tabPanels[key];
-          if (!panel) return;
-          panel.classList.toggle("d-none", key !== tabName);
+          if (!tabPanels[key]) return;
+          tabPanels[key].classList.toggle("d-none", key !== tabName);
         });
 
         tabButtons.forEach(function (button) {
@@ -424,68 +535,93 @@
         });
       }
 
-      tabButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-          activateTab(button.dataset.tabTarget || "overview");
-        });
-      });
-
-      document.querySelectorAll(".js-open-edit-tab").forEach(function (button) {
-        button.addEventListener("click", function () {
-          const focusFieldId = button.dataset.focusField || "sector_id";
-          activateTab("edit");
-          setTimeout(function () {
-            const field = document.getElementById(focusFieldId);
-            if (field) field.focus();
-          }, 0);
-        });
-      });
-
-      activateTab(defaultTab);
-
-      const form = document.getElementById("employee-edit-page-form");
-      const sectorSelect = document.getElementById("sector_id");
-      const workScheduleSelect = document.getElementById("work_schedule_id");
-      const effectiveDateInput = document.getElementById("change_effective_date");
-
-      if (!form || !sectorSelect || !workScheduleSelect || !effectiveDateInput) return;
-
-      const initialSectorId = sectorSelect.dataset.initialValue || "";
-      const initialWorkScheduleId = workScheduleSelect.dataset.initialValue || "";
-
       function hasAllocationChange() {
         const nextSectorId = sectorSelect.value || "";
         const nextWorkScheduleId = workScheduleSelect.value || "";
         return nextSectorId !== initialSectorId || nextWorkScheduleId !== initialWorkScheduleId;
       }
 
+      function syncEffectiveDate(sourceInput, targetInput) {
+        if (!sourceInput || !targetInput) return;
+        targetInput.value = sourceInput.value;
+      }
+
       function updateEffectiveDateRequirement() {
         const changed = hasAllocationChange();
         effectiveDateInput.required = changed;
+        if (effectiveDateInputCargo) {
+          effectiveDateInputCargo.required = changed;
+        }
+        if (alertBox) {
+          alertBox.classList.toggle("is-visible", changed);
+        }
+        if (alertBoxCargo) {
+          alertBoxCargo.classList.toggle("is-visible", changed);
+        }
         if (!changed) {
           effectiveDateInput.setCustomValidity("");
+          if (effectiveDateInputCargo) {
+            effectiveDateInputCargo.setCustomValidity("");
+          }
         }
       }
 
       sectorSelect.addEventListener("change", updateEffectiveDateRequirement);
       workScheduleSelect.addEventListener("change", updateEffectiveDateRequirement);
+      if (effectiveDateInputCargo) {
+        syncEffectiveDate(effectiveDateInput, effectiveDateInputCargo);
+        effectiveDateInputCargo.addEventListener("input", function () {
+          syncEffectiveDate(effectiveDateInputCargo, effectiveDateInput);
+          effectiveDateInput.setCustomValidity("");
+          effectiveDateInputCargo.setCustomValidity("");
+        });
+      }
+      effectiveDateInput.addEventListener("input", function () {
+        if (effectiveDateInputCargo) {
+          syncEffectiveDate(effectiveDateInput, effectiveDateInputCargo);
+          effectiveDateInputCargo.setCustomValidity("");
+        }
+        effectiveDateInput.setCustomValidity("");
+      });
+      tabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          activateTab(button.dataset.tabTarget || "info");
+        });
+      });
+
+      form.addEventListener(
+        "invalid",
+        function (event) {
+          const panel = event.target.closest("[data-edit-tab-panel]");
+          if (!panel) return;
+          activateTab(panel.dataset.editTabPanel || "info");
+        },
+        true,
+      );
+
       form.addEventListener("submit", function (event) {
         const changed = hasAllocationChange();
         effectiveDateInput.required = changed;
 
         if (changed && !effectiveDateInput.value) {
-          effectiveDateInput.setCustomValidity(
-            "Informe o inicio da vigencia para alteracao de setor ou escala.",
-          );
+          effectiveDateInput.setCustomValidity("Informe o inicio da vigencia para alteracao de cargo, setor ou escala.");
+          if (effectiveDateInputCargo) {
+            effectiveDateInputCargo.setCustomValidity("Informe o inicio da vigencia para alteracao de cargo, setor ou escala.");
+          }
           effectiveDateInput.reportValidity();
+          activateTab("cargo-setor");
           event.preventDefault();
           return;
         }
 
         effectiveDateInput.setCustomValidity("");
+        if (effectiveDateInputCargo) {
+          effectiveDateInputCargo.setCustomValidity("");
+        }
       });
 
       updateEffectiveDateRequirement();
+      activateTab("{{ selected_tab|default:'info'|escapejs }}");
     })();
   </script>
 {% endblock %}
