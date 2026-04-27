@@ -663,6 +663,14 @@ def _format_minutes_as_hour_label(total_minutes):
     return f"{hours:02d}:{minutes:02d}"
 
 
+def _format_signed_minutes_as_hour_label(total_minutes):
+    sign = "-" if total_minutes < 0 else ""
+    absolute_minutes = abs(total_minutes)
+    hours = absolute_minutes // 60
+    minutes = absolute_minutes % 60
+    return f"{sign}{hours:02d}:{minutes:02d}"
+
+
 def _get_month_date_range(month_start):
     _, days_in_month = monthrange(month_start.year, month_start.month)
     month_end = date(month_start.year, month_start.month, days_in_month)
@@ -1293,6 +1301,25 @@ def timesheet_dashboard_page(request):
     )[:12]
     for row in sector_rows:
         row["balance_minutes"] = row["worked_minutes"] - row["expected_minutes"]
+        row["expected_hhmm"] = _format_minutes_as_hour_label(row["expected_minutes"])
+        row["worked_hhmm"] = _format_minutes_as_hour_label(row["worked_minutes"])
+        row["overtime_60_hhmm"] = _format_minutes_as_hour_label(row["overtime_60_minutes"])
+        row["overtime_100_hhmm"] = _format_minutes_as_hour_label(row["overtime_100_minutes"])
+        row["balance_hhmm"] = _format_signed_minutes_as_hour_label(row["balance_minutes"])
+        row["absence_unexcused_hhmm"] = _format_minutes_as_hour_label(
+            row["absence_unexcused_minutes"]
+        )
+        row["absence_excused_hhmm"] = _format_minutes_as_hour_label(
+            row["absence_excused_minutes"]
+        )
+        row["absence_bank_hhmm"] = _format_minutes_as_hour_label(
+            row["absence_bank_minutes"]
+        )
+        row["utilization_percent"] = (
+            round((row["worked_minutes"] * 100) / row["expected_minutes"])
+            if row["expected_minutes"] > 0
+            else 0
+        )
 
     top_expected_minutes = max((row["expected_minutes"] for row in sector_rows), default=0)
 
