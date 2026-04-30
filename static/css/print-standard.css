@@ -224,9 +224,15 @@ body.print-pagination-measure .print-sheet .print-record-card-head {
 }
 
 body.print-pagination-measure .print-sheet .bank-hours-record-head {
+    justify-content: flex-start;
     border-top: 1px solid #000;
     border-bottom: 1px solid #000;
     padding: 3px 0;
+}
+
+body.print-pagination-measure .print-sheet .bank-hours-record-head .print-record-title {
+    border-bottom: 0;
+    padding: 0;
 }
 
 body.print-pagination-measure .print-sheet .print-record-id {
@@ -458,6 +464,16 @@ body.print-pagination-measure .print-sheet .print-data-table thead th {
     font-weight: 700;
     letter-spacing: 0.4px;
     background: #efefef;
+}
+
+body.print-pagination-measure .print-sheet .bh-head-code-print {
+    display: block;
+    margin-top: 1px;
+    font-size: 8px;
+    line-height: 1.1;
+    font-weight: 500;
+    color: #666;
+    text-transform: none;
 }
 
 body.print-pagination-measure .print-sheet .print-data-table th:nth-child(1),
@@ -784,9 +800,15 @@ body.print-pagination-measure .print-sheet .full-width {
     }
 
     .print-sheet .bank-hours-record-head {
+        justify-content: flex-start;
         border-top: 1px solid #000;
         border-bottom: 1px solid #000;
         padding: 3px 0;
+    }
+
+    .print-sheet .bank-hours-record-head .print-record-title {
+        border-bottom: 0;
+        padding: 0;
     }
 
     .print-sheet .print-record-id {
@@ -1018,6 +1040,16 @@ body.print-pagination-measure .print-sheet .full-width {
         font-weight: 700;
         letter-spacing: 0.4px;
         background: #efefef;
+    }
+
+    .print-sheet .bh-head-code-print {
+        display: block;
+        margin-top: 1px;
+        font-size: 8px;
+        line-height: 1.1;
+        font-weight: 500;
+        color: #666;
+        text-transform: none;
     }
 
     .print-sheet .print-data-table th:nth-child(1),

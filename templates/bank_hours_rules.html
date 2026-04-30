@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Regras Banco de Horas{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'bank_hours_page' %}?start_month={{ selected_start_month }}&end_month={{ selected_end_month }}">Banco de Horas</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Regras</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+          <h5 class="mb-0">Nova regra</h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Informe competência em intervalo e fórmula para uma coluna calculada.</p>
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="target_column" class="form-label">Coluna calculada</label>
+              <select id="target_column" name="target_column" class="form-select" required>
+                <option value="B">B - Hora banco</option>
+                <option value="C">C - Horas com acrescimo</option>
+                <option value="F">F - Saldo do mes</option>
+              </select>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col">
+                <label for="start_month" class="form-label">Mes inicial</label>
+                <input type="month" id="start_month" name="start_month" class="form-control" value="{{ selected_start_month }}" required />
+              </div>
+              <div class="col">
+                <label for="end_month" class="form-label">Mes final</label>
+                <input type="month" id="end_month" name="end_month" class="form-control" value="{{ selected_end_month }}" required />
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="formula" class="form-label">Formula</label>
+              <input type="text" id="formula" name="formula" class="form-control" placeholder="B = A / 2 * 1.6" required />
+              <div class="form-text">Variaveis: A, B, C, D, E, F. Operadores: + - * /.</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar regra</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Regras cadastradas</h5>
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'bank_hours_page' %}?start_month={{ selected_start_month }}&end_month={{ selected_end_month }}">Voltar ao extrato</a>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-2">Padrao atual: B={{ default_formulas.B }}, C={{ default_formulas.C }}, F={{ default_formulas.F }}</p>
+          <form method="get" class="row g-2 mb-3">
+            <input type="hidden" name="start_month" value="{{ selected_start_month }}" />
+            <input type="hidden" name="end_month" value="{{ selected_end_month }}" />
+            <div class="col-md-3">
+              <label for="filter_start_month" class="form-label">Competencia de</label>
+              <input type="month" id="filter_start_month" name="filter_start_month" class="form-control form-control-sm" value="{{ filter_start_month }}" />
+            </div>
+            <div class="col-md-3">
+              <label for="filter_end_month" class="form-label">Competencia ate</label>
+              <input type="month" id="filter_end_month" name="filter_end_month" class="form-control form-control-sm" value="{{ filter_end_month }}" />
+            </div>
+            <div class="col-md-2">
+              <label for="filter_column" class="form-label">Coluna</label>
+              <select id="filter_column" name="filter_column" class="form-select form-select-sm">
+                <option value="">Todas</option>
+                <option value="B" {% if filter_column == "B" %}selected{% endif %}>B</option>
+                <option value="C" {% if filter_column == "C" %}selected{% endif %}>C</option>
+                <option value="F" {% if filter_column == "F" %}selected{% endif %}>F</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="q" class="form-label">Busca formula</label>
+              <input type="text" id="q" name="q" class="form-control form-control-sm" value="{{ filter_query }}" placeholder="Ex.: A/2*1.6" />
+            </div>
+            <div class="col-12 d-flex gap-2">
+              <button type="submit" class="btn btn-sm btn-outline-primary">Filtrar</button>
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'bank_hours_rules_page' %}?start_month={{ selected_start_month }}&end_month={{ selected_end_month }}">Limpar</a>
+            </div>
+          </form>
+          {% if rules %}
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Coluna</th>
+                    <th>Vigencia</th>
+                    <th>Formula</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for rule in rules %}
+                    <tr>
+                      <td>{{ rule.target_column }}</td>
+                      <td>{{ rule.start_month|date:"m/Y" }} a {{ rule.end_month|date:"m/Y" }}</td>
+                      <td><code>{{ rule.target_column }}={{ rule.formula }}</code></td>
+                      <td class="text-end">
+                        <form method="post" action="{% url 'bank_hours_rule_delete' rule.id %}" onsubmit="return confirm('Excluir regra?');">
+                          {% csrf_token %}
+                          <input type="hidden" name="start_month" value="{{ selected_start_month }}" />
+                          <input type="hidden" name="end_month" value="{{ selected_end_month }}" />
+                          <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-muted mb-0">Nenhuma regra cadastrada.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

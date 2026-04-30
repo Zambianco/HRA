@@ -170,6 +170,38 @@ class EmployeeTimeEntry(models.Model):
         return f"{self.employee_id} - {self.competence_month}"
 
 
+class BankHoursRule(models.Model):
+    COLUMN_B = "B"
+    COLUMN_C = "C"
+    COLUMN_F = "F"
+    TARGET_COLUMN_CHOICES = (
+        (COLUMN_B, "B - Hora banco"),
+        (COLUMN_C, "C - Horas com acrescimo"),
+        (COLUMN_F, "F - Saldo do mes"),
+    )
+
+    start_month = models.DateField(db_index=True)
+    end_month = models.DateField(db_index=True)
+    target_column = models.CharField(max_length=1, choices=TARGET_COLUMN_CHOICES)
+    formula = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-start_month", "target_column", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_month__gte=models.F("start_month")),
+                name="bank_hours_rule_end_month_gte_start_month",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.target_column}: {self.formula} "
+            f"({self.start_month} a {self.end_month})"
+        )
+
+
 class TimesheetMonthClosure(models.Model):
     competence_month = models.DateField(unique=True, db_index=True)
     closed_at = models.DateTimeField(auto_now_add=True)

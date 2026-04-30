@@ -78,6 +78,62 @@
         state.current.body.appendChild(blockClone);
     }
 
+    function appendTableSplitByRows(state, tableNode, sectionTitleNode) {
+        const sourceHead = tableNode.querySelector(":scope > thead");
+        const sourceBody = tableNode.querySelector(":scope > tbody");
+        const sourceColgroup = tableNode.querySelector(":scope > colgroup");
+        const rows = sourceBody ? Array.from(sourceBody.querySelectorAll(":scope > tr")) : [];
+
+        if (!sourceHead || !sourceBody || !rows.length) {
+            appendBlockWithOptionalTitle(state, tableNode, sectionTitleNode);
+            return;
+        }
+
+        function buildTableShell() {
+            const table = tableNode.cloneNode(false);
+            if (sourceColgroup) {
+                table.appendChild(cloneNode(sourceColgroup));
+            }
+            table.appendChild(cloneNode(sourceHead));
+            table.appendChild(sourceBody.cloneNode(false));
+            return table;
+        }
+
+        function createPageTable(withContinuationTitle) {
+            if (withContinuationTitle) {
+                createAndMountPage(state);
+            }
+            if (sectionTitleNode) {
+                const repeatedTitle = cloneNode(sectionTitleNode);
+                if (withContinuationTitle && !state.hideContinuationTitle) {
+                    repeatedTitle.textContent = repeatedTitle.textContent + " (continuacao)";
+                }
+                state.current.body.appendChild(repeatedTitle);
+            }
+            const pageTable = buildTableShell();
+            state.current.body.appendChild(pageTable);
+            return pageTable.querySelector(":scope > tbody");
+        }
+
+        let pageBody = createPageTable(false);
+        rows.forEach((row) => {
+            const rowClone = cloneNode(row);
+            pageBody.appendChild(rowClone);
+
+            if (fitsInCurrentPage(state.current)) return;
+
+            rowClone.remove();
+            const pageIsEmpty = pageBody.children.length === 0;
+            if (pageIsEmpty) {
+                pageBody.appendChild(rowClone);
+                return;
+            }
+
+            pageBody = createPageTable(true);
+            pageBody.appendChild(rowClone);
+        });
+    }
+
     function appendTreeSplitByItems(state, treeNode, sectionTitleNode) {
         const items = Array.from(treeNode.querySelectorAll(":scope > .print-tree-item"));
         if (!items.length) {
@@ -135,6 +191,24 @@
                 return;
             }
             appendBlockWithOptionalTitle(state, listNode, sectionTitleNode);
+            return;
+        }
+
+        if (state.breakPerRecord) {
+            items.forEach((item, index) => {
+                if (index > 0) {
+                    createAndMountPage(state);
+                }
+                if (sectionTitleNode) {
+                    state.current.body.appendChild(cloneNode(sectionTitleNode));
+                }
+                if (continuationHeaderNode) {
+                    state.current.body.appendChild(cloneNode(continuationHeaderNode));
+                }
+                const singleListContainer = listNode.cloneNode(false);
+                singleListContainer.appendChild(cloneNode(item));
+                state.current.body.appendChild(singleListContainer);
+            });
             return;
         }
 
@@ -212,12 +286,19 @@
                 report.dataset.hideContinuationFooter === "1" || isBankHoursRoute,
             hideContinuationTitle:
                 report.dataset.hideContinuationTitle === "1" || isBankHoursRoute,
+            breakPerRecord: report.dataset.breakPerRecord === "1",
         };
 
         createAndMountPage(state);
 
         let pendingSectionTitle = null;
         nodes.forEach((node) => {
+            if (node.classList.contains("print-force-page-break")) {
+                createAndMountPage(state);
+                pendingSectionTitle = null;
+                return;
+            }
+
             if (node.classList.contains("print-section-title")) {
                 pendingSectionTitle = node;
                 return;
@@ -225,6 +306,15 @@
 
             if (node.classList.contains("print-tree")) {
                 appendTreeSplitByItems(state, node, pendingSectionTitle);
+                pendingSectionTitle = null;
+                return;
+            }
+
+            if (
+                node.classList.contains("print-data-table")
+                && node.classList.contains("print-split-rows")
+            ) {
+                appendTableSplitByRows(state, node, pendingSectionTitle);
                 pendingSectionTitle = null;
                 return;
             }

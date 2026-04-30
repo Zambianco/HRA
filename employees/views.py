@@ -2,6 +2,7 @@ from calendar import monthrange
 from urllib.parse import urlencode
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, timedelta
+import ast
 import re
 from collections import defaultdict
 
@@ -16,6 +17,7 @@ from django.views.decorators.http import require_POST
 from .models import (
     Employee,
     EmployeeEvent,
+    BankHoursRule,
     EmployeeTimeEntry,
     TimesheetMonthClosure,
     TimesheetMonthClosureCalendarPeriodSnapshot,
@@ -87,6 +89,18 @@ def _bank_hours_redirect_with_filters(start_month=None, end_month=None):
         params["end_month"] = end_month
 
     base_url = reverse("bank_hours_page")
+    query = urlencode(params)
+    return f"{base_url}?{query}" if query else base_url
+
+
+def _bank_hours_rules_redirect_with_filters(start_month=None, end_month=None):
+    params = {}
+    if start_month:
+        params["start_month"] = start_month
+    if end_month:
+        params["end_month"] = end_month
+
+    base_url = reverse("bank_hours_rules_page")
     query = urlencode(params)
     return f"{base_url}?{query}" if query else base_url
 
@@ -226,6 +240,128 @@ def _resolve_competence_month_interval(raw_start, raw_end, raw_fallback=None):
         return None, None, None, None, "O mes final deve ser maior ou igual ao mes inicial."
 
     return start_month, end_month, start_value, end_value, None
+
+
+def _safe_decimal_formula_eval(expression, variables):
+    normalized = (expression or "").strip()
+    if not normalized:
+        raise ValueError("Formula vazia.")
+    normalized = normalized.replace(",", ".")
+    parsed = ast.parse(normalized, mode="eval")
+
+    def _eval(node):
+        if isinstance(node, ast.Expression):
+            return _eval(node.body)
+        if isinstance(node, ast.BinOp):
+            left = _eval(node.left)
+            right = _eval(node.right)
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+            if isinstance(node.op, ast.Div):
+                if right == 0:
+                    raise ValueError("Divisao por zero.")
+                return left / right
+            raise ValueError("Operador nao permitido.")
+        if isinstance(node, ast.UnaryOp):
+            value = _eval(node.operand)
+            if isinstance(node.op, ast.UAdd):
+                return value
+            if isinstance(node.op, ast.USub):
+                return -value
+            raise ValueError("Operador unario nao permitido.")
+        if isinstance(node, ast.Name):
+            if node.id not in variables:
+                raise ValueError(f"Variavel invalida: {node.id}.")
+            return Decimal(variables[node.id])
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return Decimal(str(node.value))
+            raise ValueError("Constante nao permitida.")
+        raise ValueError("Expressao invalida.")
+
+    return _eval(parsed)
+
+
+def _normalize_rule_formula(target_column, raw_formula):
+    formula = (raw_formula or "").strip()
+    if not formula:
+        return None, "Informe a formula."
+    compact = re.sub(r"\s+", "", formula).upper()
+    if "=" in compact:
+        left, right = compact.split("=", 1)
+        if left != target_column:
+            return None, (
+                f"O lado esquerdo deve ser {target_column}. "
+                f"Exemplo: {target_column}=A/2*1.6"
+            )
+        compact = right
+    if not compact:
+        return None, "Formula invalida."
+    return compact, None
+
+
+def _resolve_bank_hours_formulas_for_month(competence_month):
+    formulas = {"B": None, "C": None, "F": None}
+    rules = (
+        BankHoursRule.objects.filter(
+            start_month__lte=competence_month,
+            end_month__gte=competence_month,
+        )
+        .order_by("target_column", "-start_month", "-id")
+    )
+    latest_by_target = {}
+    for rule in rules:
+        latest_by_target.setdefault(rule.target_column, rule)
+    for target_column, rule in latest_by_target.items():
+        formulas[target_column] = rule.formula
+    return formulas
+
+
+def _calculate_bank_hours_columns(overtime_minutes, absence_minutes, manual_minutes, formulas):
+    values = {
+        "A": Decimal(overtime_minutes),
+        "B": None,
+        "C": None,
+        "D": Decimal(absence_minutes),
+        "E": Decimal(manual_minutes),
+        "F": None,
+    }
+    missing_targets = []
+    evaluation_errors = {}
+    for target in ("B", "C", "F"):
+        formula = formulas.get(target)
+        if not formula:
+            missing_targets.append(target)
+            continue
+        try:
+            raw_result = _safe_decimal_formula_eval(formula, values)
+            values[target] = raw_result.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        except Exception as error:
+            missing_targets.append(target)
+            evaluation_errors[target] = str(error)
+
+    b_value = values["B"] if values["B"] is not None else Decimal(0)
+    c_value = values["C"] if values["C"] is not None else Decimal(0)
+    f_value = values["F"] if values["F"] is not None else Decimal(0)
+    return {
+        "overtime_minutes": int(values["A"]),
+        "hour_bank_base_minutes": int(b_value),
+        "hour_bank_bonus_minutes": int(c_value),
+        "absence_minutes": int(values["D"]),
+        "manual_minutes": int(values["E"]),
+        "month_delta_minutes": int(f_value),
+        "credit_minutes": int(b_value + c_value),
+        "is_b_defined": values["B"] is not None,
+        "is_c_defined": values["C"] is not None,
+        "is_f_defined": values["F"] is not None,
+        "missing_targets": missing_targets,
+        "evaluation_errors": evaluation_errors,
+        "formulas": formulas,
+    }
 
 
 def _count_weekday_occurrences_in_month(month_start):
@@ -1453,14 +1589,12 @@ def bank_hours_page(request):
     monthly_entry_data = defaultdict(
         lambda: {
             "overtime_minutes": 0,
-            "hour_bank_base_minutes": 0,
-            "hour_bank_bonus_minutes": 0,
-            "credit_minutes": 0,
             "absence_minutes": 0,
             "manual_minutes": 0,
         }
     )
     opening_balance_by_employee = defaultdict(int)
+    opening_balance_known_by_employee = defaultdict(lambda: True)
 
     for entry in entries_in_range:
         key = (entry.employee_id, entry.competence_month)
@@ -1469,42 +1603,27 @@ def bank_hours_page(request):
             entry.absence_unexcused_minutes
             + entry.absence_bank_minutes
         )
-        hour_bank_base_minutes = int(
-            (
-                Decimal(overtime_minutes) * Decimal("0.5")
-            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        )
-        hour_bank_bonus_minutes = int(
-            (
-                Decimal(hour_bank_base_minutes) * Decimal("0.6")
-            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        )
-        credit_minutes = hour_bank_base_minutes + hour_bank_bonus_minutes
         monthly_entry_data[key]["overtime_minutes"] += overtime_minutes
-        monthly_entry_data[key]["hour_bank_base_minutes"] += hour_bank_base_minutes
-        monthly_entry_data[key]["hour_bank_bonus_minutes"] += hour_bank_bonus_minutes
-        monthly_entry_data[key]["credit_minutes"] += credit_minutes
         monthly_entry_data[key]["absence_minutes"] += absence_minutes
 
     for entry in entries_before_range:
+        competence_month = entry.competence_month
         overtime_minutes = entry.overtime_60_minutes + entry.overtime_100_minutes
         absence_minutes = (
             entry.absence_unexcused_minutes
             + entry.absence_bank_minutes
         )
-        hour_bank_base_minutes = int(
-            (
-                Decimal(overtime_minutes) * Decimal("0.5")
-            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        formulas = _resolve_bank_hours_formulas_for_month(competence_month)
+        calc = _calculate_bank_hours_columns(
+            overtime_minutes=overtime_minutes,
+            absence_minutes=absence_minutes,
+            manual_minutes=0,
+            formulas=formulas,
         )
-        hour_bank_bonus_minutes = int(
-            (
-                Decimal(hour_bank_base_minutes) * Decimal("0.6")
-            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        )
-        opening_balance_by_employee[entry.employee_id] += (
-            hour_bank_base_minutes + hour_bank_bonus_minutes - absence_minutes
-        )
+        if calc["is_f_defined"]:
+            opening_balance_by_employee[entry.employee_id] += calc["month_delta_minutes"]
+        else:
+            opening_balance_known_by_employee[entry.employee_id] = False
 
     movement_events_qs = EmployeeEvent.objects.filter(
         employee_id__in=participant_ids,
@@ -1538,63 +1657,81 @@ def bank_hours_page(request):
     total_manual_minutes = 0
     total_month_delta_minutes = 0
     total_closing_balance_minutes = 0
+    has_missing_rule_b = False
+    has_missing_rule_c = False
+    has_missing_rule_f = False
+    applied_formulas_map = {}
 
     for employee in participants:
         running_balance = opening_balance_by_employee[employee.id]
+        running_balance_known = opening_balance_known_by_employee[employee.id]
         for competence_month in competence_months:
             payload = monthly_entry_data[(employee.id, competence_month)]
-            month_delta_minutes = (
-                payload["hour_bank_bonus_minutes"]
-                - payload["absence_minutes"]
-                + payload["manual_minutes"]
+            formulas = _resolve_bank_hours_formulas_for_month(competence_month)
+            applied_formulas_map[competence_month] = formulas
+            calc = _calculate_bank_hours_columns(
+                overtime_minutes=payload["overtime_minutes"],
+                absence_minutes=payload["absence_minutes"],
+                manual_minutes=payload["manual_minutes"],
+                formulas=formulas,
             )
-            running_balance += month_delta_minutes
+            month_delta_minutes = calc["month_delta_minutes"] if calc["is_f_defined"] else None
+            if calc["is_f_defined"] and running_balance_known:
+                running_balance += month_delta_minutes
+            else:
+                running_balance_known = False
+
+            has_missing_rule_b = has_missing_rule_b or (not calc["is_b_defined"])
+            has_missing_rule_c = has_missing_rule_c or (not calc["is_c_defined"])
+            has_missing_rule_f = has_missing_rule_f or (not calc["is_f_defined"])
             rows.append(
                 {
                     "employee": employee,
                     "competence_month": competence_month,
-                    "overtime_minutes": payload["overtime_minutes"],
+                    "overtime_minutes": calc["overtime_minutes"],
                     "overtime_hhmm": _format_minutes_as_hour_label(
-                        payload["overtime_minutes"]
+                        calc["overtime_minutes"]
                     ),
-                    "hour_bank_base_minutes": payload["hour_bank_base_minutes"],
+                    "hour_bank_base_minutes": calc["hour_bank_base_minutes"],
                     "hour_bank_base_hhmm": _format_minutes_as_hour_label(
-                        payload["hour_bank_base_minutes"]
+                        calc["hour_bank_base_minutes"]
                     ),
-                    "hour_bank_bonus_minutes": payload["hour_bank_bonus_minutes"],
+                    "is_b_defined": calc["is_b_defined"],
+                    "hour_bank_bonus_minutes": calc["hour_bank_bonus_minutes"],
                     "hour_bank_bonus_hhmm": _format_minutes_as_hour_label(
-                        payload["hour_bank_bonus_minutes"]
+                        calc["hour_bank_bonus_minutes"]
                     ),
-                    "credit_minutes": payload["credit_minutes"],
+                    "is_c_defined": calc["is_c_defined"],
+                    "credit_minutes": calc["credit_minutes"],
                     "credit_hhmm": _format_minutes_as_hour_label(
-                        payload["credit_minutes"]
+                        calc["credit_minutes"]
                     ),
-                    "absence_minutes": payload["absence_minutes"],
+                    "absence_minutes": calc["absence_minutes"],
                     "absence_hhmm": _format_minutes_as_hour_label(
-                        payload["absence_minutes"]
+                        calc["absence_minutes"]
                     ),
-                    "manual_minutes": payload["manual_minutes"],
+                    "manual_minutes": calc["manual_minutes"],
                     "manual_hhmm": _format_signed_minutes_as_hour_label(
-                        payload["manual_minutes"]
+                        calc["manual_minutes"]
                     ),
-                    "month_delta_minutes": month_delta_minutes,
-                    "month_delta_hhmm": _format_signed_minutes_as_hour_label(
-                        month_delta_minutes
-                    ),
-                    "running_balance_minutes": running_balance,
-                    "running_balance_hhmm": _format_signed_minutes_as_hour_label(
-                        running_balance
-                    ),
+                    "month_delta_minutes": month_delta_minutes if month_delta_minutes is not None else 0,
+                    "month_delta_hhmm": _format_signed_minutes_as_hour_label(month_delta_minutes or 0),
+                    "is_f_defined": calc["is_f_defined"],
+                    "running_balance_minutes": running_balance if running_balance_known else 0,
+                    "running_balance_hhmm": _format_signed_minutes_as_hour_label(running_balance if running_balance_known else 0),
+                    "running_balance_defined": running_balance_known,
                 }
             )
-            total_credit_minutes += payload["credit_minutes"]
-            total_hour_bank_base_minutes += payload["hour_bank_base_minutes"]
-            total_hour_bank_bonus_minutes += payload["hour_bank_bonus_minutes"]
-            total_absence_minutes += payload["absence_minutes"]
-            total_manual_minutes += payload["manual_minutes"]
-            total_month_delta_minutes += month_delta_minutes
+            total_credit_minutes += calc["credit_minutes"]
+            total_hour_bank_base_minutes += calc["hour_bank_base_minutes"]
+            total_hour_bank_bonus_minutes += calc["hour_bank_bonus_minutes"]
+            total_absence_minutes += calc["absence_minutes"]
+            total_manual_minutes += calc["manual_minutes"]
+            if month_delta_minutes is not None:
+                total_month_delta_minutes += month_delta_minutes
 
-        total_closing_balance_minutes += running_balance
+        if running_balance_known:
+            total_closing_balance_minutes += running_balance
 
     return render(
         request,
@@ -1629,9 +1766,148 @@ def bank_hours_page(request):
             "total_closing_balance_hhmm": _format_signed_minutes_as_hour_label(
                 total_closing_balance_minutes
             ),
-            "rule_example": "1:00 extra => 0:30 hora banco, 0:18 com acrescimo; saldo do mes considera 0:18 - descontos",
+            "rule_example": "Sem regra padrao. Cadastre formulas para B, C e F.",
+            "has_missing_rule_b": has_missing_rule_b,
+            "has_missing_rule_c": has_missing_rule_c,
+            "has_missing_rule_f": has_missing_rule_f,
+            "applied_formulas_map": applied_formulas_map,
         },
     )
+
+
+def bank_hours_rules_page(request):
+    start_month, end_month, selected_start_month, selected_end_month, error = (
+        _resolve_competence_month_interval(
+            request.GET.get("start_month"),
+            request.GET.get("end_month"),
+            request.GET.get("competence_month"),
+        )
+    )
+    if error:
+        messages.error(request, error)
+        return redirect(_bank_hours_rules_redirect_with_filters())
+
+    if request.method == "POST":
+        target_column = (request.POST.get("target_column") or "").strip().upper()
+        raw_formula = request.POST.get("formula")
+        raw_start = (request.POST.get("start_month") or "").strip()
+        raw_end = (request.POST.get("end_month") or "").strip()
+
+        if target_column not in {"B", "C", "F"}:
+            messages.error(request, "Selecione uma coluna de destino valida.")
+            return redirect(
+                _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+            )
+
+        start_month_input, _, start_error = _resolve_competence_month(raw_start)
+        if start_error:
+            messages.error(request, "Informe um mes inicial valido.")
+            return redirect(
+                _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+            )
+
+        end_month_input, _, end_error = _resolve_competence_month(raw_end)
+        if end_error:
+            messages.error(request, "Informe um mes final valido.")
+            return redirect(
+                _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+            )
+        if end_month_input < start_month_input:
+            messages.error(request, "Mes final deve ser maior ou igual ao mes inicial.")
+            return redirect(
+                _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+            )
+
+        formula, formula_error = _normalize_rule_formula(target_column, raw_formula)
+        if formula_error:
+            messages.error(request, formula_error)
+            return redirect(
+                _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+            )
+
+        sample_values = {
+            "A": Decimal(120),
+            "B": Decimal(60),
+            "C": Decimal(36),
+            "D": Decimal(30),
+            "E": Decimal(0),
+            "F": Decimal(6),
+        }
+        try:
+            _safe_decimal_formula_eval(formula, sample_values)
+        except (ValueError, InvalidOperation):
+            messages.error(request, "Formula invalida. Use somente A..F, numeros e + - * /.")
+            return redirect(
+                _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+            )
+
+        BankHoursRule.objects.create(
+            start_month=start_month_input,
+            end_month=end_month_input,
+            target_column=target_column,
+            formula=formula,
+        )
+        messages.success(request, "Regra cadastrada com sucesso.")
+        return redirect(
+            _bank_hours_rules_redirect_with_filters(selected_start_month, selected_end_month)
+        )
+
+    filter_column = (request.GET.get("filter_column") or "").strip().upper()
+    filter_query = (request.GET.get("q") or "").strip()
+    raw_filter_start_month = (request.GET.get("filter_start_month") or "").strip()
+    raw_filter_end_month = (request.GET.get("filter_end_month") or "").strip()
+
+    filter_start_month = None
+    filter_end_month = None
+
+    if raw_filter_start_month:
+        filter_start_month, _, filter_start_error = _resolve_competence_month(raw_filter_start_month)
+        if filter_start_error:
+            messages.error(request, "Filtro de mes inicial invalido.")
+            filter_start_month = None
+            raw_filter_start_month = ""
+    if raw_filter_end_month:
+        filter_end_month, _, filter_end_error = _resolve_competence_month(raw_filter_end_month)
+        if filter_end_error:
+            messages.error(request, "Filtro de mes final invalido.")
+            filter_end_month = None
+            raw_filter_end_month = ""
+
+    rules = BankHoursRule.objects.all()
+    if filter_column in {"B", "C", "F"}:
+        rules = rules.filter(target_column=filter_column)
+    if filter_query:
+        rules = rules.filter(formula__icontains=filter_query)
+    if filter_start_month:
+        rules = rules.filter(end_month__gte=filter_start_month)
+    if filter_end_month:
+        rules = rules.filter(start_month__lte=filter_end_month)
+    rules = rules.order_by("-start_month", "target_column", "-id")
+
+    return render(
+        request,
+        "bank_hours_rules.html",
+        {
+            "rules": rules,
+            "selected_start_month": selected_start_month,
+            "selected_end_month": selected_end_month,
+            "default_formulas": {"B": "S/Regra", "C": "S/Regra", "F": "S/Regra"},
+            "filter_column": filter_column,
+            "filter_query": filter_query,
+            "filter_start_month": raw_filter_start_month,
+            "filter_end_month": raw_filter_end_month,
+        },
+    )
+
+
+@require_POST
+def bank_hours_rule_delete(request, rule_id):
+    start_month = (request.POST.get("start_month") or "").strip()
+    end_month = (request.POST.get("end_month") or "").strip()
+    rule = get_object_or_404(BankHoursRule, id=rule_id)
+    rule.delete()
+    messages.success(request, "Regra removida.")
+    return redirect(_bank_hours_rules_redirect_with_filters(start_month, end_month))
 
 
 

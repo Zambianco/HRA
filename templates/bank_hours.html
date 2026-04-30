@@ -1,6 +1,55 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Banco de Horas{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/print-standard.css' %}" />
+  <style>
+    .bh-head-code {
+      display: block;
+      margin-top: 1px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: #6b7280;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    #bank-hours-table th.bh-num-col,
+    #bank-hours-table td.bh-num-col {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    #bank-hours-table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    #bank-hours-table th,
+    #bank-hours-table td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+    #bank-hours-table td.bh-id-col,
+    #bank-hours-table td.bh-name-col,
+    #bank-hours-table td.bh-competence-col {
+      white-space: nowrap;
+    }
+    #bank-hours-table .bh-align {
+      display: inline-grid;
+      grid-template-columns: auto auto auto;
+      align-items: baseline;
+    }
+    #bank-hours-table .bh-align-left {
+      text-align: right;
+    }
+    #bank-hours-table .bh-align-sep,
+    #bank-hours-table .bh-align-right {
+      text-align: left;
+    }
+  </style>
+{% endblock %}
 
 {% block content %}
   <section class="bank-hours-page screen-only">
@@ -19,7 +68,8 @@
     <div class="col-lg-8">
       <h1 class="fw-bold text-primary mb-1">Banco de Horas</h1>
       <p class="text-muted mb-0">Saldo mensal com base nos lancamentos de Timesheet e movimentos manuais de eventos.</p>
-      <p class="small text-muted mb-0">Regra aplicada: hora banco = extras/2; horas com acrescimo = hora banco x 60%; saldo do mes = horas com acrescimo - descontos + ajustes.</p>
+      <p class="small text-muted mb-0">Colunas: A=Extras, B=Hora banco, C=Horas com acrescimo, D=Descontos, E=Ajuste evento, F=Saldo do mes.</p>
+      <p class="small text-muted mb-0">{{ rule_example }}</p>
     </div>
     <div class="col-lg-4 mt-3 mt-lg-0">
       <form id="month-filter-form" method="get" class="d-flex gap-2 justify-content-lg-end align-items-end">
@@ -49,7 +99,11 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <div class="text-muted small">Hora banco (extras/2)</div>
-          <div class="fw-bold fs-4 bh-value" data-minutes="{{ total_hour_bank_base_minutes|default:0 }}">00:00</div>
+          {% if has_missing_rule_b %}
+            <div class="fw-bold fs-4">S/Regra</div>
+          {% else %}
+            <div class="fw-bold fs-4 bh-value" data-minutes="{{ total_hour_bank_base_minutes|default:0 }}">00:00</div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -57,7 +111,11 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <div class="text-muted small">Horas com acrescimo (60%)</div>
-          <div class="fw-bold fs-4 bh-value" data-minutes="{{ total_hour_bank_bonus_minutes|default:0 }}">00:00</div>
+          {% if has_missing_rule_c %}
+            <div class="fw-bold fs-4">S/Regra</div>
+          {% else %}
+            <div class="fw-bold fs-4 bh-value" data-minutes="{{ total_hour_bank_bonus_minutes|default:0 }}">00:00</div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -73,7 +131,11 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <div class="text-muted small">Saldo final acumulado</div>
-          <div class="fw-bold fs-4 bh-value" data-minutes="{{ total_closing_balance_minutes|default:0 }}" data-signed="1">00:00</div>
+          {% if has_missing_rule_f %}
+            <div class="fw-bold fs-4">S/Regra</div>
+          {% else %}
+            <div class="fw-bold fs-4 bh-value" data-minutes="{{ total_closing_balance_minutes|default:0 }}" data-signed="1">00:00</div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -119,12 +181,16 @@
         >
           <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
         </button>
+        <a
+          class="btn btn-sm btn-outline-primary no-print"
+          href="{% url 'bank_hours_rules_page' %}?start_month={{ selected_start_month }}&end_month={{ selected_end_month }}"
+        >
+          <i class="bi bi-sliders me-1"></i>Regras
+        </a>
         <span class="badge text-bg-light border">
           Periodo: {{ selected_start_month }} a {{ selected_end_month }}
         </span>
-        <span class="badge text-bg-info-subtle border text-dark">
-          Regra: horas/2 x 1,6
-        </span>
+        <span class="badge text-bg-info-subtle border text-dark">{{ rule_example }}</span>
         <small id="employee-filter-counter" class="text-muted"></small>
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted">Exibicao</span>
@@ -145,33 +211,69 @@
       {% if rows %}
         <div class="table-responsive rounded border">
           <table class="table table-hover align-middle mb-0" id="bank-hours-table">
+            <colgroup>
+              <col style="width: 8.5rem;">
+              <col style="width: 17rem;">
+              <col style="width: 6.5rem;">
+              <col style="width: 7.5rem;">
+              <col style="width: 7.5rem;">
+              <col style="width: 9rem;">
+              <col style="width: 7.5rem;">
+              <col style="width: 7.5rem;">
+              <col style="width: 7.5rem;">
+              <col style="width: 8.5rem;">
+            </colgroup>
             <thead class="table-light">
               <tr>
                 <th>Matricula</th>
                 <th>Empregado</th>
                 <th>Competencia</th>
-                <th>Extras</th>
-                <th>Hora banco</th>
-                <th>Horas com acrescimo</th>
-                <th>Descontos</th>
-                <th>Ajuste evento</th>
-                <th>Saldo do mes</th>
-                <th>Saldo acumulado</th>
+                <th class="bh-num-col">Extras<span class="bh-head-code">A</span></th>
+                <th class="bh-num-col">Hora banco<span class="bh-head-code">B</span></th>
+                <th class="bh-num-col">Horas com acrescimo<span class="bh-head-code">C</span></th>
+                <th class="bh-num-col">Descontos<span class="bh-head-code">D</span></th>
+                <th class="bh-num-col">Ajuste evento<span class="bh-head-code">E</span></th>
+                <th class="bh-num-col">Saldo do mes<span class="bh-head-code">F</span></th>
+                <th class="bh-num-col">Saldo acumulado</th>
               </tr>
             </thead>
             <tbody>
               {% for row in rows %}
                 <tr>
-                  <td data-filter-matricula="{{ row.employee.matricula|lower }}">{{ row.employee.matricula }}</td>
-                  <td data-filter-nome="{{ row.employee.nome_completo|lower }}">{{ row.employee.nome_completo }}</td>
-                  <td>{{ row.competence_month|date:"m/Y" }}</td>
-                  <td><span class="bh-value" data-minutes="{{ row.overtime_minutes }}">00:00</span></td>
-                  <td><span class="bh-value" data-minutes="{{ row.hour_bank_base_minutes }}">00:00</span></td>
-                  <td><span class="bh-value" data-minutes="{{ row.hour_bank_bonus_minutes }}">00:00</span></td>
-                  <td><span class="bh-value" data-minutes="{{ row.absence_minutes }}">00:00</span></td>
-                  <td><span class="bh-value" data-minutes="{{ row.manual_minutes }}" data-signed="1">00:00</span></td>
-                  <td><span class="bh-value" data-minutes="{{ row.month_delta_minutes }}" data-signed="1">00:00</span></td>
-                  <td><strong class="bh-value" data-minutes="{{ row.running_balance_minutes }}" data-signed="1">00:00</strong></td>
+                  <td class="bh-id-col" data-filter-matricula="{{ row.employee.matricula|lower }}">{{ row.employee.matricula }}</td>
+                  <td class="bh-name-col" data-filter-nome="{{ row.employee.nome_completo|lower }}">{{ row.employee.nome_completo }}</td>
+                  <td class="bh-competence-col">{{ row.competence_month|date:"m/Y" }}</td>
+                  <td class="bh-num-col"><span class="bh-value" data-minutes="{{ row.overtime_minutes }}">00:00</span></td>
+                  <td class="bh-num-col">
+                    {% if row.is_b_defined %}
+                      <span class="bh-value" data-minutes="{{ row.hour_bank_base_minutes }}">00:00</span>
+                    {% else %}
+                      <span class="text-muted">S/Regra</span>
+                    {% endif %}
+                  </td>
+                  <td class="bh-num-col">
+                    {% if row.is_c_defined %}
+                      <span class="bh-value" data-minutes="{{ row.hour_bank_bonus_minutes }}">00:00</span>
+                    {% else %}
+                      <span class="text-muted">S/Regra</span>
+                    {% endif %}
+                  </td>
+                  <td class="bh-num-col"><span class="bh-value" data-minutes="{{ row.absence_minutes }}">00:00</span></td>
+                  <td class="bh-num-col"><span class="bh-value" data-minutes="{{ row.manual_minutes }}" data-signed="1">00:00</span></td>
+                  <td class="bh-num-col">
+                    {% if row.is_f_defined %}
+                      <span class="bh-value{% if row.month_delta_minutes < 0 %} text-danger{% endif %}" data-minutes="{{ row.month_delta_minutes }}" data-signed="1">00:00</span>
+                    {% else %}
+                      <span class="text-muted">S/Regra</span>
+                    {% endif %}
+                  </td>
+                  <td class="bh-num-col">
+                    {% if row.running_balance_defined %}
+                      <strong class="bh-value{% if row.running_balance_minutes < 0 %} text-danger{% endif %}" data-minutes="{{ row.running_balance_minutes }}" data-signed="1">00:00</strong>
+                    {% else %}
+                      <strong class="text-muted">S/Regra</strong>
+                    {% endif %}
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -236,6 +338,40 @@
         return value.toFixed(2).replace(".", ",") + " h";
       }
 
+      function formatAsAlignedParts(totalMinutes, signed, unit) {
+        if (unit === "decimal") {
+          const decimalHours = signed ? totalMinutes / 60 : Math.max(0, totalMinutes / 60);
+          const rounded = decimalHours.toFixed(2);
+          const isNegative = rounded.startsWith("-");
+          const normalized = isNegative ? rounded.slice(1) : rounded;
+          const parts = normalized.split(".");
+          const left = (isNegative ? "-" : "") + parts[0];
+          return {
+            left: left,
+            separator: ",",
+            right: (parts[1] || "00") + " h",
+          };
+        }
+
+        const absoluteMinutes = Math.abs(totalMinutes);
+        const hours = Math.floor(absoluteMinutes / 60);
+        const minutes = absoluteMinutes % 60;
+        return {
+          left: (signed && totalMinutes < 0 ? "-" : "") + String(hours).padStart(2, "0"),
+          separator: ":",
+          right: String(minutes).padStart(2, "0"),
+        };
+      }
+
+      function setAlignedValue(element, parts) {
+        element.innerHTML =
+          '<span class="bh-align">' +
+          '<span class="bh-align-left">' + parts.left + "</span>" +
+          '<span class="bh-align-sep">' + parts.separator + "</span>" +
+          '<span class="bh-align-right">' + parts.right + "</span>" +
+          "</span>";
+      }
+
       function refreshDisplayMode() {
         const checkedRadio = displayUnitRadios.find(function (radio) { return radio.checked; });
         const unit = checkedRadio ? checkedRadio.value : "hours";
@@ -243,16 +379,25 @@
           const rawMinutes = Number(element.dataset.minutes || "0");
           const totalMinutes = Number.isFinite(rawMinutes) ? Math.round(rawMinutes) : 0;
           const signed = element.dataset.signed === "1";
+          const inTable = !!element.closest("#bank-hours-table");
 
           if (unit === "minutes") {
             element.textContent = formatAsMinutes(totalMinutes, signed);
             return;
           }
           if (unit === "decimal") {
-            element.textContent = formatAsDecimal(totalMinutes, signed);
+            if (inTable) {
+              setAlignedValue(element, formatAsAlignedParts(totalMinutes, signed, "decimal"));
+            } else {
+              element.textContent = formatAsDecimal(totalMinutes, signed);
+            }
             return;
           }
-          element.textContent = formatAsHHMM(totalMinutes, signed);
+          if (inTable) {
+            setAlignedValue(element, formatAsAlignedParts(totalMinutes, signed, "hours"));
+          } else {
+            element.textContent = formatAsHHMM(totalMinutes, signed);
+          }
         });
       }
 
@@ -325,7 +470,7 @@
   </script>
   </section>
 
-  {% with print_title="Relatorio de Banco de Horas" print_subtitle="Extrato mensal por empregado" print_meta_label="Periodo" print_meta_value=selected_start_month|add:" a "|add:selected_end_month print_body_template="prints/partials/bank_hours_print_body.html" print_footer_left="Documento gerado pelo modulo de banco de horas." print_footer_right="FIM DO RELATORIO" print_hide_continuation_footer=1 print_hide_continuation_title=1 %}
+  {% with print_title="Relatorio de Banco de Horas" print_subtitle="Extrato mensal por empregado" print_meta_label="Periodo" print_meta_value=selected_start_month|add:" a "|add:selected_end_month print_body_template="prints/partials/bank_hours_print_body.html" print_footer_left="Documento gerado pelo modulo de banco de horas." print_footer_right="FIM DO RELATORIO" print_hide_continuation_footer=1 print_hide_continuation_title=1 print_break_per_record=1 %}
     {% include "prints/partials/report_sheet.html" %}
   {% endwith %}
 {% endblock %}
