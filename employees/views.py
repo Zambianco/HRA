@@ -3,6 +3,7 @@ from urllib.parse import urlencode
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, timedelta
 import re
+from collections import defaultdict
 
 from django.contrib import messages
 from django.db import IntegrityError
@@ -74,6 +75,18 @@ def _timesheet_redirect_with_filters(competence_month=None):
         params["competence_month"] = competence_month
 
     base_url = reverse("timesheet_page")
+    query = urlencode(params)
+    return f"{base_url}?{query}" if query else base_url
+
+
+def _bank_hours_redirect_with_filters(start_month=None, end_month=None):
+    params = {}
+    if start_month:
+        params["start_month"] = start_month
+    if end_month:
+        params["end_month"] = end_month
+
+    base_url = reverse("bank_hours_page")
     query = urlencode(params)
     return f"{base_url}?{query}" if query else base_url
 
@@ -675,6 +688,25 @@ def _get_month_date_range(month_start):
     _, days_in_month = monthrange(month_start.year, month_start.month)
     month_end = date(month_start.year, month_start.month, days_in_month)
     return month_start, month_end
+
+
+def _month_start_for_date(value):
+    return date(value.year, value.month, 1)
+
+
+def _minutes_from_decimal_hours(raw_hours):
+    decimal_hours = Decimal(raw_hours)
+    return int((decimal_hours * Decimal("60")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _calc_bank_credit_minutes(overtime_minutes):
+    return int(
+        (
+            Decimal(overtime_minutes)
+            * Decimal("0.5")
+            * Decimal("1.6")
+        ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
 
 
 def _create_month_closure_snapshots(closure):
@@ -1385,6 +1417,219 @@ def timesheet_dashboard_page(request):
             "total_worked_hhmm": _format_minutes_as_hour_label(total_worked_minutes),
             "total_overtime_hhmm": _format_minutes_as_hour_label(total_overtime_minutes),
             "total_absence_hhmm": _format_minutes_as_hour_label(total_absence_minutes),
+        },
+    )
+
+
+def bank_hours_page(request):
+    start_month, end_month, selected_start_month, selected_end_month, error = (
+        _resolve_competence_month_interval(
+            request.GET.get("start_month"),
+            request.GET.get("end_month"),
+            request.GET.get("competence_month"),
+        )
+    )
+    if error:
+        messages.error(request, error)
+        return redirect(_bank_hours_redirect_with_filters())
+
+    participants = list(
+        Employee.objects.select_related("sector")
+        .filter(
+            deactivated_at__isnull=True,
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+        )
+        .order_by("nome_completo")
+    )
+
+    competence_months = list(_iterate_competence_months(start_month, end_month))
+    competence_month_set = set(competence_months)
+    participant_ids = [employee.id for employee in participants]
+
+    entries_qs = EmployeeTimeEntry.objects.filter(employee_id__in=participant_ids)
+    entries_in_range = entries_qs.filter(competence_month__in=competence_months)
+    entries_before_range = entries_qs.filter(competence_month__lt=start_month)
+
+    monthly_entry_data = defaultdict(
+        lambda: {
+            "overtime_minutes": 0,
+            "hour_bank_base_minutes": 0,
+            "hour_bank_bonus_minutes": 0,
+            "credit_minutes": 0,
+            "absence_minutes": 0,
+            "manual_minutes": 0,
+        }
+    )
+    opening_balance_by_employee = defaultdict(int)
+
+    for entry in entries_in_range:
+        key = (entry.employee_id, entry.competence_month)
+        overtime_minutes = entry.overtime_60_minutes + entry.overtime_100_minutes
+        absence_minutes = (
+            entry.absence_unexcused_minutes
+            + entry.absence_bank_minutes
+        )
+        hour_bank_base_minutes = int(
+            (
+                Decimal(overtime_minutes) * Decimal("0.5")
+            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
+        hour_bank_bonus_minutes = int(
+            (
+                Decimal(hour_bank_base_minutes) * Decimal("0.6")
+            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
+        credit_minutes = hour_bank_base_minutes + hour_bank_bonus_minutes
+        monthly_entry_data[key]["overtime_minutes"] += overtime_minutes
+        monthly_entry_data[key]["hour_bank_base_minutes"] += hour_bank_base_minutes
+        monthly_entry_data[key]["hour_bank_bonus_minutes"] += hour_bank_bonus_minutes
+        monthly_entry_data[key]["credit_minutes"] += credit_minutes
+        monthly_entry_data[key]["absence_minutes"] += absence_minutes
+
+    for entry in entries_before_range:
+        overtime_minutes = entry.overtime_60_minutes + entry.overtime_100_minutes
+        absence_minutes = (
+            entry.absence_unexcused_minutes
+            + entry.absence_bank_minutes
+        )
+        hour_bank_base_minutes = int(
+            (
+                Decimal(overtime_minutes) * Decimal("0.5")
+            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
+        hour_bank_bonus_minutes = int(
+            (
+                Decimal(hour_bank_base_minutes) * Decimal("0.6")
+            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
+        opening_balance_by_employee[entry.employee_id] += (
+            hour_bank_base_minutes + hour_bank_bonus_minutes - absence_minutes
+        )
+
+    movement_events_qs = EmployeeEvent.objects.filter(
+        employee_id__in=participant_ids,
+        event_type=EmployeeEvent.EVENT_TYPE_BANK_HOURS_MOVEMENT,
+        bank_hours_amount__isnull=False,
+    )
+
+    for movement in movement_events_qs.filter(
+        effective_date__lt=start_month,
+    ):
+        opening_balance_by_employee[movement.employee_id] += _minutes_from_decimal_hours(
+            movement.bank_hours_amount
+        )
+
+    for movement in movement_events_qs.filter(
+        effective_date__gte=start_month,
+        effective_date__lte=_get_month_date_range(end_month)[1],
+    ):
+        month_key = _month_start_for_date(movement.effective_date)
+        if month_key not in competence_month_set:
+            continue
+        monthly_entry_data[(movement.employee_id, month_key)]["manual_minutes"] += (
+            _minutes_from_decimal_hours(movement.bank_hours_amount)
+        )
+
+    rows = []
+    total_credit_minutes = 0
+    total_hour_bank_base_minutes = 0
+    total_hour_bank_bonus_minutes = 0
+    total_absence_minutes = 0
+    total_manual_minutes = 0
+    total_month_delta_minutes = 0
+    total_closing_balance_minutes = 0
+
+    for employee in participants:
+        running_balance = opening_balance_by_employee[employee.id]
+        for competence_month in competence_months:
+            payload = monthly_entry_data[(employee.id, competence_month)]
+            month_delta_minutes = (
+                payload["hour_bank_bonus_minutes"]
+                - payload["absence_minutes"]
+                + payload["manual_minutes"]
+            )
+            running_balance += month_delta_minutes
+            rows.append(
+                {
+                    "employee": employee,
+                    "competence_month": competence_month,
+                    "overtime_minutes": payload["overtime_minutes"],
+                    "overtime_hhmm": _format_minutes_as_hour_label(
+                        payload["overtime_minutes"]
+                    ),
+                    "hour_bank_base_minutes": payload["hour_bank_base_minutes"],
+                    "hour_bank_base_hhmm": _format_minutes_as_hour_label(
+                        payload["hour_bank_base_minutes"]
+                    ),
+                    "hour_bank_bonus_minutes": payload["hour_bank_bonus_minutes"],
+                    "hour_bank_bonus_hhmm": _format_minutes_as_hour_label(
+                        payload["hour_bank_bonus_minutes"]
+                    ),
+                    "credit_minutes": payload["credit_minutes"],
+                    "credit_hhmm": _format_minutes_as_hour_label(
+                        payload["credit_minutes"]
+                    ),
+                    "absence_minutes": payload["absence_minutes"],
+                    "absence_hhmm": _format_minutes_as_hour_label(
+                        payload["absence_minutes"]
+                    ),
+                    "manual_minutes": payload["manual_minutes"],
+                    "manual_hhmm": _format_signed_minutes_as_hour_label(
+                        payload["manual_minutes"]
+                    ),
+                    "month_delta_minutes": month_delta_minutes,
+                    "month_delta_hhmm": _format_signed_minutes_as_hour_label(
+                        month_delta_minutes
+                    ),
+                    "running_balance_minutes": running_balance,
+                    "running_balance_hhmm": _format_signed_minutes_as_hour_label(
+                        running_balance
+                    ),
+                }
+            )
+            total_credit_minutes += payload["credit_minutes"]
+            total_hour_bank_base_minutes += payload["hour_bank_base_minutes"]
+            total_hour_bank_bonus_minutes += payload["hour_bank_bonus_minutes"]
+            total_absence_minutes += payload["absence_minutes"]
+            total_manual_minutes += payload["manual_minutes"]
+            total_month_delta_minutes += month_delta_minutes
+
+        total_closing_balance_minutes += running_balance
+
+    return render(
+        request,
+        "bank_hours.html",
+        {
+            "rows": rows,
+            "participants": participants,
+            "participants_count": len(participants),
+            "selected_start_month": selected_start_month,
+            "selected_end_month": selected_end_month,
+            "total_credit_minutes": total_credit_minutes,
+            "total_credit_hhmm": _format_minutes_as_hour_label(total_credit_minutes),
+            "total_hour_bank_base_minutes": total_hour_bank_base_minutes,
+            "total_hour_bank_base_hhmm": _format_minutes_as_hour_label(
+                total_hour_bank_base_minutes
+            ),
+            "total_hour_bank_bonus_minutes": total_hour_bank_bonus_minutes,
+            "total_hour_bank_bonus_hhmm": _format_minutes_as_hour_label(
+                total_hour_bank_bonus_minutes
+            ),
+            "total_absence_minutes": total_absence_minutes,
+            "total_absence_hhmm": _format_minutes_as_hour_label(total_absence_minutes),
+            "total_manual_minutes": total_manual_minutes,
+            "total_manual_hhmm": _format_signed_minutes_as_hour_label(
+                total_manual_minutes
+            ),
+            "total_month_delta_minutes": total_month_delta_minutes,
+            "total_month_delta_hhmm": _format_signed_minutes_as_hour_label(
+                total_month_delta_minutes
+            ),
+            "total_closing_balance_minutes": total_closing_balance_minutes,
+            "total_closing_balance_hhmm": _format_signed_minutes_as_hour_label(
+                total_closing_balance_minutes
+            ),
+            "rule_example": "1:00 extra => 0:30 hora banco, 0:18 com acrescimo; saldo do mes considera 0:18 - descontos",
         },
     )
 
