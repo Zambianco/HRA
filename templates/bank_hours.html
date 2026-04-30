@@ -150,16 +150,22 @@
         </p>
       </div>
       <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-        <div class="input-group input-group-sm" style="min-width: 280px; max-width: 360px;">
-          <span class="input-group-text">Empregado</span>
-          <input
-            id="employee-filter"
-            class="form-control"
-            list="employee-filter-list"
-            placeholder="Nome ou matricula"
-            autocomplete="off"
-          />
-          <button type="button" id="employee-filter-clear" class="btn btn-outline-secondary">Limpar</button>
+        <div class="d-flex align-items-center gap-2 flex-nowrap me-auto">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Navegacao de empregado">
+            <button type="button" id="employee-filter-prev" class="btn btn-outline-secondary" title="Empregado anterior" aria-label="Empregado anterior">&lt;</button>
+            <button type="button" id="employee-filter-next" class="btn btn-outline-secondary" title="Proximo empregado" aria-label="Proximo empregado">&gt;</button>
+          </div>
+          <div class="input-group input-group-sm" style="min-width: 280px; max-width: 360px;">
+            <span class="input-group-text">Empregado</span>
+            <input
+              id="employee-filter"
+              class="form-control"
+              list="employee-filter-list"
+              placeholder="Nome ou matricula"
+              autocomplete="off"
+            />
+            <button type="button" id="employee-filter-clear" class="btn btn-outline-secondary">Limpar</button>
+          </div>
         </div>
         <datalist id="employee-filter-list">
           {% for employee in participants %}
@@ -191,7 +197,6 @@
           Periodo: {{ selected_start_month }} a {{ selected_end_month }}
         </span>
         <span class="badge text-bg-info-subtle border text-dark">{{ rule_example }}</span>
-        <small id="employee-filter-counter" class="text-muted"></small>
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted">Exibicao</span>
           <div class="btn-group btn-group-sm" role="group" aria-label="Unidade de exibicao">
@@ -294,12 +299,32 @@
       const displayUnitRadios = Array.from(document.querySelectorAll("input[name='display-unit']"));
       const filterInput = document.getElementById("employee-filter");
       const clearButton = document.getElementById("employee-filter-clear");
+      const prevButton = document.getElementById("employee-filter-prev");
+      const nextButton = document.getElementById("employee-filter-next");
       const table = document.getElementById("bank-hours-table");
-      const counter = document.getElementById("employee-filter-counter");
       const valueElements = Array.from(document.querySelectorAll(".bh-value"));
-      if (!filterInput || !clearButton || !table || !counter) return;
+      if (!filterInput || !clearButton || !prevButton || !nextButton || !table) return;
 
       const rows = Array.from(table.querySelectorAll("tbody tr"));
+      const navigationMatriculas = Array.from(new Set(rows
+        .map(function (row) {
+          const matriculaCell = row.querySelector("td[data-filter-matricula]");
+          return normalize(matriculaCell ? matriculaCell.dataset.filterMatricula : "");
+        })
+        .filter(Boolean)))
+        .sort(function (a, b) { return a.localeCompare(b, "pt-BR", { numeric: true }); });
+
+      const firstDisplayByMatricula = {};
+      rows.forEach(function (row) {
+        const matriculaCell = row.querySelector("td[data-filter-matricula]");
+        const matricula = normalize(matriculaCell ? matriculaCell.dataset.filterMatricula : "");
+        if (matricula && !firstDisplayByMatricula[matricula]) {
+          firstDisplayByMatricula[matricula] = (matriculaCell ? matriculaCell.textContent : "").trim();
+        }
+      });
+
+      let navigationIndex = 0;
+      let navigationMatricula = "";
 
       function normalize(value) {
         return (value || "").toString().toLowerCase().trim();
@@ -410,21 +435,56 @@
           const nomeCell = row.querySelector("td[data-filter-nome]");
           const matricula = normalize(matriculaCell ? matriculaCell.dataset.filterMatricula : "");
           const nome = normalize(nomeCell ? nomeCell.dataset.filterNome : "");
-          const matches = !query || matricula.includes(query) || nome.includes(query);
+          const matchesByNavigation = !navigationMatricula || matricula === navigationMatricula;
+          const matchesByQuery = !query || matricula.includes(query) || nome.includes(query);
+          const matches = matchesByNavigation && matchesByQuery;
 
           row.classList.toggle("d-none", !matches);
           if (matches) visible += 1;
         });
 
-        counter.textContent = query
-          ? "Linhas visiveis: " + visible + " de " + rows.length
-          : "Linhas visiveis: " + rows.length;
       }
 
-      filterInput.addEventListener("input", applyFilter);
-      clearButton.addEventListener("click", function () {
-        filterInput.value = "";
+      function setNavigationIndex(nextIndex) {
+        const totalStates = navigationMatriculas.length + 1;
+        if (totalStates <= 0) return;
+        navigationIndex = ((nextIndex % totalStates) + totalStates) % totalStates;
+        navigationMatricula = navigationIndex === 0 ? "" : navigationMatriculas[navigationIndex - 1];
+        filterInput.value = navigationMatricula ? (firstDisplayByMatricula[navigationMatricula] || navigationMatricula) : "";
         applyFilter();
+      }
+
+      function syncNavigationWithTypedFilter() {
+        const query = normalize(filterInput.value);
+        if (!query) {
+          navigationIndex = 0;
+          navigationMatricula = "";
+          return;
+        }
+        const exactMatriculaIndex = navigationMatriculas.indexOf(query);
+        if (exactMatriculaIndex >= 0) {
+          navigationIndex = exactMatriculaIndex + 1;
+          navigationMatricula = navigationMatriculas[exactMatriculaIndex];
+          return;
+        }
+        navigationIndex = -1;
+        navigationMatricula = "";
+      }
+
+      filterInput.addEventListener("input", function () {
+        syncNavigationWithTypedFilter();
+        applyFilter();
+      });
+      prevButton.addEventListener("click", function () {
+        setNavigationIndex(navigationIndex - 1);
+        filterInput.focus();
+      });
+      nextButton.addEventListener("click", function () {
+        setNavigationIndex(navigationIndex + 1);
+        filterInput.focus();
+      });
+      clearButton.addEventListener("click", function () {
+        setNavigationIndex(0);
         filterInput.focus();
       });
 
@@ -464,13 +524,13 @@
         });
       });
 
-      applyFilter();
+      setNavigationIndex(0);
       refreshDisplayMode();
     })();
   </script>
   </section>
 
-  {% with print_title="Relatorio de Banco de Horas" print_subtitle="Extrato mensal por empregado" print_meta_label="Periodo" print_meta_value=selected_start_month|add:" a "|add:selected_end_month print_body_template="prints/partials/bank_hours_print_body.html" print_footer_left="Documento gerado pelo modulo de banco de horas." print_footer_right="FIM DO RELATORIO" print_hide_continuation_footer=1 print_hide_continuation_title=1 print_break_per_record=1 %}
+  {% with print_title="Relatorio de Banco de Horas" print_subtitle="Extrato mensal" print_meta_label="Periodo" print_meta_value=selected_start_month|add:" a "|add:selected_end_month print_body_template="prints/partials/bank_hours_print_body.html" print_footer_left="Documento gerado pelo modulo de banco de horas." print_footer_right="FIM DO RELATORIO" print_break_per_record=1 %}
     {% include "prints/partials/report_sheet.html" %}
   {% endwith %}
 {% endblock %}

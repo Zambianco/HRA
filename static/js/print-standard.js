@@ -30,6 +30,11 @@
         refreshPageMetrics(state.current);
     }
 
+    function markCurrentPageContinues(state) {
+        if (!state || !state.current || !state.current.page) return;
+        state.current.page.dataset.continuesNext = "1";
+    }
+
     function fitsInCurrentPage(pageRef) {
         return pageRef.body.scrollHeight <= (pageRef.maxBodyHeight + 1);
     }
@@ -51,12 +56,16 @@
             const footerState = page.querySelector(".print-footer-state");
             if (!footerState) return;
 
-            if (hideContinuationFooter && current < total) {
+            const shouldShowContinuation = page.dataset.continuesNext === "1";
+            if (hideContinuationFooter && shouldShowContinuation) {
                 footerState.textContent = "";
                 return;
             }
-
-            footerState.textContent = current < total ? "CONTINUA NA PROXIMA PAGINA" : "FIM DO RELATORIO";
+            if (shouldShowContinuation) {
+                footerState.textContent = "CONTINUA NA PROXIMA PAGINA";
+                return;
+            }
+            footerState.textContent = current === total ? "FIM DO RELATORIO" : "";
         });
     }
 
@@ -72,6 +81,7 @@
         if (titleClone) titleClone.remove();
         blockClone.remove();
 
+        markCurrentPageContinues(state);
         createAndMountPage(state);
 
         if (titleClone) state.current.body.appendChild(titleClone);
@@ -101,6 +111,7 @@
 
         function createPageTable(withContinuationTitle) {
             if (withContinuationTitle) {
+                markCurrentPageContinues(state);
                 createAndMountPage(state);
             }
             if (sectionTitleNode) {
@@ -144,6 +155,7 @@
         let treeContainer = treeNode.cloneNode(false);
 
         function startNewPageWithTitle(asContinuation) {
+            markCurrentPageContinues(state);
             createAndMountPage(state);
 
             if (sectionTitleNode) {
@@ -215,6 +227,7 @@
         let listContainer = listNode.cloneNode(false);
 
         function startNewPageWithTitle(asContinuation) {
+            markCurrentPageContinues(state);
             createAndMountPage(state);
 
             if (sectionTitleNode) {
@@ -276,16 +289,13 @@
             (node) => !node.classList.contains("print-header") && !node.classList.contains("print-footer")
         );
 
-        const isBankHoursRoute = window.location.pathname.indexOf("/banco-horas/") === 0;
         const state = {
             headerTemplate: headerTemplate,
             footerTemplate: footerTemplate,
             output: output,
             current: null,
-            hideContinuationFooter:
-                report.dataset.hideContinuationFooter === "1" || isBankHoursRoute,
-            hideContinuationTitle:
-                report.dataset.hideContinuationTitle === "1" || isBankHoursRoute,
+            hideContinuationFooter: report.dataset.hideContinuationFooter === "1",
+            hideContinuationTitle: report.dataset.hideContinuationTitle === "1",
             breakPerRecord: report.dataset.breakPerRecord === "1",
         };
 

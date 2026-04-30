@@ -1,3 +1,78 @@
+<div class="print-section-title">Extrato Por Empregado</div>
+<div class="print-record-list">
+    {% regroup rows by employee as employee_groups %}
+    {% for group in employee_groups %}
+    <article class="print-record-card bank-hours-record-card">
+        <div class="print-record-card-head bank-hours-record-head">
+            <span class="print-record-title">{{ group.grouper.matricula|default:"-" }} - {{ group.grouper.nome_completo|default:"-" }}</span>
+        </div>
+        <table class="print-data-table timesheet-print-table bank-hours-print-table">
+            <colgroup>
+                <col class="bh-col-mes" />
+                <col class="bh-col-base" />
+                <col class="bh-col-bonus" />
+                <col class="bh-col-desc" />
+                <col class="bh-col-ajuste" />
+                <col class="bh-col-saldo-mes" />
+                <col class="bh-col-saldo-acum" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>MES</th>
+                    <th><span class="ts-head-stack">HORA<br>BANCO</span><span class="bh-head-code-print">B</span></th>
+                    <th><span class="ts-head-stack">HORAS C/<br>ACRESC.</span><span class="bh-head-code-print">C</span></th>
+                    <th>DESCONTOS<span class="bh-head-code-print">D</span></th>
+                    <th>AJUSTE<span class="bh-head-code-print">E</span></th>
+                    <th><span class="ts-head-stack">SALDO<br>MES</span><span class="bh-head-code-print">F</span></th>
+                    <th><span class="ts-head-stack">SALDO<br>ACUM.</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in group.list %}
+                <tr>
+                    <td>{{ row.competence_month|date:"m/Y" }}</td>
+                    <td>
+                        {% if row.is_b_defined %}
+                        <span class="bh-value" data-minutes="{{ row.hour_bank_base_minutes|default:0 }}">00:00</span>
+                        {% else %}
+                        S/Regra
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.is_c_defined %}
+                        <span class="bh-value" data-minutes="{{ row.hour_bank_bonus_minutes|default:0 }}">00:00</span>
+                        {% else %}
+                        S/Regra
+                        {% endif %}
+                    </td>
+                    <td><span class="bh-value" data-minutes="{{ row.absence_minutes|default:0 }}">00:00</span></td>
+                    <td><span class="bh-value" data-minutes="{{ row.manual_minutes|default:0 }}" data-signed="1">00:00</span></td>
+                    <td>
+                        {% if row.is_f_defined %}
+                        <span class="bh-value" data-minutes="{{ row.month_delta_minutes|default:0 }}" data-signed="1">00:00</span>
+                        {% else %}
+                        S/Regra
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.running_balance_defined %}
+                        <strong class="bh-value" data-minutes="{{ row.running_balance_minutes|default:0 }}" data-signed="1">00:00</strong>
+                        {% else %}
+                        <strong>S/Regra</strong>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </article>
+    {% empty %}
+    <div class="print-value">Sem dados para o periodo selecionado.</div>
+    {% endfor %}
+</div>
+
+<div class="print-force-page-break" aria-hidden="true"></div>
+
 <div class="print-section-title">Resumo</div>
 <div class="print-grid">
     <div class="print-item">
@@ -108,78 +183,3 @@
         {% endfor %}
     </tbody>
 </table>
-
-<div class="print-force-page-break" aria-hidden="true"></div>
-
-<div class="print-section-title">Extrato Por Empregado</div>
-<div class="print-record-list">
-    {% regroup rows by employee as employee_groups %}
-    {% for group in employee_groups %}
-    <article class="print-record-card bank-hours-record-card">
-        <div class="print-record-card-head bank-hours-record-head">
-            <span class="print-record-title">{{ group.grouper.matricula|default:"-" }} - {{ group.grouper.nome_completo|default:"-" }}</span>
-        </div>
-        <table class="print-data-table timesheet-print-table bank-hours-print-table">
-            <colgroup>
-                <col class="bh-col-mes" />
-                <col class="bh-col-base" />
-                <col class="bh-col-bonus" />
-                <col class="bh-col-desc" />
-                <col class="bh-col-ajuste" />
-                <col class="bh-col-saldo-mes" />
-                <col class="bh-col-saldo-acum" />
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>MES</th>
-                    <th><span class="ts-head-stack">HORA<br>BANCO</span><span class="bh-head-code-print">B</span></th>
-                    <th><span class="ts-head-stack">HORAS C/<br>ACRESC.</span><span class="bh-head-code-print">C</span></th>
-                    <th>DESCONTOS<span class="bh-head-code-print">D</span></th>
-                    <th>AJUSTE<span class="bh-head-code-print">E</span></th>
-                    <th><span class="ts-head-stack">SALDO<br>MES</span><span class="bh-head-code-print">F</span></th>
-                    <th><span class="ts-head-stack">SALDO<br>ACUM.</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in group.list %}
-                <tr>
-                    <td>{{ row.competence_month|date:"m/Y" }}</td>
-                    <td>
-                        {% if row.is_b_defined %}
-                        <span class="bh-value" data-minutes="{{ row.hour_bank_base_minutes|default:0 }}">00:00</span>
-                        {% else %}
-                        S/Regra
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if row.is_c_defined %}
-                        <span class="bh-value" data-minutes="{{ row.hour_bank_bonus_minutes|default:0 }}">00:00</span>
-                        {% else %}
-                        S/Regra
-                        {% endif %}
-                    </td>
-                    <td><span class="bh-value" data-minutes="{{ row.absence_minutes|default:0 }}">00:00</span></td>
-                    <td><span class="bh-value" data-minutes="{{ row.manual_minutes|default:0 }}" data-signed="1">00:00</span></td>
-                    <td>
-                        {% if row.is_f_defined %}
-                        <span class="bh-value" data-minutes="{{ row.month_delta_minutes|default:0 }}" data-signed="1">00:00</span>
-                        {% else %}
-                        S/Regra
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if row.running_balance_defined %}
-                        <strong class="bh-value" data-minutes="{{ row.running_balance_minutes|default:0 }}" data-signed="1">00:00</strong>
-                        {% else %}
-                        <strong>S/Regra</strong>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </article>
-    {% empty %}
-    <div class="print-value">Sem dados para o periodo selecionado.</div>
-    {% endfor %}
-</div>
