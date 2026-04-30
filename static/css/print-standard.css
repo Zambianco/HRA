@@ -210,6 +210,10 @@ body.print-pagination-measure .print-sheet .print-record-card {
     page-break-inside: avoid;
 }
 
+body.print-pagination-measure .print-sheet .bank-hours-record-card {
+    border: 0;
+}
+
 body.print-pagination-measure .print-sheet .print-record-card-head {
     display: flex;
     justify-content: space-between;
@@ -217,6 +221,12 @@ body.print-pagination-measure .print-sheet .print-record-card-head {
     gap: 8px;
     padding: 4px 6px;
     border-bottom: 1px solid #000;
+}
+
+body.print-pagination-measure .print-sheet .bank-hours-record-head {
+    border-top: 1px solid #000;
+    border-bottom: 1px solid #000;
+    padding: 3px 0;
 }
 
 body.print-pagination-measure .print-sheet .print-record-id {
@@ -407,6 +417,13 @@ body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-tab
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-falta { width: 8%; }
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-just { width: 8%; }
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table .ts-col-banco { width: 8%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-mes { width: 13%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-base { width: 14%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-bonus { width: 16%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-desc { width: 13%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-ajuste { width: 13%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-saldo-mes { width: 15%; }
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table .bh-col-saldo-acum { width: 16%; }
 
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table th,
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table td {
@@ -428,6 +445,11 @@ body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-tab
 
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table th:nth-child(8),
 body.print-pagination-measure .print-sheet .print-data-table.timesheet-print-table td:nth-child(8) {
+    border-left: 1px dotted #000 !important;
+}
+
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table th:nth-child(7),
+body.print-pagination-measure .print-sheet .print-data-table.bank-hours-print-table td:nth-child(7) {
     border-left: 1px dotted #000 !important;
 }
 
@@ -748,6 +770,10 @@ body.print-pagination-measure .print-sheet .full-width {
         page-break-inside: avoid;
     }
 
+    .print-sheet .bank-hours-record-card {
+        border: 0;
+    }
+
     .print-sheet .print-record-card-head {
         display: flex;
         justify-content: space-between;
@@ -755,6 +781,12 @@ body.print-pagination-measure .print-sheet .full-width {
         gap: 8px;
         padding: 4px 6px;
         border-bottom: 1px solid #000;
+    }
+
+    .print-sheet .bank-hours-record-head {
+        border-top: 1px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 3px 0;
     }
 
     .print-sheet .print-record-id {
@@ -945,6 +977,13 @@ body.print-pagination-measure .print-sheet .full-width {
     .print-sheet .print-data-table.timesheet-print-table .ts-col-falta { width: 8%; }
     .print-sheet .print-data-table.timesheet-print-table .ts-col-just { width: 8%; }
     .print-sheet .print-data-table.timesheet-print-table .ts-col-banco { width: 8%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-mes { width: 13%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-base { width: 14%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-bonus { width: 16%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-desc { width: 13%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-ajuste { width: 13%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-saldo-mes { width: 15%; }
+    .print-sheet .print-data-table.bank-hours-print-table .bh-col-saldo-acum { width: 16%; }
 
     .print-sheet .print-data-table.timesheet-print-table th,
     .print-sheet .print-data-table.timesheet-print-table td {
@@ -966,6 +1005,11 @@ body.print-pagination-measure .print-sheet .full-width {
 
     .print-sheet .print-data-table.timesheet-print-table th:nth-child(8),
     .print-sheet .print-data-table.timesheet-print-table td:nth-child(8) {
+        border-left: 1px dotted #000 !important;
+    }
+
+    .print-sheet .print-data-table.bank-hours-print-table th:nth-child(7),
+    .print-sheet .print-data-table.bank-hours-print-table td:nth-child(7) {
         border-left: 1px dotted #000 !important;
     }
 

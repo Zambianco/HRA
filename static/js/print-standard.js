@@ -34,9 +34,11 @@
         return pageRef.body.scrollHeight <= (pageRef.maxBodyHeight + 1);
     }
 
-    function applyPageCountersAndState(output) {
+    function applyPageCountersAndState(output, options) {
         const pages = Array.from(output.querySelectorAll(".print-page"));
         const total = pages.length;
+        const hideContinuationFooter = Boolean(options && options.hideContinuationFooter);
+
         pages.forEach((page, index) => {
             const current = index + 1;
             page.querySelectorAll(".print-page-current").forEach((el) => {
@@ -45,10 +47,16 @@
             page.querySelectorAll(".print-page-total").forEach((el) => {
                 el.textContent = String(total);
             });
-            const state = page.querySelector(".print-footer-state");
-            if (state) {
-                state.textContent = current < total ? "CONTINUA NA PROXIMA PAGINA" : "FIM DO RELATORIO";
+
+            const footerState = page.querySelector(".print-footer-state");
+            if (!footerState) return;
+
+            if (hideContinuationFooter && current < total) {
+                footerState.textContent = "";
+                return;
             }
+
+            footerState.textContent = current < total ? "CONTINUA NA PROXIMA PAGINA" : "FIM DO RELATORIO";
         });
     }
 
@@ -84,7 +92,7 @@
 
             if (sectionTitleNode) {
                 const repeatedTitle = cloneNode(sectionTitleNode);
-                if (asContinuation) {
+                if (asContinuation && !state.hideContinuationTitle) {
                     repeatedTitle.textContent = repeatedTitle.textContent + " (continuacao)";
                 }
                 state.current.body.appendChild(repeatedTitle);
@@ -137,7 +145,7 @@
 
             if (sectionTitleNode) {
                 const repeatedTitle = cloneNode(sectionTitleNode);
-                if (asContinuation) {
+                if (asContinuation && !state.hideContinuationTitle) {
                     repeatedTitle.textContent = repeatedTitle.textContent + " (continuacao)";
                 }
                 state.current.body.appendChild(repeatedTitle);
@@ -194,11 +202,16 @@
             (node) => !node.classList.contains("print-header") && !node.classList.contains("print-footer")
         );
 
+        const isBankHoursRoute = window.location.pathname.indexOf("/banco-horas/") === 0;
         const state = {
             headerTemplate: headerTemplate,
             footerTemplate: footerTemplate,
             output: output,
             current: null,
+            hideContinuationFooter:
+                report.dataset.hideContinuationFooter === "1" || isBankHoursRoute,
+            hideContinuationTitle:
+                report.dataset.hideContinuationTitle === "1" || isBankHoursRoute,
         };
 
         createAndMountPage(state);
@@ -231,7 +244,7 @@
             pendingSectionTitle = null;
         });
 
-        applyPageCountersAndState(output);
+        applyPageCountersAndState(output, state);
     }
 
     function prepareAllReports() {

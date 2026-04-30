@@ -3,6 +3,7 @@
 {% block title %}Banco de Horas{% endblock %}
 
 {% block content %}
+  <section class="bank-hours-page screen-only">
   <div class="row mb-4">
     <div class="col-12">
       <nav aria-label="breadcrumb">
@@ -322,4 +323,9 @@
       refreshDisplayMode();
     })();
   </script>
+  </section>
+
+  {% with print_title="Relatorio de Banco de Horas" print_subtitle="Extrato mensal por empregado" print_meta_label="Periodo" print_meta_value=selected_start_month|add:" a "|add:selected_end_month print_body_template="prints/partials/bank_hours_print_body.html" print_footer_left="Documento gerado pelo modulo de banco de horas." print_footer_right="FIM DO RELATORIO" print_hide_continuation_footer=1 print_hide_continuation_title=1 %}
+    {% include "prints/partials/report_sheet.html" %}
+  {% endwith %}
 {% endblock %}

@@ -1,4 +1,8 @@
-<section class="print-only print-sheet js-print-report">
+<section
+    class="print-only print-sheet js-print-report"
+    data-hide-continuation-footer="{% if print_hide_continuation_footer %}1{% else %}0{% endif %}"
+    data-hide-continuation-title="{% if print_hide_continuation_title %}1{% else %}0{% endif %}"
+>
     {% include "prints/partials/report_header.html" %}
     {% include print_body_template %}
     {% include "prints/partials/report_footer.html" %}
