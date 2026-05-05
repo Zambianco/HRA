@@ -3,202 +3,221 @@
 {% block title %}Eventos{% endblock %}
 
 {% block content %}
-  <div class="row mb-4">
-    <div class="col-12">
-      <nav aria-label="breadcrumb">
-        <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
-          <li class="breadcrumb-item active" aria-current="page">Eventos</li>
-        </ol>
-      </nav>
-    </div>
-  </div>
-
-  <div class="row mb-4">
-    <div class="col-lg-8">
-      <h1 class="fw-bold text-primary mb-1">Eventos</h1>
-      <p class="text-muted mb-0">Histórico de admissão, mudanças, ausências, banco de horas, folgas e férias.</p>
-    </div>
-    {% if selected_employee %}
-      <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-        <span class="badge rounded-pill text-bg-light border px-3 py-2">
-          Empregado: {{ selected_employee.matricula }} - {{ selected_employee.nome_completo }}
-        </span>
+  <div>
+    <div class="row mb-3">
+      <div class="col-12">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Eventos</li>
+          </ol>
+        </nav>
       </div>
-    {% endif %}
-  </div>
+    </div>
 
-  <div class="row mb-4">
-    <div class="col-lg-4 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h6 class="card-subtitle mb-2 text-muted">Registros de eventos</h6>
-          <h5 class="card-title fw-bold mb-1">{{ events_count }}</h5>
-          <p class="card-text text-muted mb-0">
-            {% if selected_employee %}
-              Eventos para empregado selecionado
-            {% else %}
-              Eventos registrados no sistema
-            {% endif %}
-          </p>
+    <div class="row mb-4 g-3 align-items-center">
+      <div class="col-lg-8">
+        <h1 class="fw-bold text-primary mb-1">Eventos</h1>
+        <p class="text-muted mb-0">Histórico de admissão, mudanças, ausências, banco de horas, folgas e férias.</p>
+      </div>
+      {% if selected_employee %}
+        <div class="col-lg-4 text-lg-end">
+          <span class="badge rounded-pill text-bg-light border px-3 py-2">
+            Empregado: {{ selected_employee.matricula }} - {{ selected_employee.nome_completo }}
+          </span>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="row mb-4 g-3">
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-2 text-muted">Registros de eventos</h6>
+            <h5 class="card-title fw-bold mb-1">{{ events_count }}</h5>
+            <p class="card-text text-muted mb-0">
+              {% if selected_employee %}
+                Eventos para empregado selecionado
+              {% else %}
+                Eventos registrados no sistema
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+          <form method="get" class="card-body" id="event-employee-filter-form">
+            <h6 class="card-subtitle mb-3 text-muted">Filtro principal</h6>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-9">
+                <label for="event-filter-employee" class="form-label fw-semibold">Empregado</label>
+                <select id="event-filter-employee" name="employee_id" class="form-select">
+                  <option value="">Todos os empregados</option>
+                  {% for employee in employees %}
+                    <option value="{{ employee.id }}" {% if selected_employee and selected_employee.id == employee.id %}selected{% endif %}>
+                      {{ employee.matricula }} - {{ employee.nome_completo }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3 d-grid">
+                <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
-    <div class="col-lg-8 mb-3">
-      <div class="card border-0 shadow-sm h-100">
-        <form method="get" class="card-body">
-          <h6 class="card-subtitle mb-3 text-muted">Filtros</h6>
-          <div class="row g-3 align-items-end">
-            <div class="col-md-5">
-              <label for="event-filter-employee" class="form-label fw-semibold">Empregado</label>
-              <select id="event-filter-employee" name="employee_id" class="form-select">
-                <option value="">Todos os empregados</option>
-                {% for employee in employees %}
-                  <option value="{{ employee.id }}" {% if selected_employee and selected_employee.id == employee.id %}selected{% endif %}>
-                    {{ employee.matricula }} - {{ employee.nome_completo }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-5">
-              <label for="event-filter-type" class="form-label fw-semibold">Tipo</label>
-              <select id="event-filter-type" name="event_type" class="form-select">
-                <option value="">Todos os tipos</option>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h5 class="fw-semibold mb-0">Registrar evento</h5>
+        {% if selected_employee %}
+          <span class="badge rounded-pill text-bg-light border px-3 py-2">
+            {{ selected_employee.matricula }} - {{ selected_employee.nome_completo }}
+          </span>
+        {% endif %}
+      </div>
+      <form method="post" id="event-create-form">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="row g-3">
+            {% if selected_employee %}
+              <input type="hidden" name="employee_id" value="{{ selected_employee.id }}" />
+            {% else %}
+              <div class="col-lg-6">
+                <label for="employee_id" class="form-label fw-semibold">Empregado</label>
+                <select id="employee_id" name="employee_id" class="form-select" required>
+                  <option value="">Selecione...</option>
+                  {% for employee in employees %}
+                    <option value="{{ employee.id }}">
+                      {{ employee.matricula }} - {{ employee.nome_completo }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endif %}
+            <div class="{% if selected_employee %}col-lg-6{% else %}col-lg-3{% endif %}">
+              <label for="event_type" class="form-label fw-semibold">Tipo de evento</label>
+              <select id="event_type" name="event_type" class="form-select" required>
                 {% for event_value, event_label in event_type_choices %}
-                  <option value="{{ event_value }}" {% if selected_event_type == event_value %}selected{% endif %}>
+                  <option value="{{ event_value }}" {% if selected_event_type == event_value %}selected{% elif not selected_event_type and event_value == 'absence' %}selected{% endif %}>
                     {{ event_label }}
                   </option>
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-2 d-grid">
-              <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+            <div class="{% if selected_employee %}col-lg-3{% else %}col-lg-2{% endif %}">
+              <label for="effective_date" class="form-label fw-semibold">Data início</label>
+              <input id="effective_date" name="effective_date" type="date" class="form-control" required />
+            </div>
+            <div class="{% if selected_employee %}col-lg-3{% else %}col-lg-2{% endif %}">
+              <label for="end_date" class="form-label fw-semibold">Data fim</label>
+              <input id="end_date" name="end_date" type="date" class="form-control" />
+            </div>
+            <div class="col-lg-3" id="bank-hours-wrapper">
+              <label for="bank_hours_amount" class="form-label fw-semibold">Banco de horas (h)</label>
+              <input
+                id="bank_hours_amount"
+                name="bank_hours_amount"
+                type="text"
+                class="form-control"
+                placeholder="Ex.: 2.50 ou -1.00"
+              />
+            </div>
+            <div class="col-lg-9">
+              <label for="notes" class="form-label fw-semibold">Observação</label>
+              <textarea id="notes" name="notes" class="form-control" rows="2" maxlength="600"></textarea>
             </div>
           </div>
-        </form>
-      </div>
+        </div>
+        <div class="card-footer bg-white border-top py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <small class="text-muted mb-0">Use data fim para períodos como férias, folgas e ausências.</small>
+          <button type="submit" class="btn btn-primary">Registrar</button>
+        </div>
+      </form>
     </div>
-  </div>
 
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white border-bottom p-3">
-      <h5 class="fw-semibold mb-0">Registrar evento</h5>
-    </div>
-    <form method="post" id="event-create-form">
-      {% csrf_token %}
-      <div class="card-body">
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label for="employee_id" class="form-label fw-semibold">Empregado</label>
-            <select id="employee_id" name="employee_id" class="form-select" required>
-              <option value="">Selecione...</option>
-              {% for employee in employees %}
-                <option value="{{ employee.id }}" {% if selected_employee and selected_employee.id == employee.id %}selected{% endif %}>
-                  {{ employee.matricula }} - {{ employee.nome_completo }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label for="event_type" class="form-label fw-semibold">Tipo de evento</label>
-            <select id="event_type" name="event_type" class="form-select" required>
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap justify-content-between align-items-end gap-3">
+        <h5 class="fw-semibold mb-0">Histórico</h5>
+        <form method="get" class="row g-2 align-items-end" id="event-type-filter-form">
+          {% if selected_employee %}
+            <input type="hidden" name="employee_id" value="{{ selected_employee.id }}" />
+          {% endif %}
+          <div class="col-auto">
+            <label for="event-filter-type" class="form-label fw-semibold mb-1">Tipo</label>
+            <select id="event-filter-type" name="event_type" class="form-select form-select-sm">
+              <option value="">Todos os tipos</option>
               {% for event_value, event_label in event_type_choices %}
-                <option value="{{ event_value }}" {% if selected_event_type == event_value %}selected{% elif not selected_event_type and event_value == 'absence' %}selected{% endif %}>
+                <option value="{{ event_value }}" {% if selected_event_type == event_value %}selected{% endif %}>
                   {{ event_label }}
                 </option>
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-2">
-            <label for="effective_date" class="form-label fw-semibold">Data inicio</label>
-            <input id="effective_date" name="effective_date" type="date" class="form-control" required />
+          <div class="col-auto">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Filtrar</button>
           </div>
-          <div class="col-md-2">
-            <label for="end_date" class="form-label fw-semibold">Data fim</label>
-            <input id="end_date" name="end_date" type="date" class="form-control" />
-          </div>
-          <div class="col-md-3" id="bank-hours-wrapper">
-            <label for="bank_hours_amount" class="form-label fw-semibold">Banco de horas (h)</label>
-            <input
-              id="bank_hours_amount"
-              name="bank_hours_amount"
-              type="text"
-              class="form-control"
-              placeholder="Ex.: 2.50 ou -1.00"
-            />
-          </div>
-          <div class="col-md-9">
-            <label for="notes" class="form-label fw-semibold">Observação</label>
-            <textarea id="notes" name="notes" class="form-control" rows="2" maxlength="600"></textarea>
-          </div>
-        </div>
+        </form>
       </div>
-      <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center">
-        <small class="text-muted mb-0">Use data fim para períodos como férias, folgas e ausências.</small>
-        <button type="submit" class="btn btn-primary">Registrar</button>
-      </div>
-    </form>
-  </div>
-
-  <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-bottom p-3">
-      <h5 class="fw-semibold mb-0">Histórico</h5>
-    </div>
-    <div class="card-body">
-      {% if events %}
-        <div class="table-responsive rounded border">
-          <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Data</th>
-                <th>Tipo</th>
-                <th>Empregado</th>
-                <th>Detalhes</th>
-                <th>Observação</th>
-                <th>Registro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for event in events %}
+      <div class="card-body">
+        {% if events %}
+          <div class="table-responsive rounded border">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
                 <tr>
-                  <td>
-                    {{ event.effective_date|date:"d/m/Y" }}
-                    {% if event.end_date %}
-                      <div class="text-muted small">até {{ event.end_date|date:"d/m/Y" }}</div>
-                    {% endif %}
-                  </td>
-                  <td>{{ event.get_event_type_display }}</td>
-                  <td>{{ event.employee.matricula }} - {{ event.employee.nome_completo }}</td>
-                  <td>
-                    {% if event.event_type == "allocation_change" %}
-                      <div class="small text-muted">Setor</div>
-                      <div>
-                        {{ event.previous_sector.nome|default:"Sem setor" }}
-                        <i class="bi bi-arrow-right mx-1"></i>
-                        {{ event.new_sector.nome|default:"Sem setor" }}
-                      </div>
-                      <div class="small text-muted mt-2">Escala</div>
-                      <div>
-                        {{ event.previous_work_schedule.nome|default:"Sem escala" }}
-                        <i class="bi bi-arrow-right mx-1"></i>
-                        {{ event.new_work_schedule.nome|default:"Sem escala" }}
-                      </div>
-                    {% elif event.event_type == "bank_hours_movement" and event.bank_hours_amount is not None %}
-                      {{ event.bank_hours_amount|floatformat:2 }}h
-                    {% else %}
-                      Sem detalhe estruturado
-                    {% endif %}
-                  </td>
-                  <td>{{ event.notes|default:"-" }}</td>
-                  <td>{{ event.created_at|date:"d/m/Y H:i" }}</td>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Empregado</th>
+                  <th>Detalhes</th>
+                  <th>Observação</th>
+                  <th>Registro</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="text-muted mb-0">Nenhum evento registrado para o filtro atual.</p>
-      {% endif %}
+              </thead>
+              <tbody>
+                {% for event in events %}
+                  <tr>
+                    <td>
+                      {{ event.effective_date|date:"d/m/Y" }}
+                      {% if event.end_date %}
+                        <div class="text-muted small">até {{ event.end_date|date:"d/m/Y" }}</div>
+                      {% endif %}
+                    </td>
+                    <td>{{ event.get_event_type_display }}</td>
+                    <td>{{ event.employee.matricula }} - {{ event.employee.nome_completo }}</td>
+                    <td>
+                      {% if event.event_type == "allocation_change" %}
+                        <div class="small text-muted">Setor</div>
+                        <div>
+                          {{ event.previous_sector.nome|default:"Sem setor" }}
+                          <i class="bi bi-arrow-right mx-1"></i>
+                          {{ event.new_sector.nome|default:"Sem setor" }}
+                        </div>
+                        <div class="small text-muted mt-2">Escala</div>
+                        <div>
+                          {{ event.previous_work_schedule.nome|default:"Sem escala" }}
+                          <i class="bi bi-arrow-right mx-1"></i>
+                          {{ event.new_work_schedule.nome|default:"Sem escala" }}
+                        </div>
+                      {% elif event.event_type == "bank_hours_movement" and event.bank_hours_amount is not None %}
+                        {{ event.bank_hours_amount|floatformat:2 }}h
+                      {% else %}
+                        Sem detalhe estruturado
+                      {% endif %}
+                    </td>
+                    <td>{{ event.notes|default:"-" }}</td>
+                    <td>{{ event.created_at|date:"d/m/Y H:i" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Nenhum evento registrado para o filtro atual.</p>
+        {% endif %}
+      </div>
     </div>
   </div>
 
@@ -208,6 +227,10 @@
       const eventTypeSelect = document.getElementById("event_type");
       const bankHoursWrapper = document.getElementById("bank-hours-wrapper");
       const bankHoursInput = document.getElementById("bank_hours_amount");
+      const employeeFilterForm = document.getElementById("event-employee-filter-form");
+      const employeeFilterSelect = document.getElementById("event-filter-employee");
+      const typeFilterForm = document.getElementById("event-type-filter-form");
+      const typeFilterSelect = document.getElementById("event-filter-type");
 
       if (!form || !eventTypeSelect || !bankHoursWrapper || !bankHoursInput) return;
 
@@ -236,8 +259,19 @@
         bankHoursInput.setCustomValidity("");
       });
 
+      if (employeeFilterForm && employeeFilterSelect) {
+        employeeFilterSelect.addEventListener("change", function () {
+          employeeFilterForm.submit();
+        });
+      }
+
+      if (typeFilterForm && typeFilterSelect) {
+        typeFilterSelect.addEventListener("change", function () {
+          typeFilterForm.submit();
+        });
+      }
+
       updateBankHoursField();
     })();
   </script>
 {% endblock %}
-
