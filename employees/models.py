@@ -213,6 +213,57 @@ class TimesheetMonthClosure(models.Model):
         return f"{self.competence_month} - encerrado"
 
 
+class BankHoursSemesterClosure(models.Model):
+    SEMESTER_1 = 1
+    SEMESTER_2 = 2
+    SEMESTER_CHOICES = (
+        (SEMESTER_1, "1o semestre"),
+        (SEMESTER_2, "2o semestre"),
+    )
+
+    year = models.IntegerField(db_index=True)
+    semester = models.IntegerField(choices=SEMESTER_CHOICES, db_index=True)
+    adjustment_month = models.DateField(db_index=True)
+    closed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reversed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        ordering = ("-closed_at", "-id")
+
+    def __str__(self) -> str:
+        return f"{self.year}/S{self.semester} - fechado"
+
+
+class BankHoursSemesterClosureAdjustment(models.Model):
+    closure = models.ForeignKey(
+        "BankHoursSemesterClosure",
+        on_delete=models.CASCADE,
+        related_name="adjustments",
+    )
+    employee = models.ForeignKey(
+        "Employee",
+        on_delete=models.CASCADE,
+        related_name="bank_hours_semester_adjustments",
+    )
+    balance_minutes = models.IntegerField()
+    closing_event = models.ForeignKey(
+        "EmployeeEvent",
+        on_delete=models.PROTECT,
+        related_name="bank_hours_closing_adjustments",
+    )
+    reversal_event = models.ForeignKey(
+        "EmployeeEvent",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="bank_hours_reversal_adjustments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("closure_id", "employee__nome_completo", "id")
+
+
 class TimesheetMonthClosureWorkScheduleSnapshot(models.Model):
     closure = models.ForeignKey(
         "TimesheetMonthClosure",

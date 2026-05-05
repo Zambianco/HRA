@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 
 from django.contrib import messages
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -19,6 +19,8 @@ from .models import (
     EmployeeEvent,
     BankHoursRule,
     EmployeeTimeEntry,
+    BankHoursSemesterClosure,
+    BankHoursSemesterClosureAdjustment,
     TimesheetMonthClosure,
     TimesheetMonthClosureCalendarPeriodSnapshot,
     TimesheetMonthClosureEmployeeEventSnapshot,
@@ -839,6 +841,30 @@ def _minutes_from_decimal_hours(raw_hours):
     return int((decimal_hours * Decimal("60")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _decimal_hours_from_minutes(total_minutes):
+    return (
+        Decimal(total_minutes) / Decimal("60")
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _resolve_semester_window(year, semester):
+    semester_months = (1, 2, 3, 4, 5, 6) if semester == 1 else (7, 8, 9, 10, 11, 12)
+    competence_months = [date(year, month, 1) for month in semester_months]
+    start_month = competence_months[0]
+    end_month = competence_months[-1]
+    adjustment_date = date(year, semester_months[-1], monthrange(year, semester_months[-1])[1])
+    return semester_months, competence_months, start_month, end_month, adjustment_date
+
+
+def _is_month_locked_by_bank_hours_semester_closure(competence_month):
+    semester = 1 if competence_month.month <= 6 else 2
+    return BankHoursSemesterClosure.objects.filter(
+        year=competence_month.year,
+        semester=semester,
+        reversed_at__isnull=True,
+    ).exists()
+
+
 def _calc_bank_credit_minutes(overtime_minutes):
     return int(
         (
@@ -1093,6 +1119,9 @@ def timesheet_page(request):
 
         updated_count = 0
         removed_count = 0
+        is_bank_hours_column_locked = _is_month_locked_by_bank_hours_semester_closure(
+            competence_month
+        )
         for employee in employees:
             parsed_values = {}
             for field_name, field_label in TIME_ENTRY_MINUTE_FIELDS:
@@ -1118,6 +1147,14 @@ def timesheet_page(request):
             notes = (request.POST.get(f"notes_{employee.id}") or "").strip()
             has_content = any(value > 0 for value in parsed_values.values()) or notes
             existing_entry = entries_in_month.get(employee.id)
+
+            if (
+                is_bank_hours_column_locked
+                and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE
+            ):
+                parsed_values["absence_bank_minutes"] = (
+                    existing_entry.absence_bank_minutes if existing_entry else 0
+                )
 
             if has_content:
                 EmployeeTimeEntry.objects.update_or_create(
@@ -1159,6 +1196,9 @@ def timesheet_page(request):
     is_month_closed = TimesheetMonthClosure.objects.filter(
         competence_month=competence_month
     ).exists()
+    is_month_locked_by_bank_hours_closure = _is_month_locked_by_bank_hours_semester_closure(
+        competence_month
+    )
 
     month_entries = EmployeeTimeEntry.objects.select_related("employee").filter(
         competence_month=competence_month
@@ -1248,6 +1288,7 @@ def timesheet_page(request):
             "rows": rows,
             "selected_competence_month": selected_competence_month,
             "is_month_closed": is_month_closed,
+            "is_month_locked_by_bank_hours_closure": is_month_locked_by_bank_hours_closure,
             "registered_employees_count": len(entries_by_employee),
             "employees_count": len(employees),
             "total_regular_minutes": total_regular_minutes,
@@ -1815,8 +1856,8 @@ def bank_hours_page(request):
 
 def bank_hours_closure_page(request):
     today = timezone.localdate()
-    raw_year = (request.GET.get("year") or "").strip()
-    raw_semester = (request.GET.get("semester") or "").strip()
+    raw_year = (request.POST.get("year") or request.GET.get("year") or "").strip()
+    raw_semester = (request.POST.get("semester") or request.GET.get("semester") or "").strip()
 
     selected_year = today.year
     if raw_year.isdigit():
@@ -1829,8 +1870,10 @@ def bank_hours_closure_page(request):
     else:
         selected_semester = 1 if today.month <= 6 else 2
 
-    semester_months = (1, 2, 3, 4, 5, 6) if selected_semester == 1 else (7, 8, 9, 10, 11, 12)
-    competence_months = [date(selected_year, month, 1) for month in semester_months]
+    semester_months, competence_months, start_month, end_month, adjustment_date = _resolve_semester_window(
+        selected_year,
+        selected_semester,
+    )
     closed_months = set(
         TimesheetMonthClosure.objects.filter(competence_month__in=competence_months).values_list(
             "competence_month",
@@ -1843,8 +1886,240 @@ def bank_hours_closure_page(request):
         if competence_month not in closed_months
     ]
 
-    last_month = semester_months[-1]
-    default_closure_date = date(selected_year, last_month, monthrange(selected_year, last_month)[1])
+    participants = list(
+        Employee.objects.select_related("sector")
+        .filter(regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE)
+        .order_by("nome_completo")
+    )
+    participant_ids = [employee.id for employee in participants]
+    competence_month_set = set(competence_months)
+
+    entries_qs = EmployeeTimeEntry.objects.filter(employee_id__in=participant_ids)
+    entries_in_range = entries_qs.filter(competence_month__in=competence_months)
+    entries_before_range = entries_qs.filter(competence_month__lt=start_month)
+
+    monthly_entry_data = defaultdict(
+        lambda: {
+            "overtime_minutes": 0,
+            "absence_minutes": 0,
+            "manual_minutes": 0,
+        }
+    )
+    opening_balance_by_employee = defaultdict(int)
+    opening_balance_known_by_employee = defaultdict(lambda: True)
+
+    for entry in entries_in_range:
+        key = (entry.employee_id, entry.competence_month)
+        overtime_minutes = entry.overtime_60_minutes + entry.overtime_100_minutes
+        absence_minutes = entry.absence_unexcused_minutes + entry.absence_bank_minutes
+        monthly_entry_data[key]["overtime_minutes"] += overtime_minutes
+        monthly_entry_data[key]["absence_minutes"] += absence_minutes
+
+    for entry in entries_before_range:
+        formulas = _resolve_bank_hours_formulas_for_month(entry.competence_month)
+        calc = _calculate_bank_hours_columns(
+            overtime_minutes=entry.overtime_60_minutes + entry.overtime_100_minutes,
+            absence_minutes=entry.absence_unexcused_minutes + entry.absence_bank_minutes,
+            manual_minutes=0,
+            formulas=formulas,
+        )
+        if calc["is_f_defined"]:
+            opening_balance_by_employee[entry.employee_id] += calc["month_delta_minutes"]
+        else:
+            opening_balance_known_by_employee[entry.employee_id] = False
+
+    movement_events_qs = EmployeeEvent.objects.filter(
+        employee_id__in=participant_ids,
+        event_type=EmployeeEvent.EVENT_TYPE_BANK_HOURS_MOVEMENT,
+        bank_hours_amount__isnull=False,
+    )
+    for movement in movement_events_qs.filter(effective_date__lt=start_month):
+        opening_balance_by_employee[movement.employee_id] += _minutes_from_decimal_hours(
+            movement.bank_hours_amount
+        )
+    for movement in movement_events_qs.filter(
+        effective_date__gte=start_month,
+        effective_date__lte=_get_month_date_range(end_month)[1],
+    ):
+        month_key = _month_start_for_date(movement.effective_date)
+        if month_key in competence_month_set:
+            monthly_entry_data[(movement.employee_id, month_key)]["manual_minutes"] += _minutes_from_decimal_hours(
+                movement.bank_hours_amount
+            )
+
+    closure_rows = []
+    total_positive_minutes = 0
+    total_negative_minutes = 0
+    total_with_balance = 0
+    unknown_balance_count = 0
+
+    for employee in participants:
+        running_balance = opening_balance_by_employee[employee.id]
+        running_balance_known = opening_balance_known_by_employee[employee.id]
+        for competence_month in competence_months:
+            payload = monthly_entry_data[(employee.id, competence_month)]
+            formulas = _resolve_bank_hours_formulas_for_month(competence_month)
+            calc = _calculate_bank_hours_columns(
+                overtime_minutes=payload["overtime_minutes"],
+                absence_minutes=payload["absence_minutes"],
+                manual_minutes=payload["manual_minutes"],
+                formulas=formulas,
+            )
+            if calc["is_f_defined"] and running_balance_known:
+                running_balance += calc["month_delta_minutes"]
+            else:
+                running_balance_known = False
+
+        if running_balance_known:
+            positive_minutes = running_balance if running_balance > 0 else 0
+            negative_minutes = -running_balance if running_balance < 0 else 0
+            total_positive_minutes += positive_minutes
+            total_negative_minutes += negative_minutes
+            total_with_balance += 1
+        else:
+            positive_minutes = 0
+            negative_minutes = 0
+            unknown_balance_count += 1
+
+        closure_rows.append(
+            {
+                "employee": employee,
+                "status_label": "Desligado" if employee.deactivated_at else "Ativo",
+                "running_balance_defined": running_balance_known,
+                "running_balance_minutes": running_balance if running_balance_known else 0,
+                "running_balance_hhmm": (
+                    _format_signed_minutes_as_hour_label(running_balance)
+                    if running_balance_known
+                    else "-"
+                ),
+                "positive_hhmm": (
+                    _format_minutes_as_hour_label(positive_minutes)
+                    if running_balance_known
+                    else "-"
+                ),
+                "negative_hhmm": (
+                _format_minutes_as_hour_label(negative_minutes)
+                    if running_balance_known
+                    else "-"
+                ),
+                "closing_after_hhmm": "00:00" if running_balance_known else "-",
+            }
+        )
+
+    active_closure = (
+        BankHoursSemesterClosure.objects.filter(
+            year=selected_year,
+            semester=selected_semester,
+            reversed_at__isnull=True,
+        )
+        .order_by("-closed_at", "-id")
+        .first()
+    )
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "close_semester":
+            if missing_closures:
+                messages.error(
+                    request,
+                    "Encerramento bloqueado: todos os meses do semestre precisam estar encerrados no timesheet.",
+                )
+            elif active_closure:
+                messages.error(
+                    request,
+                    "Ja existe um encerramento ativo para este semestre. Estorne antes de encerrar novamente.",
+                )
+            else:
+                adjustable_rows = [
+                    row
+                    for row in closure_rows
+                    if row["running_balance_defined"] and row["running_balance_minutes"] != 0
+                ]
+                with transaction.atomic():
+                    closure = BankHoursSemesterClosure.objects.create(
+                        year=selected_year,
+                        semester=selected_semester,
+                        adjustment_month=end_month,
+                    )
+                    adjustments = []
+                    for row in adjustable_rows:
+                        employee = row["employee"]
+                        balance_minutes = row["running_balance_minutes"]
+                        adjustment_minutes = -balance_minutes
+                        adjustment_hours = _decimal_hours_from_minutes(adjustment_minutes)
+                        closing_event = EmployeeEvent.objects.create(
+                            employee=employee,
+                            event_type=EmployeeEvent.EVENT_TYPE_BANK_HOURS_MOVEMENT,
+                            effective_date=adjustment_date,
+                            bank_hours_amount=adjustment_hours,
+                            notes=(
+                                f"Ajuste automatico de encerramento semestral BH "
+                                f"{selected_year}/S{selected_semester} (saldo base: "
+                                f"{_format_signed_minutes_as_hour_label(balance_minutes)})."
+                            ),
+                        )
+                        adjustments.append(
+                            BankHoursSemesterClosureAdjustment(
+                                closure=closure,
+                                employee=employee,
+                                balance_minutes=balance_minutes,
+                                closing_event=closing_event,
+                            )
+                        )
+                    if adjustments:
+                        BankHoursSemesterClosureAdjustment.objects.bulk_create(adjustments)
+                messages.success(
+                    request,
+                    (
+                        f"Semestre {selected_year}/S{selected_semester} encerrado. "
+                        f"{len(adjustable_rows)} ajuste(s) gerado(s) no mes {end_month.strftime('%m/%Y')}."
+                    ),
+                )
+            return redirect(
+                f"{reverse('bank_hours_closure_page')}?year={selected_year}&semester={selected_semester}"
+            )
+
+        if action == "reverse_semester":
+            if not active_closure:
+                messages.error(request, "Nao existe encerramento ativo para estornar neste semestre.")
+            else:
+                with transaction.atomic():
+                    adjustments = list(
+                        active_closure.adjustments.select_related("employee").order_by("id")
+                    )
+                    reversed_count = 0
+                    for adjustment in adjustments:
+                        if adjustment.reversal_event_id:
+                            continue
+                        reversal_hours = _decimal_hours_from_minutes(adjustment.balance_minutes)
+                        reversal_event = EmployeeEvent.objects.create(
+                            employee=adjustment.employee,
+                            event_type=EmployeeEvent.EVENT_TYPE_BANK_HOURS_MOVEMENT,
+                            effective_date=today,
+                            bank_hours_amount=reversal_hours,
+                            notes=(
+                                f"Estorno automatico do encerramento semestral BH "
+                                f"{active_closure.year}/S{active_closure.semester}."
+                            ),
+                        )
+                        adjustment.reversal_event = reversal_event
+                        adjustment.save(update_fields=["reversal_event"])
+                        reversed_count += 1
+
+                    active_closure.reversed_at = timezone.now()
+                    active_closure.save(update_fields=["reversed_at"])
+
+                messages.success(
+                    request,
+                    (
+                        f"Encerramento {selected_year}/S{selected_semester} estornado com sucesso. "
+                        f"{reversed_count} ajuste(s) revertido(s)."
+                    ),
+                )
+            return redirect(
+                f"{reverse('bank_hours_closure_page')}?year={selected_year}&semester={selected_semester}"
+            )
 
     return render(
         request,
@@ -1852,11 +2127,18 @@ def bank_hours_closure_page(request):
         {
             "selected_year": selected_year,
             "selected_semester": str(selected_semester),
-            "default_closure_date": default_closure_date.isoformat(),
             "can_close_bank_hours": not missing_closures,
             "missing_closure_months": [
                 _format_competence_month_label(month_date) for month_date in missing_closures
             ],
+            "participants_count": len(participants),
+            "total_with_balance": total_with_balance,
+            "unknown_balance_count": unknown_balance_count,
+            "total_positive_hhmm": _format_minutes_as_hour_label(total_positive_minutes),
+            "total_negative_hhmm": _format_minutes_as_hour_label(total_negative_minutes),
+            "closure_rows": closure_rows,
+            "active_closure": active_closure,
+            "last_closed_month_label": end_month.strftime("%m/%Y"),
         },
     )
 
