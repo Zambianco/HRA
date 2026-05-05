@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
 
 {% block title %}Timesheet{% endblock %}
@@ -202,7 +202,7 @@
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">InÃ­cio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
           <li class="breadcrumb-item active" aria-current="page">Timesheet</li>
         </ol>
       </nav>
@@ -212,7 +212,7 @@
   <div class="row mb-4">
     <div class="col-lg-8">
       <h1 class="fw-bold text-primary mb-1">Timesheet Mensal</h1>
-      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mÃªs de competÃªncia.</p>
+      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mês de competência.</p>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
@@ -226,7 +226,7 @@
     <div class="col-lg-4 mt-3 mt-lg-0">
       <form id="timesheet-month-form" method="get" class="d-flex gap-2 justify-content-lg-end align-items-end mb-2">
         <div class="me-1">
-          <label for="competence_month" class="form-label fw-semibold mb-1">MÃªs de competÃªncia</label>
+          <label for="competence_month" class="form-label fw-semibold mb-1">Mês de competência</label>
           <input
             id="competence_month"
             name="competence_month"
@@ -258,7 +258,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-journal-check me-1"></i>Com lanÃ§amento
+            <i class="bi bi-journal-check me-1"></i>Com lançamento
           </h6>
           <h5 class="card-title fw-bold text-success mb-0">{{ registered_employees_count }}</h5>
         </div>
@@ -296,7 +296,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-stopwatch me-1"></i>Horas lanÃ§adas
+            <i class="bi bi-stopwatch me-1"></i>Horas lançadas
           </h6>
           <h5
             class="card-title fw-bold text-dark mb-0 timesheet-total"
@@ -324,7 +324,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-person-x me-1"></i>AusÃªncias
+            <i class="bi bi-person-x me-1"></i>Ausências
           </h6>
           <h5
             class="card-title fw-bold text-danger mb-0 timesheet-total"
@@ -341,18 +341,18 @@
       <div>
         <h5 class="fw-semibold mb-0 print-title">Tabela mensal de timesheet</h5>
         <p class="print-subtitle print-only mb-0">
-          CompetÃªncia {{ selected_competence_month }} Â· {% if is_month_closed %}MÃªs encerrado{% else %}MÃªs aberto{% endif %}
+          Competência {{ selected_competence_month }} · {% if is_month_closed %}Mês encerrado{% else %}Mês aberto{% endif %}
         </p>
       </div>
       <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
         <a
-          href="{% url 'timesheet_snapshots_audit_page' %}?competence_month={{ selected_competence_month }}"
+          href="{% url 'timesheet_snapshots_audit_page' %}competence_month={{ selected_competence_month }}"
           class="btn btn-sm btn-outline-secondary"
         >
           <i class="bi bi-archive me-1"></i>Snapshot
         </a>
         <a
-          href="{% url 'timesheet_dashboard_page' %}?competence_month={{ selected_competence_month }}"
+          href="{% url 'timesheet_dashboard_page' %}competence_month={{ selected_competence_month }}"
           class="btn btn-sm btn-outline-primary"
         >
           <i class="bi bi-bar-chart-line me-1"></i>Painel
@@ -375,9 +375,9 @@
           Competencia: {{ selected_competence_month }}
         </span>
         {% if is_month_closed %}
-          <span class="badge text-bg-danger">MÃªs encerrado</span>
+          <span class="badge text-bg-danger">Mês encerrado</span>
         {% else %}
-          <span class="badge text-bg-success">MÃªs aberto</span>
+          <span class="badge text-bg-success">Mês aberto</span>
         {% endif %}
         <div class="form-check form-switch m-0">
           <input class="form-check-input" type="checkbox" role="switch" id="display-mode-toggle" />
@@ -398,14 +398,14 @@
       <div class="card-body p-0">
         {% if is_month_closed %}
           <div class="alert alert-warning rounded-0 border-0 border-bottom mb-0 px-3 py-2">
-            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mÃªs de competÃªncia. Para alterar os lanÃ§amentos, reabra o mÃªs.
+            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mês de competência. Para alterar os lançamentos, reabra o mês.
           </div>
         {% endif %}
         <div class="point-sheet-wrapper">
           <table id="timesheet-table" class="point-sheet mb-0">
             <thead class="table-light">
               <tr>
-                <th class="sticky-col-1" style="width: 88px;">MatrÃ­cula</th>
+                <th class="sticky-col-1" style="width: 88px;">Matrícula</th>
                 <th class="sticky-col-2" style="width: 178px;">Empregado</th>
                 <th style="min-width: 86px;">Previstas</th>
                 <th style="min-width: 86px;">Lan&ccedil;adas</th>
@@ -430,7 +430,7 @@
                   <span class="badge text-bg-secondary">Total</span>
                 </td>
                 <td class="meta-cell sticky-col-2">
-                  <div class="fw-semibold">Totais da competÃªncia</div>
+                  <div class="fw-semibold">Totais da competência</div>
                 </td>
                 <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_expected_minutes }}" data-total-target="expected"></span>
@@ -486,7 +486,7 @@
                       data-col="0"
                       data-minutes-field="regular_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -504,7 +504,7 @@
                       data-col="1"
                       data-minutes-field="overtime_60_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -522,7 +522,7 @@
                       data-col="2"
                       data-minutes-field="overtime_100_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -540,7 +540,7 @@
                       data-col="3"
                       data-minutes-field="absence_unexcused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -558,7 +558,7 @@
                       data-col="4"
                       data-minutes-field="absence_excused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
                       value=""
                     />
                     <input
@@ -588,7 +588,7 @@
                     />
                     {% if row.employee.regime_compensacao_jornada != "participante" %}
                       <div class="bank-disabled-chip">
-                        <i class="bi bi-lock-fill"></i>NÃ£o participante
+                        <i class="bi bi-lock-fill"></i>Não participante
                       </div>
                     {% endif %}
                     <input
@@ -611,16 +611,16 @@
       </div>
       <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <small class="text-muted mb-0">
-          Linhas sem valores e sem observacao sao removidas da competÃªncia ao salvar.
+          Linhas sem valores e sem observacao sao removidas da competência ao salvar.
         </small>
         <div class="d-flex align-items-center gap-2">
           {% if is_month_closed %}
             <button type="submit" class="btn btn-outline-warning" name="action" value="reopen_month">
-              <i class="bi bi-unlock me-1"></i>Reabrir mÃªs
+              <i class="bi bi-unlock me-1"></i>Reabrir mês
             </button>
           {% else %}
-            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mÃªs de competÃªncia? Apos encerrar, alteraÃ§Ãµes ficarao bloqueadas atÃ© reabertura.')">
-              <i class="bi bi-lock me-1"></i>Encerrar mÃªs
+            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mês de competência Apos encerrar, alterações ficarao bloqueadas até reabertura.')">
+              <i class="bi bi-lock me-1"></i>Encerrar mês
             </button>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-save me-1"></i>Salvar compilado mensal
@@ -682,6 +682,7 @@
           return [String(element.dataset.rowLaunched), element];
         })
       );
+      let recalculateScheduled = false;
 
       function safeStorageGet(key) {
         try {
@@ -793,6 +794,15 @@
             ? "bi bi-arrows-expand me-1"
             : "bi bi-arrows-collapse me-1";
         }
+      }
+
+      function scheduleRecalculateCompetenceTotals() {
+        if (recalculateScheduled) return;
+        recalculateScheduled = true;
+        requestAnimationFrame(function () {
+          recalculateScheduled = false;
+          recalculateCompetenceTotals();
+        });
       }
 
       function toggleSummaryCardsVisibility() {
@@ -1114,7 +1124,7 @@
         if (!trimmed) return { ok: true, empty: true, minutes: 0 };
 
         if (!/^[0-9+\-*/().,:\s]+$/.test(trimmed)) {
-          return { ok: false, error: "Use apenas nÃºmeros e operadores matematicos." };
+          return { ok: false, error: "Use apenas números e operadores matematicos." };
         }
 
         const compact = trimmed.replace(/\s+/g, "");
@@ -1140,7 +1150,7 @@
           );
 
           normalized = normalized.replace(
-            /(^|[^\d:])(\d{3,})(?=$|[^\d:])/g,
+            /(^|[^\d:])(\d{3,})(=$|[^\d:])/g,
             function (_, prefix, compactToken) {
               const hoursPart = compactToken.slice(0, -2);
               const minutesPart = compactToken.slice(-2);
@@ -1156,7 +1166,7 @@
           }
 
           if (normalized.includes(",")) {
-            return { ok: false, error: "Formato HH:MM invÃ¡lido." };
+            return { ok: false, error: "Formato HH:MM inválido." };
           }
         } else {
           normalized = normalized.replace(/,/g, ".");
@@ -1164,7 +1174,7 @@
         if (!normalized) return { ok: true, empty: true, minutes: 0 };
 
         const expression = normalized.replace(
-          /(\d+):([0-5]?\d)/g,
+          /(\d+):([0-5]\d)/g,
           function (_, hoursPart, minutesPart) {
             const hours = Number(hoursPart);
             const minutes = Number(minutesPart);
@@ -1173,22 +1183,22 @@
         );
 
         if (expression.includes(":")) {
-          return { ok: false, error: "Formato HH:MM invÃ¡lido." };
+          return { ok: false, error: "Formato HH:MM inválido." };
         }
 
         let result;
         try {
           result = Function('"use strict"; return (' + expression + ");")();
         } catch (error) {
-          return { ok: false, error: "ExpressÃ£o invalida." };
+          return { ok: false, error: "Expressão invalida." };
         }
 
         if (typeof result !== "number" || !Number.isFinite(result)) {
-          return { ok: false, error: "ExpressÃ£o invalida." };
+          return { ok: false, error: "Expressão invalida." };
         }
 
         if (result < 0) {
-          return { ok: false, error: "O resultado nÃ£o pode ser negativo." };
+          return { ok: false, error: "O resultado não pode ser negativo." };
         }
 
         if (result > 999.99) {
@@ -1207,7 +1217,7 @@
         };
       }
 
-      function normalizeNumericInput(input, useFallbackValue) {
+      function normalizeNumericInput(input, useFallbackValue, skipRecalculate) {
         const hiddenInput = document.getElementById(input.dataset.minutesField);
         if (!hiddenInput) return false;
 
@@ -1217,11 +1227,13 @@
           hiddenInput.value = String(evaluated.minutes || 0);
           input.dataset.lastMinutes = hiddenInput.value;
           input.value = formatMinutes(evaluated.minutes || 0);
-          recalculateCompetenceTotals();
+          if (!skipRecalculate) {
+            recalculateCompetenceTotals();
+          }
           return true;
         }
 
-        markInvalid(input, evaluated.error || "Valor invÃ¡lido.");
+        markInvalid(input, evaluated.error || "Valor inválido.");
         if (useFallbackValue) {
           const fallbackMinutes = Number(input.dataset.lastMinutes || hiddenInput.value || "0");
           const safeFallbackMinutes = Number.isFinite(fallbackMinutes)
@@ -1231,7 +1243,9 @@
           input.dataset.lastMinutes = hiddenInput.value;
           input.value = formatMinutes(safeFallbackMinutes);
         }
-        recalculateCompetenceTotals();
+        if (!skipRecalculate) {
+          recalculateCompetenceTotals();
+        }
         return false;
       }
 
@@ -1259,7 +1273,7 @@
             target.value = cellValue.trim();
             if (target.classList.contains("sheet-number")) {
               target.value = target.value.replace(/[^0-9+\-*/().,:\s]/g, "");
-              normalizeNumericInput(target, true);
+              normalizeNumericInput(target, true, true);
             }
           });
         });
@@ -1283,7 +1297,7 @@
             input.value = sanitized;
           }
           clearInvalid(input);
-          recalculateCompetenceTotals();
+          scheduleRecalculateCompetenceTotals();
         });
 
         input.addEventListener("blur", function () {
@@ -1486,8 +1500,6 @@
     })();
   </script>
 {% endblock %}
-
-
 
 
 

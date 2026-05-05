@@ -69,6 +69,14 @@ Esse comando sobe o Django localmente e abre a interface em uma janela nativa.
 - Arquivo SQLite em `data/rh.db`
 - Se existir a tabela legada `empregados` (versao Flask), os dados sao importados automaticamente para o modelo Django na migracao `0002`.
 
+## Verificacao de codificacao de texto
+
+Para validar rapidamente se os arquivos de texto estao em UTF-8 e sem mojibake:
+
+```powershell
+python tools/check_text_integrity.py
+```
+
 ## Proximos passos sugeridos
 
 1. Adicionar `horas_semanais_previstas` no cadastro de empregado.
