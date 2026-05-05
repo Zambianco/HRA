@@ -588,6 +588,9 @@ def employees_page(request):
     )
     active_count = employees.filter(deactivated_at__isnull=True).count()
     inactive_count = employees.filter(deactivated_at__isnull=False).count()
+    participants_count = employees.filter(
+        regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE
+    ).count()
     unassigned_count = employees.filter(sector__isnull=True).count()
     selected_sector_id = (request.GET.get("selected_sector") or "").strip()
 
@@ -599,6 +602,7 @@ def employees_page(request):
             "employees_count": employees.count(),
             "active_count": active_count,
             "inactive_count": inactive_count,
+            "participants_count": participants_count,
             "active_sectors": active_sectors,
             "active_cargos": active_cargos,
             "work_schedules": work_schedules,

@@ -71,10 +71,10 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-x-circle-fill text-danger me-1"></i>Empregados inativos
+            <i class="bi bi-clock-history text-primary me-1"></i>Participantes do banco de horas
           </h6>
-          <h5 class="card-title fw-bold text-danger" id="inactiveCount">{{ inactive_count }}</h5>
-          <p class="card-text text-muted mb-0">Empregados demitidos</p>
+          <h5 class="card-title fw-bold text-primary" id="participantsCount">{{ participants_count }}</h5>
+          <p class="card-text text-muted mb-0">Empregados com participacao ativa</p>
         </div>
       </div>
     </div>
@@ -212,6 +212,7 @@
                     data-registration="{{ employee.matricula|lower }}"
                     data-employee-type="{{ employee.get_tipo_display|lower }}"
                     data-compensation-regime="{{ employee.get_regime_compensacao_jornada_display|lower }}"
+                    data-compensation-regime-code="{{ employee.regime_compensacao_jornada }}"
                     data-cargo-name="{{ employee.cargo.nome|default:'sem cargo'|lower }}"
                     data-sector-name="{{ employee.sector.nome|default:'sem setor'|lower }}"
                     data-sector-id="{% if employee.sector %}{{ employee.sector.id }}{% else %}none{% endif %}"
@@ -543,7 +544,7 @@
     const visibleCountSpan = document.getElementById("visibleCount");
     const totalCountSpan = document.getElementById("totalCount");
     const activeCountSpan = document.getElementById("activeCount");
-    const inactiveCountSpan = document.getElementById("inactiveCount");
+    const participantsCountSpan = document.getElementById("participantsCount");
     const unassignedCountSpan = document.getElementById("unassignedCount");
     const printTableButton = document.getElementById("print-table-btn");
     const shouldOpenEmployeeModal = "{{ open_employee_modal|yesno:'true,false' }}" === "true";
@@ -613,8 +614,8 @@
       activeCountSpan.textContent = allRows.filter(function (row) {
         return row.dataset.status === "active";
       }).length;
-      inactiveCountSpan.textContent = allRows.filter(function (row) {
-        return row.dataset.status === "inactive";
+      participantsCountSpan.textContent = allRows.filter(function (row) {
+        return (row.dataset.compensationRegimeCode || "") === "participante";
       }).length;
       if (unassignedCountSpan) {
         unassignedCountSpan.textContent = allRows.filter(function (row) {
