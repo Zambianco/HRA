@@ -4,6 +4,7 @@
 {% url "events_page" as events_page_url %}
 {% url "timesheet_page" as timesheet_page_url %}
 {% url "bank_hours_page" as bank_hours_page_url %}
+{% url "bank_hours_closure_page" as bank_hours_closure_page_url %}
 {% url "sectors_page" as sectors_page_url %}
 {% url "work_schedules_page" as work_schedules_page_url %}
 <!doctype html>
@@ -71,6 +72,14 @@
               href="{{ bank_hours_page_url }}"
             >
               Banco de Horas
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 {% if request.path == '/banco-horas/encerramento/' %}active{% endif %}"
+              href="{{ bank_hours_closure_page_url }}"
+            >
+              Encerramento BH
             </a>
           </li>
           <li class="nav-item">

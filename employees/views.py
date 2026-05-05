@@ -1813,6 +1813,54 @@ def bank_hours_page(request):
     )
 
 
+def bank_hours_closure_page(request):
+    today = timezone.localdate()
+    raw_year = (request.GET.get("year") or "").strip()
+    raw_semester = (request.GET.get("semester") or "").strip()
+
+    selected_year = today.year
+    if raw_year.isdigit():
+        parsed_year = int(raw_year)
+        if 2000 <= parsed_year <= 2100:
+            selected_year = parsed_year
+
+    if raw_semester in {"1", "2"}:
+        selected_semester = int(raw_semester)
+    else:
+        selected_semester = 1 if today.month <= 6 else 2
+
+    semester_months = (1, 2, 3, 4, 5, 6) if selected_semester == 1 else (7, 8, 9, 10, 11, 12)
+    competence_months = [date(selected_year, month, 1) for month in semester_months]
+    closed_months = set(
+        TimesheetMonthClosure.objects.filter(competence_month__in=competence_months).values_list(
+            "competence_month",
+            flat=True,
+        )
+    )
+    missing_closures = [
+        competence_month
+        for competence_month in competence_months
+        if competence_month not in closed_months
+    ]
+
+    last_month = semester_months[-1]
+    default_closure_date = date(selected_year, last_month, monthrange(selected_year, last_month)[1])
+
+    return render(
+        request,
+        "bank_hours_closure.html",
+        {
+            "selected_year": selected_year,
+            "selected_semester": str(selected_semester),
+            "default_closure_date": default_closure_date.isoformat(),
+            "can_close_bank_hours": not missing_closures,
+            "missing_closure_months": [
+                _format_competence_month_label(month_date) for month_date in missing_closures
+            ],
+        },
+    )
+
+
 def bank_hours_rules_page(request):
     start_month, end_month, selected_start_month, selected_end_month, error = (
         _resolve_competence_month_interval(

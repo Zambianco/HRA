@@ -2,6 +2,7 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from .views import (
+    bank_hours_closure_page,
     bank_hours_page,
     bank_hours_rule_delete,
     bank_hours_rules_page,
@@ -39,6 +40,7 @@ urlpatterns = [
     path("eventos/", events_page, name="events_page"),
     path("timesheet/", timesheet_page, name="timesheet_page"),
     path("banco-horas/", bank_hours_page, name="bank_hours_page"),
+    path("banco-horas/encerramento/", bank_hours_closure_page, name="bank_hours_closure_page"),
     path("banco-horas/regras/", bank_hours_rules_page, name="bank_hours_rules_page"),
     path("banco-horas/regras/<int:rule_id>/excluir/", bank_hours_rule_delete, name="bank_hours_rule_delete"),
     path("timesheet/dashboard/", timesheet_dashboard_page, name="timesheet_dashboard_page"),
