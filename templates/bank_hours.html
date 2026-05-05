@@ -302,7 +302,6 @@
       const prevButton = document.getElementById("employee-filter-prev");
       const nextButton = document.getElementById("employee-filter-next");
       const table = document.getElementById("bank-hours-table");
-      const valueElements = Array.from(document.querySelectorAll(".bh-value"));
       if (!filterInput || !clearButton || !prevButton || !nextButton || !table) return;
 
       const rows = Array.from(table.querySelectorAll("tbody tr"));
@@ -398,6 +397,7 @@
       }
 
       function refreshDisplayMode() {
+        const valueElements = Array.from(document.querySelectorAll(".bh-value"));
         const checkedRadio = displayUnitRadios.find(function (radio) { return radio.checked; });
         const unit = checkedRadio ? checkedRadio.value : "hours";
         valueElements.forEach(function (element) {

@@ -183,3 +183,73 @@
         {% endfor %}
     </tbody>
 </table>
+
+<div class="print-force-page-break" aria-hidden="true"></div>
+
+<div class="print-section-title">Versao Condensada Por Empregado</div>
+<table class="print-data-table timesheet-print-table bank-hours-print-table print-split-rows">
+    <colgroup>
+        <col class="ts-col-matr" />
+        <col class="ts-col-name" />
+        <col class="bh-col-base" />
+        <col class="bh-col-bonus" />
+        <col class="bh-col-desc" />
+        <col class="bh-col-ajuste" />
+        <col class="bh-col-saldo-mes" />
+        <col class="bh-col-saldo-acum" />
+    </colgroup>
+    <thead>
+        <tr>
+            <th>MATR.</th>
+            <th>NOME</th>
+            <th><span class="ts-head-stack">HORA<br>BANCO</span><span class="bh-head-code-print">B</span></th>
+            <th><span class="ts-head-stack">HORAS C/<br>ACRESC.</span><span class="bh-head-code-print">C</span></th>
+            <th>DESCONTOS<span class="bh-head-code-print">D</span></th>
+            <th>AJUSTE<span class="bh-head-code-print">E</span></th>
+            <th><span class="ts-head-stack">SALDO<br>MES</span><span class="bh-head-code-print">F</span></th>
+            <th><span class="ts-head-stack">SALDO<br>ACUM.</span></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in employee_condensed_rows %}
+        <tr>
+            <td>{{ row.employee.matricula|default:"-" }}</td>
+            <td>{{ row.employee.nome_completo|default:"-" }}</td>
+            <td>
+                {% if row.has_missing_rule_b %}
+                S/Regra
+                {% else %}
+                <span class="bh-value" data-minutes="{{ row.total_hour_bank_base_minutes|default:0 }}">00:00</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if row.has_missing_rule_c %}
+                S/Regra
+                {% else %}
+                <span class="bh-value" data-minutes="{{ row.total_hour_bank_bonus_minutes|default:0 }}">00:00</span>
+                {% endif %}
+            </td>
+            <td><span class="bh-value" data-minutes="{{ row.total_absence_minutes|default:0 }}">00:00</span></td>
+            <td><span class="bh-value" data-minutes="{{ row.total_manual_minutes|default:0 }}" data-signed="1">00:00</span></td>
+            <td>
+                {% if row.has_missing_rule_f %}
+                S/Regra
+                {% else %}
+                <span class="bh-value" data-minutes="{{ row.total_month_delta_minutes|default:0 }}" data-signed="1">00:00</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if row.closing_balance_defined %}
+                <strong class="bh-value" data-minutes="{{ row.closing_balance_minutes|default:0 }}" data-signed="1">00:00</strong>
+                {% else %}
+                <strong>S/Regra</strong>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8">Sem dados para o periodo selecionado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

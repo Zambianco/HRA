@@ -1665,10 +1665,19 @@ def bank_hours_page(request):
     has_missing_rule_c = False
     has_missing_rule_f = False
     applied_formulas_map = {}
+    employee_condensed_rows = []
 
     for employee in participants:
         running_balance = opening_balance_by_employee[employee.id]
         running_balance_known = opening_balance_known_by_employee[employee.id]
+        employee_total_hour_bank_base_minutes = 0
+        employee_total_hour_bank_bonus_minutes = 0
+        employee_total_absence_minutes = 0
+        employee_total_manual_minutes = 0
+        employee_total_month_delta_minutes = 0
+        employee_missing_rule_b = False
+        employee_missing_rule_c = False
+        employee_missing_rule_f = False
         for competence_month in competence_months:
             payload = monthly_entry_data[(employee.id, competence_month)]
             formulas = _resolve_bank_hours_formulas_for_month(competence_month)
@@ -1688,6 +1697,9 @@ def bank_hours_page(request):
             has_missing_rule_b = has_missing_rule_b or (not calc["is_b_defined"])
             has_missing_rule_c = has_missing_rule_c or (not calc["is_c_defined"])
             has_missing_rule_f = has_missing_rule_f or (not calc["is_f_defined"])
+            employee_missing_rule_b = employee_missing_rule_b or (not calc["is_b_defined"])
+            employee_missing_rule_c = employee_missing_rule_c or (not calc["is_c_defined"])
+            employee_missing_rule_f = employee_missing_rule_f or (not calc["is_f_defined"])
             rows.append(
                 {
                     "employee": employee,
@@ -1731,11 +1743,32 @@ def bank_hours_page(request):
             total_hour_bank_bonus_minutes += calc["hour_bank_bonus_minutes"]
             total_absence_minutes += calc["absence_minutes"]
             total_manual_minutes += calc["manual_minutes"]
+            employee_total_hour_bank_base_minutes += calc["hour_bank_base_minutes"]
+            employee_total_hour_bank_bonus_minutes += calc["hour_bank_bonus_minutes"]
+            employee_total_absence_minutes += calc["absence_minutes"]
+            employee_total_manual_minutes += calc["manual_minutes"]
             if month_delta_minutes is not None:
                 total_month_delta_minutes += month_delta_minutes
+                employee_total_month_delta_minutes += month_delta_minutes
 
         if running_balance_known:
             total_closing_balance_minutes += running_balance
+
+        employee_condensed_rows.append(
+            {
+                "employee": employee,
+                "total_hour_bank_base_minutes": employee_total_hour_bank_base_minutes,
+                "total_hour_bank_bonus_minutes": employee_total_hour_bank_bonus_minutes,
+                "total_absence_minutes": employee_total_absence_minutes,
+                "total_manual_minutes": employee_total_manual_minutes,
+                "total_month_delta_minutes": employee_total_month_delta_minutes,
+                "closing_balance_minutes": running_balance if running_balance_known else 0,
+                "closing_balance_defined": running_balance_known,
+                "has_missing_rule_b": employee_missing_rule_b,
+                "has_missing_rule_c": employee_missing_rule_c,
+                "has_missing_rule_f": employee_missing_rule_f,
+            }
+        )
 
     return render(
         request,
@@ -1775,6 +1808,7 @@ def bank_hours_page(request):
             "has_missing_rule_c": has_missing_rule_c,
             "has_missing_rule_f": has_missing_rule_f,
             "applied_formulas_map": applied_formulas_map,
+            "employee_condensed_rows": employee_condensed_rows,
         },
     )
 
