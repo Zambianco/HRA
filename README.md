@@ -21,6 +21,7 @@ Sistema de RH para uso local, com interface web e banco SQLite.
 
 - Django
 - SQLite
+- PyWebView (modo desktop)
 
 ## Como executar (local)
 
@@ -52,6 +53,16 @@ python manage.py runserver 127.0.0.1:8000
 5. Abrir no navegador:
 
 `http://127.0.0.1:8000/empregados/`
+
+## Executar como aplicativo desktop (PyWebView)
+
+Com o ambiente virtual ativo e dependencias instaladas:
+
+```powershell
+python run_desktop.py
+```
+
+Esse comando sobe o Django localmente e abre a interface em uma janela nativa.
 
 ## Banco de dados
 
