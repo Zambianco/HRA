@@ -16,7 +16,7 @@ class Employee(models.Model):
         (REGIME_COMPENSACAO_PARTICIPANTE, "Participante"),
     )
 
-    matricula = models.CharField(max_length=50, unique=True)
+    matricula = models.CharField(max_length=50, null=True, blank=True)
     nome_completo = models.CharField(max_length=150)
     tipo = models.CharField(
         max_length=9,
@@ -54,9 +54,16 @@ class Employee(models.Model):
 
     class Meta:
         ordering = ("nome_completo",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("matricula",),
+                condition=models.Q(matricula__isnull=False),
+                name="uniq_employee_matricula_not_null",
+            )
+        ]
 
     def __str__(self) -> str:
-        return f"{self.matricula} - {self.nome_completo}"
+        return f"{self.matricula or '-'} - {self.nome_completo}"
 
 
 class EmployeeEvent(models.Model):

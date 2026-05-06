@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
+    Cargo,
     Employee,
     EmployeeEvent,
     EmployeeTimeEntry,
@@ -22,6 +23,7 @@ class EmployeeViewTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
         self.url = reverse("employees_page")
+        self.active_cargo = Cargo.objects.create(nome="Cargo Base")
 
     def test_get_employees_page(self):
         response = self.client.get(self.url)
@@ -79,6 +81,44 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(Employee.objects.count(), 1)
         self.assertEqual(Employee.objects.first().work_schedule, work_schedule)
         self.assertEqual(Employee.objects.first().tipo, Employee.TYPE_INDIRETO)
+
+    def test_create_indirect_employee_without_matricula(self):
+        active_sector = Sector.objects.create(nome="RH")
+        response = self.client.post(
+            self.url,
+            data={
+                "matricula": "",
+                "nome_completo": "Sem Matricula",
+                "tipo": Employee.TYPE_INDIRETO,
+                "regime_compensacao_jornada": Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+                "cargo_id": str(self.active_cargo.id),
+                "sector_id": str(active_sector.id),
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Employee.objects.count(), 1)
+        employee = Employee.objects.first()
+        self.assertEqual(employee.tipo, Employee.TYPE_INDIRETO)
+        self.assertIsNone(employee.matricula)
+
+    def test_create_direct_employee_requires_matricula(self):
+        active_sector = Sector.objects.create(nome="RH")
+        response = self.client.post(
+            self.url,
+            data={
+                "matricula": "",
+                "nome_completo": "Direto sem Matricula",
+                "tipo": Employee.TYPE_DIRETO,
+                "regime_compensacao_jornada": Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+                "cargo_id": str(self.active_cargo.id),
+                "sector_id": str(active_sector.id),
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Employee.objects.count(), 0)
+        self.assertContains(response, "Matricula e obrigatoria para empregado direto.")
 
     def test_duplicate_matricula(self):
         active_sector = Sector.objects.create(nome="RH")

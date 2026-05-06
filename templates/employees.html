@@ -100,7 +100,7 @@
               <i class="bi bi-people fs-5 text-primary"></i>
               <h5 class="fw-semibold mb-0">Empregados Cadastrados</h5>
             </div>
-            <div class="d-flex gap-2 flex-wrap no-print">
+            <div class="d-flex gap-2 flex-nowrap align-items-center no-print">
               <button
                 type="button"
                 class="btn btn-sm btn-outline-success"
@@ -108,7 +108,7 @@
               >
                 <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
               </button>
-              <div class="position-relative" style="width: 280px;">
+              <div class="position-relative flex-shrink-0" style="width: 280px;">
                 <details id="sectorFilterDetails" class="w-100">
                   <summary
                     class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-between text-start"
@@ -162,18 +162,18 @@
                   </div>
                 </details>
               </div>
-              <div class="input-group input-group-sm" style="width: 280px;">
-                <span class="input-group-text bg-transparent border-end-0">
-                  <i class="bi bi-search text-muted"></i>
-                </span>
-                <input
-                  type="text"
-                  class="form-control border-start-0"
-                  id="searchInput"
-                  placeholder="Buscar por nome, matricula, cargo, tipo, regime, setor ou escala..."
-                />
+              <div class="input-group input-group-sm flex-shrink-0" style="width: 320px;">
+                <span class="input-group-text">Empregado</span>
+                <input id="employee-filter" class="form-control" list="employee-filter-list" placeholder="Nome ou matricula" autocomplete="off">
+                <button type="button" id="employee-filter-clear" class="btn btn-outline-secondary">Limpar</button>
               </div>
-              <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de status">
+              <datalist id="employee-filter-list">
+                {% for employee in employees %}
+                  <option value="{{ employee.nome_completo }}"></option>
+                  <option value="{{ employee.matricula|default:'' }}"></option>
+                {% endfor %}
+              </datalist>
+              <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Filtros de status">
                 <button type="button" class="btn btn-outline-secondary active" id="filterAllBtn" data-filter="all">
                   <i class="bi bi-list-ul me-1"></i>Todos
                 </button>
@@ -209,7 +209,7 @@
                   <tr
                     data-employee-id="{{ employee.id }}"
                     data-employee-name="{{ employee.nome_completo|lower }}"
-                    data-registration="{{ employee.matricula|lower }}"
+                    data-registration="{{ employee.matricula|default:''|lower }}"
                     data-employee-type="{{ employee.get_tipo_display|lower }}"
                     data-compensation-regime="{{ employee.get_regime_compensacao_jornada_display|lower }}"
                     data-compensation-regime-code="{{ employee.regime_compensacao_jornada }}"
@@ -222,7 +222,7 @@
                   >
                     <td class="ps-4">
                       <span class="badge text-bg-light border">
-                        <i class="bi bi-person-vcard me-1"></i>{{ employee.matricula }}
+                        <i class="bi bi-person-vcard me-1"></i>{{ employee.matricula|default:"-" }}
                       </span>
                     </td>
                     <td>
@@ -371,9 +371,9 @@
             class="form-control"
             placeholder="Ex: 12345"
             maxlength="50"
-            required
           />
         </div>
+        <small id="employee_matricula_help" class="text-muted">Obrigatoria para empregado direto.</small>
 
         <label for="employee_nome_completo">Nome completo</label>
         <div class="input-group">
@@ -530,7 +530,8 @@
   </div>
 
   <script>
-    const searchInput = document.getElementById("searchInput");
+    const searchInput = document.getElementById("employee-filter");
+    const clearSearchButton = document.getElementById("employee-filter-clear");
     const sectorFilterLabel = document.getElementById("sectorFilterLabel");
     const sectorFilterCheckboxes = document.querySelectorAll(".sector-filter-checkbox");
     const sectorFilterAll = document.getElementById("sectorFilterAll");
@@ -547,6 +548,9 @@
     const printTableButton = document.getElementById("print-table-btn");
     const shouldOpenEmployeeModal = "{{ open_employee_modal|yesno:'true,false' }}" === "true";
     const shouldOpenSectorModal = "{{ open_sector_modal|yesno:'true,false' }}" === "true";
+    const employeeTypeInput = document.getElementById("employee_tipo");
+    const employeeMatriculaInput = document.getElementById("employee_matricula");
+    const employeeMatriculaHelp = document.getElementById("employee_matricula_help");
 
     let currentFilter = "all";
     let selectedSectorFilters = new Set(["all"]);
@@ -602,6 +606,17 @@
       modal.hidden = true;
       modal.setAttribute("aria-hidden", "true");
       updateBodyModalState();
+    }
+
+    function updateEmployeeMatriculaRequirement() {
+      if (!employeeTypeInput || !employeeMatriculaInput) return;
+      const isDireto = employeeTypeInput.value === "direto";
+      employeeMatriculaInput.required = isDireto;
+      if (employeeMatriculaHelp) {
+        employeeMatriculaHelp.textContent = isDireto
+          ? "Obrigatoria para empregado direto."
+          : "Opcional para empregado indireto.";
+      }
     }
 
     function updateCounters() {
@@ -756,6 +771,16 @@
       });
     }
 
+    if (clearSearchButton) {
+      clearSearchButton.addEventListener("click", function () {
+        if (!searchInput) return;
+        searchInput.value = "";
+        searchTerm = "";
+        applyFilters();
+        searchInput.focus();
+      });
+    }
+
     if (printTableButton) {
       printTableButton.addEventListener("click", function () {
         if (typeof window.runStandardPrint === "function") {
@@ -799,6 +824,11 @@
       });
     }
 
+    if (employeeTypeInput) {
+      employeeTypeInput.addEventListener("change", updateEmployeeMatriculaRequirement);
+      updateEmployeeMatriculaRequirement();
+    }
+
     document.addEventListener("click", function (event) {
       const modal = document.getElementById("employee-create-modal");
       if (!modal || modal.hidden) return;
@@ -839,4 +869,3 @@
     applyFilters();
   </script>
 {% endblock %}
-

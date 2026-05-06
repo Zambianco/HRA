@@ -541,10 +541,10 @@ def employees_page(request):
         sector_id = (request.POST.get("sector_id") or "").strip()
         work_schedule_id = (request.POST.get("work_schedule_id") or "").strip()
 
-        if not matricula or not nome_completo or not cargo_id or not sector_id:
+        if not nome_completo or not cargo_id or not sector_id:
             messages.error(
                 request,
-                "Matricula, nome completo, cargo e setor sao obrigatorios.",
+                "Nome completo, cargo e setor sao obrigatorios.",
             )
             return redirect("employees_page")
 
@@ -552,7 +552,11 @@ def employees_page(request):
             messages.error(request, characteristics_error)
             return redirect("employees_page")
 
-        if Employee.objects.filter(matricula=matricula).exists():
+        if tipo == Employee.TYPE_DIRETO and not matricula:
+            messages.error(request, "Matricula e obrigatoria para empregado direto.")
+            return redirect("employees_page")
+
+        if matricula and Employee.objects.filter(matricula=matricula).exists():
             messages.error(request, "Ja existe empregado com essa matricula.")
             return redirect("employees_page")
 
@@ -572,7 +576,7 @@ def employees_page(request):
             return redirect("employees_page")
 
         Employee.objects.create(
-            matricula=matricula,
+            matricula=matricula or None,
             nome_completo=nome_completo,
             tipo=tipo,
             regime_compensacao_jornada=regime_compensacao_jornada,
@@ -2404,10 +2408,10 @@ def employee_edit_page(request, employee_id):
         sector_id = (request.POST.get("sector_id") or "").strip()
         work_schedule_id = (request.POST.get("work_schedule_id") or "").strip()
 
-        if not matricula or not nome_completo or not cargo_id or not sector_id:
+        if not nome_completo or not cargo_id or not sector_id:
             messages.error(
                 request,
-                "Matricula, nome completo, cargo e setor sao obrigatorios.",
+                "Nome completo, cargo e setor sao obrigatorios.",
             )
             return redirect("employee_edit_page", employee_id=employee.id)
 
@@ -2415,7 +2419,14 @@ def employee_edit_page(request, employee_id):
             messages.error(request, characteristics_error)
             return redirect("employee_edit_page", employee_id=employee.id)
 
-        duplicate = Employee.objects.filter(matricula=matricula).exclude(id=employee.id)
+        if tipo == Employee.TYPE_DIRETO and not matricula:
+            messages.error(
+                request,
+                "Matricula e obrigatoria para empregado direto.",
+            )
+            return redirect("employee_edit_page", employee_id=employee.id)
+
+        duplicate = Employee.objects.filter(matricula=matricula).exclude(id=employee.id) if matricula else Employee.objects.none()
         if duplicate.exists():
             messages.error(request, "Ja existe empregado com essa matricula.")
             return redirect("employee_edit_page", employee_id=employee.id)
@@ -2505,7 +2516,7 @@ def employee_edit_page(request, employee_id):
                     f"({_format_competence_month_label(closed_month)}).",
                 )
                 return redirect("employee_edit_page", employee_id=employee.id)
-        employee.matricula = matricula
+        employee.matricula = matricula or None
         employee.nome_completo = nome_completo
         employee.tipo = tipo
         employee.regime_compensacao_jornada = regime_compensacao_jornada

@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
   <link rel="stylesheet" href="{% static 'css/print-standard.css' %}" />
   <style>
+    .timesheet-page {
+      --timesheet-sticky-col-1-width: 88px;
+      --timesheet-sticky-col-2-width: 178px;
+      --timesheet-table-width: 1130px;
+    }
+
     .point-sheet-wrapper {
       max-height: 68vh;
       overflow: auto;
@@ -15,7 +21,7 @@
     }
 
     .point-sheet {
-      width: max-content;
+      width: var(--timesheet-table-width);
       min-width: 0;
       border-collapse: separate;
       border-spacing: 0;
@@ -54,12 +60,18 @@
       position: sticky;
       left: 0;
       z-index: 20;
+      width: var(--timesheet-sticky-col-1-width);
+      min-width: var(--timesheet-sticky-col-1-width);
+      max-width: var(--timesheet-sticky-col-1-width);
     }
 
     .point-sheet .sticky-col-2 {
       position: sticky;
-      left: 88px;
+      left: var(--timesheet-sticky-col-1-width);
       z-index: 20;
+      width: var(--timesheet-sticky-col-2-width);
+      min-width: var(--timesheet-sticky-col-2-width);
+      max-width: var(--timesheet-sticky-col-2-width);
     }
 
     .point-sheet thead .sticky-col-1,
@@ -70,6 +82,13 @@
 
     .point-sheet .meta-cell {
       padding: 0.28rem 0.4rem;
+    }
+
+    .point-sheet .sticky-col-2 .fw-semibold {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .point-sheet .sheet-input {
@@ -192,6 +211,39 @@
     .point-sheet tr.timesheet-column-totals .fw-bold {
       color: #111827 !important;
       font-weight: 700 !important;
+    }
+
+    .table-resize-host {
+      position: relative;
+      padding-right: 14px !important;
+      user-select: none;
+    }
+
+    .table-resize-handle {
+      position: absolute;
+      top: 0;
+      right: -4px;
+      width: 10px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 60;
+    }
+
+    .table-resize-handle::before {
+      content: "";
+      position: absolute;
+      right: 4px;
+      top: 22%;
+      bottom: 22%;
+      width: 2px;
+      border-radius: 2px;
+      background: #94a3b8;
+      opacity: 0.75;
+    }
+
+    body.timesheet-resizing {
+      cursor: col-resize !important;
+      user-select: none;
     }
   </style>
 {% endblock %}
@@ -379,11 +431,18 @@
         {% else %}
           <span class="badge text-bg-success">Mês aberto</span>
         {% endif %}
-        <div class="form-check form-switch m-0">
-          <input class="form-check-input" type="checkbox" role="switch" id="display-mode-toggle" />
-          <label class="form-check-label small text-muted" for="display-mode-toggle">
-            Exibicao: <span id="display-mode-label">HH:MM</span>
-          </label>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Exibicao</span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Unidade de exibicao">
+            <input type="radio" class="btn-check" name="display-unit" id="display-unit-hours" value="hours" autocomplete="off" checked />
+            <label class="btn btn-outline-secondary" for="display-unit-hours" title="Horas no formato HH:MM">H</label>
+
+            <input type="radio" class="btn-check" name="display-unit" id="display-unit-minutes" value="minutes" autocomplete="off" />
+            <label class="btn btn-outline-secondary" for="display-unit-minutes" title="Total em minutos">M</label>
+
+            <input type="radio" class="btn-check" name="display-unit" id="display-unit-decimal" value="decimal" autocomplete="off" />
+            <label class="btn btn-outline-secondary" for="display-unit-decimal" title="Horas decimais (ex.: 1,50 h)">D</label>
+          </div>
         </div>
       </div>
     </div>
@@ -405,23 +464,32 @@
           <table id="timesheet-table" class="point-sheet mb-0">
             <thead class="table-light">
               <tr>
-                <th class="sticky-col-1" style="width: 88px;">Matrícula</th>
-                <th class="sticky-col-2" style="width: 178px;">Empregado</th>
-                <th style="min-width: 86px;">Previstas</th>
-                <th style="min-width: 86px;">Lan&ccedil;adas</th>
-                <th style="min-width: 66px;">Normais</th>
-                <th style="min-width: 66px;">Extra 60%</th>
-                <th class="col-separator-right" style="min-width: 66px;">Extra 100%</th>
-                <th style="min-width: 66px;">Falta</th>
-                <th style="min-width: 74px;">Justificada</th>
+                <th class="sticky-col-1">Matrícula</th>
+                <th class="sticky-col-2">Empregado</th>
+                <th style="min-width: 129px;">Previstas</th>
+                <th style="min-width: 129px;">Lan&ccedil;adas</th>
+                <th style="min-width: 99px;">Normais</th>
+                <th style="min-width: 99px;">Extra 60%</th>
+                <th class="col-separator-right" style="min-width: 99px;">Extra 100%</th>
+                <th style="min-width: 99px;">Falta</th>
+                <th style="min-width: 111px;">Justificada</th>
                 <th
-                  style="min-width: 66px;"
+                  style="min-width: 99px;"
                   title="Coluna Banco de Horas. Quando o semestre de BH estiver encerrado, esta coluna fica bloqueada para edicao neste mes."
                   data-bs-toggle="tooltip"
                   data-bs-placement="top"
                   data-bs-trigger="hover focus"
                   data-bs-title="Coluna Banco de Horas. Quando o semestre de BH estiver encerrado, esta coluna fica bloqueada para edicao neste mes."
-                >Banco</th>
+                  class="table-resize-host"
+                >Banco
+                  <span
+                    class="table-resize-handle"
+                    id="timesheet-table-resize-handle"
+                    role="separator"
+                    aria-label="Ajustar largura total da tabela"
+                    aria-orientation="vertical"
+                  ></span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -673,8 +741,11 @@
       const summaryCardsToggleButton = document.getElementById("summary-cards-toggle");
       const summaryCardsToggleLabel = document.getElementById("summary-cards-toggle-label");
       const summaryCardsRow = document.getElementById("timesheet-summary-cards-row");
-      const displayModeToggle = document.getElementById("display-mode-toggle");
-      const displayModeLabel = document.getElementById("display-mode-label");
+      const displayUnitRadios = Array.from(
+        document.querySelectorAll('input[name="display-unit"]')
+      );
+      const timesheetPage = document.querySelector(".timesheet-page");
+      const resizeHandle = document.getElementById("timesheet-table-resize-handle");
       const totalElements = Array.from(document.querySelectorAll(".timesheet-total"));
       const modeToastStack = document.getElementById("timesheet-mode-toast-stack");
       const rowLaunchedElements = new Map(
@@ -702,9 +773,69 @@
       const storedSummaryCardsState = safeStorageGet("timesheet_summary_cards_collapsed");
       let summaryCardsCollapsed =
         storedSummaryCardsState === "1" || storedSummaryCardsState === "true";
-      if (displayMode !== "hhmm" && displayMode !== "decimal") {
-        displayMode = "hhmm";
+      if (displayMode !== "hours" && displayMode !== "minutes" && displayMode !== "decimal") {
+        displayMode = "hours";
       }
+
+      const fixedColumnsWidth = 952;
+      const minEmpregadoWidth = 120;
+      const minTableWidth = fixedColumnsWidth + minEmpregadoWidth;
+
+      function clamp(value, min, max) {
+        if (typeof max !== "number" || !Number.isFinite(max)) {
+          return Math.max(value, min);
+        }
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function setTableWidth(tableWidth) {
+        if (!timesheetPage) return;
+        const safeTableWidth = clamp(Math.round(tableWidth), minTableWidth);
+        const empregadoWidth = safeTableWidth - fixedColumnsWidth;
+        timesheetPage.style.setProperty("--timesheet-table-width", safeTableWidth + "px");
+        timesheetPage.style.setProperty("--timesheet-sticky-col-2-width", empregadoWidth + "px");
+      }
+
+      function loadTableWidth() {
+        const raw = Number(safeStorageGet("timesheet_table_width") || "1130");
+        const initialWidth = Number.isFinite(raw) ? raw : 1130;
+        setTableWidth(initialWidth);
+      }
+
+      function initTableWidthResizer() {
+        if (!resizeHandle) return;
+        let dragging = false;
+
+        function startDrag(event) {
+          dragging = true;
+          document.body.classList.add("timesheet-resizing");
+          event.preventDefault();
+        }
+
+        function stopDrag() {
+          if (!dragging) return;
+          dragging = false;
+          document.body.classList.remove("timesheet-resizing");
+        }
+
+        function onDrag(event) {
+          if (!dragging || !timesheetPage) return;
+          const tableWrapper = timesheetPage.querySelector(".point-sheet-wrapper");
+          if (!tableWrapper) return;
+          const wrapperRect = tableWrapper.getBoundingClientRect();
+          const nextWidth = event.clientX - wrapperRect.left + tableWrapper.scrollLeft;
+          const safeWidth = clamp(nextWidth, minTableWidth);
+          setTableWidth(safeWidth);
+          safeStorageSet("timesheet_table_width", String(Math.round(safeWidth)));
+        }
+
+        resizeHandle.addEventListener("mousedown", startDrag);
+        document.addEventListener("mousemove", onDrag);
+        document.addEventListener("mouseup", stopDrag);
+        document.addEventListener("mouseleave", stopDrag);
+      }
+
+      loadTableWidth();
 
       const inputByCell = new Map();
       inputs.forEach(function (input) {
@@ -863,18 +994,26 @@
       }
 
       function toggleDisplayMode() {
-        displayMode = displayMode === "decimal" ? "hhmm" : "decimal";
+        const modes = ["hours", "minutes", "decimal"];
+        const currentIndex = modes.indexOf(displayMode);
+        const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % modes.length;
+        displayMode = modes[nextIndex];
         safeStorageSet("timesheet_display_mode", displayMode);
-        if (displayModeToggle) {
-          displayModeToggle.checked = displayMode === "decimal";
-        }
+        displayUnitRadios.forEach(function (radio) {
+          radio.checked = radio.value === displayMode;
+        });
         refreshDisplayMode();
         showModeToast();
       }
 
       function showModeToast() {
         if (!modeToastStack) return;
-        const modeLabel = displayMode === "decimal" ? "Horas decimais" : "HH:MM";
+        const modeLabel =
+          displayMode === "decimal"
+            ? "Horas decimais"
+            : displayMode === "minutes"
+              ? "Minutos"
+              : "HH:MM";
         showTimesheetToast("<strong>Modo alterado:</strong> " + modeLabel);
       }
 
@@ -994,6 +1133,9 @@
       function formatMinutes(minutes) {
         if (!minutes) return "";
 
+        if (displayMode === "minutes") {
+          return String(minutes);
+        }
         if (displayMode === "decimal") {
           return formatDecimalHours(minutes);
         }
@@ -1004,6 +1146,9 @@
       }
 
       function formatTotal(minutes) {
+        if (displayMode === "minutes") {
+          return String(minutes) + " min";
+        }
         if (displayMode === "decimal") {
           return formatDecimalHours(minutes) + "h";
         }
@@ -1018,6 +1163,9 @@
 
       function formatPrintMinutes(minutes) {
         const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
+        if (displayMode === "minutes") {
+          return String(safeMinutes);
+        }
         if (displayMode === "decimal") {
           return formatDecimalHours(safeMinutes);
         }
@@ -1078,11 +1226,6 @@
         updateTotals();
       }
 
-      function updateDisplayModeLabel() {
-        if (!displayModeLabel) return;
-        displayModeLabel.textContent = displayMode === "decimal" ? "Horas decimais" : "HH:MM";
-      }
-
       function renderNumericInput(input) {
         const hiddenInput = document.getElementById(input.dataset.minutesField);
         if (!hiddenInput) return;
@@ -1094,7 +1237,6 @@
       }
 
       function refreshDisplayMode() {
-        updateDisplayModeLabel();
         numericInputs.forEach(function (input) {
           renderNumericInput(input);
         });
@@ -1131,11 +1273,42 @@
         if (!compact) return { ok: true, empty: true, minutes: 0 };
 
         const toggleCount = (compact.match(/,,/g) || []).length;
-        const invertedMode = displayMode === "decimal" ? "hhmm" : "decimal";
+        const invertedMode = displayMode === "decimal" ? "hours" : "decimal";
         const inputMode = toggleCount % 2 === 1 ? invertedMode : displayMode;
 
         let normalized = compact.replace(/,,/g, ",");
-        if (inputMode === "hhmm") {
+        if (inputMode === "minutes") {
+          if (normalized.includes(":")) {
+            return { ok: false, error: "No modo minutos, nao use HH:MM." };
+          }
+          normalized = normalized.replace(/,/g, ".");
+          if (!normalized) return { ok: true, empty: true, minutes: 0 };
+
+          let resultMinutes;
+          try {
+            resultMinutes = Function('"use strict"; return (' + normalized + ");")();
+          } catch (error) {
+            return { ok: false, error: "ExpressÃ£o invalida." };
+          }
+
+          if (typeof resultMinutes !== "number" || !Number.isFinite(resultMinutes)) {
+            return { ok: false, error: "ExpressÃ£o invalida." };
+          }
+          if (resultMinutes < 0) {
+            return { ok: false, error: "O resultado nÃ£o pode ser negativo." };
+          }
+          if (resultMinutes > 59999) {
+            return { ok: false, error: "O resultado deve ser no maximo 59999 minutos." };
+          }
+
+          return {
+            ok: true,
+            empty: false,
+            minutes: Math.round(resultMinutes),
+          };
+        }
+
+        if (inputMode === "hours") {
           let invalidCompactMinutes = false;
 
           normalized = normalized.replace(
@@ -1468,12 +1641,16 @@
         });
       }
 
-      if (displayModeToggle) {
-        displayModeToggle.checked = displayMode === "decimal";
-        displayModeToggle.addEventListener("change", function () {
-          toggleDisplayMode();
+      displayUnitRadios.forEach(function (radio) {
+        radio.checked = radio.value === displayMode;
+        radio.addEventListener("change", function () {
+          if (!radio.checked) return;
+          displayMode = radio.value;
+          safeStorageSet("timesheet_display_mode", displayMode);
+          refreshDisplayMode();
+          showModeToast();
         });
-      }
+      });
 
       if (summaryCardsToggleButton) {
         summaryCardsToggleButton.addEventListener("click", function () {
@@ -1496,10 +1673,15 @@
 
       renderSummaryCardsVisibility();
       syncCompetenceMonthToPostForm();
+      initTableWidthResizer();
       refreshDisplayMode();
     })();
   </script>
 {% endblock %}
+
+
+
+
 
 
 
