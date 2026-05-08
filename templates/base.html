@@ -80,6 +80,12 @@
                   </a>
                 </li>
                 <li>
+                  <a class="dropdown-item d-flex align-items-center {% if request.path == '/timesheet/' or request.path == '/ponto/' %}active{% endif %}" href="{{ timesheet_page_url }}">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Ponto
+                  </a>
+                </li>
+                <li>
                   <a class="dropdown-item d-flex align-items-center {% if request.path == '/escalas/' %}active{% endif %}" href="{{ work_schedules_page_url }}">
                     <i class="bi bi-calendar-week me-2"></i>
                     Escalas

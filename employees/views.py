@@ -2,10 +2,15 @@ from calendar import monthrange
 from urllib.parse import urlencode
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, timedelta
+import csv
 import ast
+import io
 import json
 import os
 import re
+import subprocess
+import sys
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
@@ -86,6 +91,47 @@ def _save_db_runtime_config(mode: str, db_file_path: str) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _open_location_in_file_manager(path_value: str) -> None:
+    target = Path(path_value).expanduser()
+    location = target.parent if target.suffix.lower() == ".db" else target
+    resolved = location.resolve()
+
+    if os.name == "nt":
+        os.startfile(str(resolved))
+        return
+    if os.name == "posix":
+        subprocess.Popen(["xdg-open", str(resolved)])
+        return
+    raise OSError("Sistema operacional nao suportado para abrir localizacao.")
+
+
+def _create_clean_sqlite_db(db_file_path: str) -> tuple[bool, str]:
+    target = Path(db_file_path).expanduser()
+    parent = target.parent
+    if not parent.exists():
+        parent.mkdir(parents=True, exist_ok=True)
+
+    project_root = Path(__file__).resolve().parent.parent
+    env = os.environ.copy()
+    env["DATABASE_MODE"] = "arquivo"
+    env["DB_FILE_PATH"] = str(target)
+
+    migrate_cmd = [sys.executable, "manage.py", "migrate", "--noinput"]
+    completed = subprocess.run(
+        migrate_cmd,
+        cwd=str(project_root),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        stderr = (completed.stderr or "").strip()
+        stdout = (completed.stdout or "").strip()
+        detail = stderr or stdout or "Falha desconhecida durante migracao."
+        return False, detail[:800]
+    return True, ""
 
 
 def _employees_redirect_with_flags(**params):
@@ -558,6 +604,199 @@ def _parse_employee_characteristics(request_data):
     return tipo, regime_compensacao_jornada, None
 
 
+def _normalize_csv_header(value):
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return normalized.strip().lower()
+
+
+def _normalize_employee_type(value):
+    normalized = _normalize_csv_header(value)
+    if normalized in {"direto", "direct"}:
+        return Employee.TYPE_DIRETO
+    if normalized in {"indireto", "indirect"}:
+        return Employee.TYPE_INDIRETO
+    return None
+
+
+def _normalize_name_key(value):
+    return " ".join((value or "").strip().lower().split())
+
+
+def _get_or_create_default_area_department():
+    area_zero = Area.objects.filter(nome="0", deactivated_at__isnull=True).first()
+    if not area_zero:
+        area_zero = Area.objects.create(nome="0")
+
+    department_zero = Department.objects.filter(
+        area=area_zero,
+        nome="0",
+        deactivated_at__isnull=True,
+    ).first()
+    if not department_zero:
+        department_zero = Department.objects.create(area=area_zero, nome="0")
+
+    return area_zero, department_zero
+
+
+def _parse_br_date(raw_value):
+    normalized = (raw_value or "").strip()
+    try:
+        day, month, year = normalized.split("/")
+        return date(int(year), int(month), int(day))
+    except Exception as error:
+        raise ValueError(str(error))
+
+
+def _import_employees_from_csv(uploaded_file):
+    if not uploaded_file:
+        return 0, ["Selecione um arquivo CSV para importar."]
+
+    try:
+        raw_content = uploaded_file.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return 0, ["Nao foi possivel ler o CSV em UTF-8."]
+
+    sample = raw_content[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;")
+    except csv.Error:
+        dialect = csv.excel
+
+    reader = csv.DictReader(io.StringIO(raw_content), dialect=dialect)
+    if not reader.fieldnames:
+        return 0, ["Arquivo CSV sem cabecalho."]
+
+    field_map = {_normalize_csv_header(name): name for name in reader.fieldnames}
+    required_headers = ("matricula", "admissao", "nome", "setor", "cargo", "tipo")
+    missing_headers = [header for header in required_headers if header not in field_map]
+    if missing_headers:
+        return 0, [
+            "CSV invalido: faltam colunas obrigatorias "
+            f"({', '.join(missing_headers)})."
+        ]
+
+    imported = 0
+    errors = []
+    seen_csv_ids = {}
+    seen_csv_name_date = {}
+    existing_ids = set(
+        Employee.objects.exclude(matricula__isnull=True)
+        .exclude(matricula="")
+        .values_list("matricula", flat=True)
+    )
+    existing_name_date = {
+        (_normalize_name_key(name), effective_date)
+        for name, effective_date in EmployeeEvent.objects.filter(
+            event_type=EmployeeEvent.EVENT_TYPE_HIRING
+        ).values_list("employee__nome_completo", "effective_date")
+    }
+
+    for line_index, row in enumerate(reader, start=2):
+        matricula = (row.get(field_map["matricula"]) or "").strip()
+        admission_raw = (row.get(field_map["admissao"]) or "").strip()
+        nome = (row.get(field_map["nome"]) or "").strip()
+        sector_name = (row.get(field_map["setor"]) or "").strip()
+        cargo_name = (row.get(field_map["cargo"]) or "").strip()
+        tipo_raw = (row.get(field_map["tipo"]) or "").strip()
+        tipo = _normalize_employee_type(tipo_raw)
+
+        if not nome:
+            errors.append(f"Linha {line_index}: nome obrigatorio.")
+            continue
+        if not matricula:
+            errors.append(f"Linha {line_index}: ID/matricula obrigatorio.")
+            continue
+        if not sector_name:
+            errors.append(f"Linha {line_index}: setor obrigatorio.")
+            continue
+        if not cargo_name:
+            errors.append(f"Linha {line_index}: cargo obrigatorio.")
+            continue
+        if tipo is None:
+            errors.append(
+                f"Linha {line_index}: tipo invalido '{tipo_raw}'. Use direto ou indireto."
+            )
+            continue
+        try:
+            admission_date = _parse_br_date(admission_raw)
+        except ValueError:
+            errors.append(
+                f"Linha {line_index}: data de admissao invalida '{admission_raw}'. Use DD/MM/AAAA."
+            )
+            continue
+
+        first_line_for_id = seen_csv_ids.get(matricula)
+        if first_line_for_id:
+            errors.append(
+                f"Linha {line_index}: ID/matricula '{matricula}' repetido no CSV (primeira ocorrencia na linha {first_line_for_id})."
+            )
+            continue
+        if matricula in existing_ids:
+            errors.append(
+                f"Linha {line_index}: ID/matricula '{matricula}' ja existe no banco."
+            )
+            continue
+
+        name_date_key = (_normalize_name_key(nome), admission_date)
+        first_line_for_name_date = seen_csv_name_date.get(name_date_key)
+        if first_line_for_name_date:
+            errors.append(
+                f"Linha {line_index}: nome '{nome}' com mesma data de admissao ({admission_date.isoformat()}) repetido no CSV."
+            )
+            continue
+        if name_date_key in existing_name_date:
+            errors.append(
+                f"Linha {line_index}: ja existe empregado com nome '{nome}' e data de admissao {admission_date.isoformat()}."
+            )
+            continue
+
+        cargo = Cargo.objects.filter(
+            nome__iexact=cargo_name,
+            deactivated_at__isnull=True,
+        ).first()
+        if not cargo:
+            cargo = Cargo.objects.create(nome=cargo_name)
+
+        sector = Sector.objects.filter(
+            nome__iexact=sector_name,
+            deactivated_at__isnull=True,
+        ).order_by("id").first()
+        if not sector:
+            _, department_zero = _get_or_create_default_area_department()
+            sector = Sector.objects.create(
+                nome=sector_name,
+                department=department_zero,
+            )
+
+        with transaction.atomic():
+            employee = Employee.objects.create(
+                matricula=matricula if tipo == Employee.TYPE_DIRETO else None,
+                nome_completo=nome,
+                tipo=tipo,
+                regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+                cargo=cargo,
+                sector=sector,
+            )
+            if tipo == Employee.TYPE_INDIRETO:
+                employee.matricula = str(employee.id + 100000)
+                employee.save(update_fields=["matricula"])
+
+            EmployeeEvent.objects.create(
+                employee=employee,
+                event_type=EmployeeEvent.EVENT_TYPE_HIRING,
+                effective_date=admission_date,
+                notes="Evento de admissao criado automaticamente por importacao CSV.",
+            )
+        seen_csv_ids[matricula] = line_index
+        seen_csv_name_date[name_date_key] = line_index
+        existing_ids.add(matricula)
+        existing_name_date.add(name_date_key)
+        imported += 1
+
+    return imported, errors
+
+
 def _active_taxonomy():
     areas = Area.objects.filter(deactivated_at__isnull=True).order_by("nome")
     departments = Department.objects.filter(
@@ -610,8 +849,22 @@ def employees_page(request):
         .order_by("deactivated_at", "department__area__nome", "department__nome", "nome")
     )
     active_areas, active_departments = _active_taxonomy()
+    import_errors = request.session.pop("employee_import_errors", None)
+    import_result_count = request.session.pop("employee_import_result_count", None)
 
     if request.method == "POST":
+        if (request.POST.get("form_type") or "").strip() == "employee_import_csv":
+            imported_count, errors = _import_employees_from_csv(request.FILES.get("csv_file"))
+            if errors:
+                request.session["employee_import_errors"] = errors
+                request.session["employee_import_result_count"] = imported_count
+            elif imported_count:
+                messages.success(
+                    request,
+                    f"Importacao concluida: {imported_count} empregado(s) importado(s).",
+                )
+            return redirect("employees_page")
+
         matricula = (request.POST.get("matricula") or "").strip()
         nome_completo = (request.POST.get("nome_completo") or "").strip()
         tipo, regime_compensacao_jornada, characteristics_error = (
@@ -705,6 +958,8 @@ def employees_page(request):
             "selected_sector_id": selected_sector_id,
             "active_areas": active_areas,
             "active_departments": active_departments,
+            "employee_import_errors": import_errors or [],
+            "employee_import_result_count": import_result_count,
         },
     )
 
@@ -3362,9 +3617,70 @@ def database_settings_page(request):
     if request.method == "POST":
         posted_mode = (request.POST.get("mode") or "").strip().lower()
         posted_db_file_path = (request.POST.get("db_file_path") or "").strip()
+        wants_to_open_location = (request.POST.get("open_location") or "").strip() == "1"
+        wants_to_create_new_db = (request.POST.get("create_new_db") or "").strip() == "1"
 
         if posted_mode not in {"online", "arquivo"}:
             messages.error(request, "Modo de banco invalido.")
+            return redirect("database_settings_page")
+
+        if wants_to_open_location:
+            if posted_mode != "arquivo":
+                messages.error(request, "A abertura de localizacao so funciona no modo arquivo.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path:
+                messages.error(request, "Informe o caminho do arquivo .db para abrir a localizacao.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path.lower().endswith(".db"):
+                messages.error(request, "O caminho informado deve apontar para um arquivo .db.")
+                return redirect("database_settings_page")
+
+            db_candidate = Path(posted_db_file_path).expanduser()
+            folder_candidate = db_candidate.parent
+            if not folder_candidate.exists() or not folder_candidate.is_dir():
+                messages.error(request, "A pasta informada no caminho do banco nao existe.")
+                return redirect("database_settings_page")
+
+            try:
+                _open_location_in_file_manager(posted_db_file_path)
+            except OSError:
+                messages.error(request, "Nao foi possivel abrir a localizacao informada.")
+            else:
+                messages.success(request, "Localizacao aberta no explorador de arquivos.")
+            return redirect("database_settings_page")
+
+        if wants_to_create_new_db:
+            if posted_mode != "arquivo":
+                messages.error(request, "A criacao de novo banco so funciona no modo arquivo.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path:
+                messages.error(request, "Informe o caminho do arquivo .db para criar o novo banco.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path.lower().endswith(".db"):
+                messages.error(request, "O caminho informado deve apontar para um arquivo .db.")
+                return redirect("database_settings_page")
+
+            db_candidate = Path(posted_db_file_path).expanduser()
+            if db_candidate.exists():
+                messages.error(
+                    request,
+                    "Ja existe um arquivo nesse caminho. Informe outro caminho para criar um banco novo.",
+                )
+                return redirect("database_settings_page")
+
+            created, error_detail = _create_clean_sqlite_db(posted_db_file_path)
+            if not created:
+                messages.error(
+                    request,
+                    f"Nao foi possivel criar o novo banco. Detalhe: {error_detail}",
+                )
+                return redirect("database_settings_page")
+
+            _save_db_runtime_config("arquivo", str(db_candidate))
+            messages.success(
+                request,
+                "Novo banco criado com sucesso. Configuracao atualizada para usar esse arquivo apos reiniciar o aplicativo.",
+            )
             return redirect("database_settings_page")
 
         if posted_mode == "arquivo":

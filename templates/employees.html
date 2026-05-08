@@ -32,6 +32,12 @@
       vertical-align: bottom;
     }
 
+    .import-errors-scroll {
+      max-height: min(60vh, 420px);
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
   </style>
 {% endblock %}
 
@@ -62,6 +68,10 @@
         <button type="button" class="btn btn-outline-secondary" id="print-table-btn">
           <i class="bi bi-printer me-1"></i>
           Imprimir
+        </button>
+        <button type="button" class="btn btn-outline-success" onclick="openEmployeeImportModal()">
+          <i class="bi bi-upload me-1"></i>
+          Importar CSV
         </button>
         <button type="button" class="btn btn-primary" onclick="openEmployeeCreateModal()">
           <i class="bi bi-plus-circle me-1"></i>
@@ -471,6 +481,60 @@
     </div>
   </div>
 
+  <div id="employee-import-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="employee-import-modal-title">
+      <div class="app-modal-header">
+        <h2 id="employee-import-modal-title"><i class="bi bi-upload me-2"></i>Importar Empregados CSV</h2>
+        <button type="button" class="app-modal-close" onclick="closeEmployeeImportModal()" aria-label="Fechar">
+          &times;
+        </button>
+      </div>
+      <form method="post" action="{% url 'employees_page' %}" enctype="multipart/form-data" class="form-grid app-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="employee_import_csv" />
+        <label for="employees_csv_file">Arquivo CSV</label>
+        <input id="employees_csv_file" name="csv_file" type="file" class="form-control" accept=".csv,text/csv" required />
+        <small class="text-muted">Colunas: matricula, admissão, nome, setor, cargo, tipo. Data em DD/MM/AAAA.</small>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-cloud-upload me-1"></i>Importar
+          </button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeEmployeeImportModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="employee-import-errors-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="employee-import-errors-modal-title">
+      <div class="app-modal-header">
+        <h2 id="employee-import-errors-modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Falhas na Importação CSV</h2>
+        <button type="button" class="app-modal-close" onclick="closeEmployeeImportErrorsModal()" aria-label="Fechar">
+          &times;
+        </button>
+      </div>
+      <div class="p-3">
+        <p class="mb-2">
+          {% if employee_import_result_count %}
+            {{ employee_import_result_count }} empregado(s) importado(s). Itens abaixo foram ignorados:
+          {% else %}
+            Nenhum empregado foi importado. Corrija os itens abaixo:
+          {% endif %}
+        </p>
+        <div class="import-errors-scroll border rounded p-2 mb-3">
+          <ul class="mb-0">
+            {% for import_error in employee_import_errors %}
+              <li>{{ import_error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn btn-primary" onclick="closeEmployeeImportErrorsModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="employee-sector-create-modal" class="app-modal-layer" hidden aria-hidden="true">
     <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="employee-sector-create-modal-title">
       <div class="app-modal-header">
@@ -591,6 +655,7 @@
     const printTableButton = document.getElementById("print-table-btn");
     const shouldOpenEmployeeModal = "{{ open_employee_modal|yesno:'true,false' }}" === "true";
     const shouldOpenSectorModal = "{{ open_sector_modal|yesno:'true,false' }}" === "true";
+    const shouldOpenEmployeeImportErrorsModal = "{{ employee_import_errors|length|yesno:'true,false' }}" === "true";
     const employeeTypeInput = document.getElementById("employee_tipo");
     const employeeMatriculaInput = document.getElementById("employee_matricula");
     const employeeMatriculaHelp = document.getElementById("employee_matricula_help");
@@ -604,6 +669,8 @@
     function updateBodyModalState() {
       const hasOpenModal = [
         document.getElementById("employee-create-modal"),
+        document.getElementById("employee-import-modal"),
+        document.getElementById("employee-import-errors-modal"),
         document.getElementById("employee-sector-create-modal"),
         document.getElementById("sector-filter-modal"),
       ].some(function (modal) {
@@ -629,6 +696,42 @@
       const modal = document.getElementById("employee-create-modal");
       if (!modal) return;
       closeEmployeeSectorCreateModal();
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      updateBodyModalState();
+    }
+
+    function openEmployeeImportModal() {
+      const modal = document.getElementById("employee-import-modal");
+      if (!modal) return;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+      updateBodyModalState();
+      setTimeout(function () {
+        const input = document.getElementById("employees_csv_file");
+        if (input) input.focus();
+      }, 0);
+    }
+
+    function closeEmployeeImportModal() {
+      const modal = document.getElementById("employee-import-modal");
+      if (!modal) return;
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      updateBodyModalState();
+    }
+
+    function openEmployeeImportErrorsModal() {
+      const modal = document.getElementById("employee-import-errors-modal");
+      if (!modal) return;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+      updateBodyModalState();
+    }
+
+    function closeEmployeeImportErrorsModal() {
+      const modal = document.getElementById("employee-import-errors-modal");
+      if (!modal) return;
       modal.hidden = true;
       modal.setAttribute("aria-hidden", "true");
       updateBodyModalState();
@@ -942,6 +1045,22 @@
     });
 
     document.addEventListener("click", function (event) {
+      const modal = document.getElementById("employee-import-modal");
+      if (!modal || modal.hidden) return;
+      if (event.target === modal) {
+        closeEmployeeImportModal();
+      }
+    });
+
+    document.addEventListener("click", function (event) {
+      const modal = document.getElementById("employee-import-errors-modal");
+      if (!modal || modal.hidden) return;
+      if (event.target === modal) {
+        closeEmployeeImportErrorsModal();
+      }
+    });
+
+    document.addEventListener("click", function (event) {
       const modal = document.getElementById("employee-sector-create-modal");
       if (!modal || modal.hidden) return;
       if (event.target === modal) {
@@ -964,6 +1083,16 @@
         closeSectorFilterModal();
         return;
       }
+      const importErrorsModal = document.getElementById("employee-import-errors-modal");
+      if (importErrorsModal && !importErrorsModal.hidden) {
+        closeEmployeeImportErrorsModal();
+        return;
+      }
+      const importModal = document.getElementById("employee-import-modal");
+      if (importModal && !importModal.hidden) {
+        closeEmployeeImportModal();
+        return;
+      }
       const sectorModal = document.getElementById("employee-sector-create-modal");
       if (sectorModal && !sectorModal.hidden) {
         closeEmployeeSectorCreateModal();
@@ -981,6 +1110,9 @@
     if (shouldOpenSectorModal) {
       openEmployeeCreateModal();
       openEmployeeSectorCreateModal();
+    }
+    if (shouldOpenEmployeeImportErrorsModal) {
+      openEmployeeImportErrorsModal();
     }
 
     applyFilters();
