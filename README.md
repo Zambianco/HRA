@@ -63,10 +63,19 @@ python run_desktop.py
 ```
 
 Esse comando sobe o Django localmente e abre a interface em uma janela nativa.
+Para alterar o banco, use o menu `Config. Banco` dentro do sistema:
+- `online`: usa variaveis `DB_*` do ambiente (ex.: deploy com `.env`).
+- `arquivo`: usa o caminho de um arquivo `.db` informado na tela.
+Depois de salvar, reinicie o aplicativo para aplicar.
 
 ## Banco de dados
 
-- Arquivo SQLite em `data/rh.db`
+- Modo padrao: SQLite em `data/rh.db`
+- Variaveis suportadas:
+  - `DATABASE_MODE=online|arquivo`
+  - `DB_FILE_PATH=<caminho do .db>` (usado no modo `arquivo`)
+  - `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` (usadas no modo `online`)
+- Configuracao persistida localmente em `data/db_config.json`.
 - Se existir a tabela legada `empregados` (versao Flask), os dados sao importados automaticamente para o modelo Django na migracao `0002`.
 
 ## Verificacao de codificacao de texto

@@ -6,6 +6,33 @@
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
   <link rel="stylesheet" href="{% static 'css/print-standard.css' %}" />
+  <style>
+    .sector-filter-panel {
+      max-height: min(60vh, 420px);
+      overflow-y: auto;
+    }
+
+    .sector-filter-item {
+      padding-left: calc(0.4rem + (var(--sector-level, 0) * 0.85rem));
+      border-left: 2px solid transparent;
+    }
+
+    .sector-filter-item[data-kind="sector"]:hover {
+      border-left-color: rgba(13, 110, 253, 0.25);
+      background-color: rgba(13, 110, 253, 0.04);
+      border-radius: 0.25rem;
+    }
+
+    .sector-filter-name {
+      display: inline-block;
+      max-width: 520px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
+
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -108,60 +135,10 @@
               >
                 <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
               </button>
-              <div class="position-relative flex-shrink-0" style="width: 280px;">
-                <details id="sectorFilterDetails" class="w-100">
-                  <summary
-                    class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-between text-start"
-                    style="list-style: none;"
-                  >
-                    <span class="d-inline-flex align-items-center gap-2">
-                      <i class="bi bi-building text-muted"></i>
-                      <span id="sectorFilterLabel">Setores: Todos</span>
-                    </span>
-                    <i class="bi bi-chevron-down small"></i>
-                  </summary>
-                  <div
-                    class="card border shadow-sm mt-1 p-2 position-absolute w-100"
-                    style="z-index: 1060; max-height: 260px; overflow-y: auto;"
-                  >
-                    <div class="form-check mb-1">
-                      <input
-                        class="form-check-input sector-filter-checkbox"
-                        type="checkbox"
-                        value="all"
-                        id="sectorFilterAll"
-                        data-label="Todos os setores"
-                        checked
-                      />
-                      <label class="form-check-label" for="sectorFilterAll">Todos os setores</label>
-                    </div>
-                    <div class="form-check mb-2">
-                      <input
-                        class="form-check-input sector-filter-checkbox"
-                        type="checkbox"
-                        value="none"
-                        id="sectorFilterNone"
-                        data-label="Sem setor"
-                      />
-                      <label class="form-check-label" for="sectorFilterNone">Sem setor</label>
-                    </div>
-                    {% for sector in all_sectors %}
-                      <div class="form-check mb-1">
-                        <input
-                          class="form-check-input sector-filter-checkbox"
-                          type="checkbox"
-                          value="{{ sector.id }}"
-                          id="sectorFilter{{ sector.id }}"
-                          data-label="{{ sector.full_name }}"
-                        />
-                        <label class="form-check-label" for="sectorFilter{{ sector.id }}">
-                          {{ sector.full_name }} {% if sector.deactivated_at %}(inativo){% else %}(ativo){% endif %}
-                        </label>
-                      </div>
-                    {% endfor %}
-                  </div>
-                </details>
-              </div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="open-sector-filter-modal-btn">
+                <i class="bi bi-funnel me-1"></i>Filtro
+              </button>
+              <span id="sectorFilterLabel" class="small text-muted text-truncate" style="max-width: 260px;">Todos os setores</span>
               <div class="input-group input-group-sm flex-shrink-0" style="width: 320px;">
                 <span class="input-group-text">Empregado</span>
                 <input id="employee-filter" class="form-control" list="employee-filter-list" placeholder="Nome ou matricula" autocomplete="off">
@@ -544,13 +521,63 @@
       </form>
     </div>
   </div>
+  <div id="sector-filter-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div
+      class="app-modal-panel app-modal-panel-surface"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sector-filter-modal-title"
+      style="width: min(92vw, 860px); max-width: 860px;"
+    >
+      <div class="app-modal-header">
+        <h2 id="sector-filter-modal-title"><i class="bi bi-funnel me-2"></i>Filtrar Setores</h2>
+        <button type="button" class="app-modal-close" onclick="closeSectorFilterModal()" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="p-3">
+        <div class="d-flex gap-2 mb-3">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="sector-filter-select-all-btn">Todos</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="sector-filter-clear-btn">Limpar</button>
+        </div>
+        <div class="sector-filter-panel border rounded p-2">
+          <div class="form-check mb-2 sector-filter-item" data-kind="special">
+            <input class="form-check-input sector-filter-checkbox" type="checkbox" value="none" id="sectorFilterNone" data-label="Sem setor" />
+            <label class="form-check-label" for="sectorFilterNone">Sem setor</label>
+          </div>
+          {% for sector in all_sectors %}
+            <div class="form-check mb-1 sector-filter-item" data-kind="sector">
+              <input
+                class="form-check-input sector-filter-checkbox"
+                type="checkbox"
+                value="{{ sector.id }}"
+                id="sectorFilter{{ sector.id }}"
+                data-label="{{ sector.full_name }}"
+              />
+              <label class="form-check-label" for="sectorFilter{{ sector.id }}">
+                <span class="sector-filter-name">{{ sector.full_name }}</span>
+                {% if sector.deactivated_at %}
+                  <span class="badge text-bg-light border ms-1">inativo</span>
+                {% endif %}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <button type="button" class="btn btn-outline-secondary" onclick="closeSectorFilterModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="apply-sector-filter-btn">Aplicar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     const searchInput = document.getElementById("employee-filter");
     const clearSearchButton = document.getElementById("employee-filter-clear");
     const sectorFilterLabel = document.getElementById("sectorFilterLabel");
     const sectorFilterCheckboxes = document.querySelectorAll(".sector-filter-checkbox");
-    const sectorFilterAll = document.getElementById("sectorFilterAll");
+    const openSectorFilterModalButton = document.getElementById("open-sector-filter-modal-btn");
+    const applySectorFilterButton = document.getElementById("apply-sector-filter-btn");
+    const sectorFilterSelectAllButton = document.getElementById("sector-filter-select-all-btn");
+    const sectorFilterClearButton = document.getElementById("sector-filter-clear-btn");
     const filterAllBtn = document.getElementById("filterAllBtn");
     const filterActiveBtn = document.getElementById("filterActiveBtn");
     const filterInactiveBtn = document.getElementById("filterInactiveBtn");
@@ -578,6 +605,7 @@
       const hasOpenModal = [
         document.getElementById("employee-create-modal"),
         document.getElementById("employee-sector-create-modal"),
+        document.getElementById("sector-filter-modal"),
       ].some(function (modal) {
         return modal && !modal.hidden;
       });
@@ -674,7 +702,7 @@
       if (!sectorFilterLabel) return;
 
       if (selectedSectorFilters.has("all")) {
-        sectorFilterLabel.textContent = "Setores: Todos";
+        sectorFilterLabel.textContent = "Todos os setores";
         return;
       }
 
@@ -686,12 +714,28 @@
           return checkbox.dataset.label || checkbox.value;
         });
 
-      if (selectedLabels.length === 1) {
-        sectorFilterLabel.textContent = "Setor: " + selectedLabels[0];
+      if (!selectedLabels.length) {
+        sectorFilterLabel.textContent = "Nenhum setor selecionado";
         return;
       }
 
-      sectorFilterLabel.textContent = "Setores: " + selectedLabels.length + " selecionados";
+      if (selectedLabels.length === 1) {
+        sectorFilterLabel.textContent = selectedLabels[0];
+        return;
+      }
+
+      sectorFilterLabel.textContent = selectedLabels[0] + " +" + (selectedLabels.length - 1);
+    }
+
+    function decorateSectorFilterHierarchy() {
+      const items = document.querySelectorAll('.sector-filter-item[data-kind="sector"]');
+      items.forEach(function (item) {
+        const checkbox = item.querySelector(".sector-filter-checkbox");
+        if (!checkbox) return;
+        const pathLabel = checkbox.dataset.label || "";
+        const level = (pathLabel.match(/\s\/\s/g) || []).length;
+        item.style.setProperty("--sector-level", String(level));
+      });
     }
 
     function syncSectorFilterState(changedValue) {
@@ -700,26 +744,13 @@
         return;
       }
 
-      if (changedValue === "all" && sectorFilterAll && sectorFilterAll.checked) {
-        sectorFilterCheckboxes.forEach(function (checkbox) {
-          checkbox.checked = checkbox.value === "all";
-        });
-        selectedSectorFilters = new Set(["all"]);
-        updateSectorFilterLabel();
-        return;
-      }
-
       const checkedNonAll = Array.from(sectorFilterCheckboxes).filter(function (checkbox) {
-        return checkbox.value !== "all" && checkbox.checked;
+        return checkbox.checked;
       });
 
       if (!checkedNonAll.length) {
-        sectorFilterCheckboxes.forEach(function (checkbox) {
-          checkbox.checked = checkbox.value === "all";
-        });
         selectedSectorFilters = new Set(["all"]);
       } else {
-        if (sectorFilterAll) sectorFilterAll.checked = false;
         selectedSectorFilters = new Set(
           checkedNonAll.map(function (checkbox) {
             return checkbox.value;
@@ -729,6 +760,24 @@
 
       updateSectorFilterLabel();
     }
+
+    function openSectorFilterModal() {
+      const modal = document.getElementById("sector-filter-modal");
+      if (!modal) return;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+      updateBodyModalState();
+    }
+
+    function closeSectorFilterModal() {
+      const modal = document.getElementById("sector-filter-modal");
+      if (!modal) return;
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      updateBodyModalState();
+    }
+
+    window.closeSectorFilterModal = closeSectorFilterModal;
 
     function applyFilters() {
       if (!employeeTableBody) return;
@@ -778,24 +827,40 @@
     }
 
     if (sectorFilterCheckboxes.length) {
-      sectorFilterCheckboxes.forEach(function (checkbox) {
-        checkbox.addEventListener("change", function (event) {
-          syncSectorFilterState(event.target.value);
-          applyFilters();
-        });
-      });
-      syncSectorFilterState("all");
+      decorateSectorFilterHierarchy();
+      syncSectorFilterState();
     } else {
       selectedSectorFilters = new Set(["all"]);
       updateSectorFilterLabel();
     }
 
-    document.addEventListener("click", function (event) {
-      const details = document.getElementById("sectorFilterDetails");
-      if (!details || !details.open) return;
-      if (details.contains(event.target)) return;
-      details.open = false;
-    });
+    if (openSectorFilterModalButton) {
+      openSectorFilterModalButton.addEventListener("click", openSectorFilterModal);
+    }
+
+    if (sectorFilterSelectAllButton) {
+      sectorFilterSelectAllButton.addEventListener("click", function () {
+        sectorFilterCheckboxes.forEach(function (checkbox) {
+          checkbox.checked = true;
+        });
+      });
+    }
+
+    if (sectorFilterClearButton) {
+      sectorFilterClearButton.addEventListener("click", function () {
+        sectorFilterCheckboxes.forEach(function (checkbox) {
+          checkbox.checked = false;
+        });
+      });
+    }
+
+    if (applySectorFilterButton) {
+      applySectorFilterButton.addEventListener("click", function () {
+        syncSectorFilterState();
+        applyFilters();
+        closeSectorFilterModal();
+      });
+    }
 
     if (searchInput) {
       searchInput.addEventListener("input", function (event) {
@@ -884,8 +949,21 @@
       }
     });
 
+    document.addEventListener("click", function (event) {
+      const modal = document.getElementById("sector-filter-modal");
+      if (!modal || modal.hidden) return;
+      if (event.target === modal) {
+        closeSectorFilterModal();
+      }
+    });
+
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
+      const filterModal = document.getElementById("sector-filter-modal");
+      if (filterModal && !filterModal.hidden) {
+        closeSectorFilterModal();
+        return;
+      }
       const sectorModal = document.getElementById("employee-sector-create-modal");
       if (sectorModal && !sectorModal.hidden) {
         closeEmployeeSectorCreateModal();

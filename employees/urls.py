@@ -14,6 +14,7 @@ from .views import (
     cargo_deactivate,
     cargo_edit_page,
     cargos_page,
+    database_settings_page,
     department_create,
     department_deactivate,
     department_activate,
@@ -74,4 +75,5 @@ urlpatterns = [
     path("setores/<int:sector_id>/desativar/", sector_deactivate, name="sector_deactivate"),
     path("setores/<int:sector_id>/ativar/", sector_activate, name="sector_activate"),
     path("escalas/", work_schedules_page, name="work_schedules_page"),
+    path("configuracoes/banco/", database_settings_page, name="database_settings_page"),
 ]

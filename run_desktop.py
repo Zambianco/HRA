@@ -2,6 +2,8 @@ import os
 import socket
 import threading
 import time
+import json
+from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -38,8 +40,39 @@ def _pick_port(default_port: int = 8000) -> int:
         return int(sock.getsockname()[1])
 
 
+def _apply_database_mode_from_saved_config() -> None:
+    base_dir = Path(__file__).resolve().parent
+    data_dir = base_dir / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    config_path = data_dir / "db_config.json"
+
+    mode = "arquivo"
+    db_file_path = str(data_dir / "rh.db")
+
+    if config_path.exists():
+        try:
+            loaded = json.loads(config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            loaded = {}
+
+        if isinstance(loaded, dict):
+            loaded_mode = str(loaded.get("mode", "")).strip().lower()
+            loaded_path = str(loaded.get("db_file_path", "")).strip()
+            if loaded_mode in {"online", "arquivo"}:
+                mode = loaded_mode
+            if loaded_path:
+                db_file_path = loaded_path
+
+    os.environ["DATABASE_MODE"] = mode
+    if mode == "arquivo":
+        os.environ["DB_FILE_PATH"] = db_file_path
+    else:
+        os.environ.pop("DB_FILE_PATH", None)
+
+
 def main() -> None:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    _apply_database_mode_from_saved_config()
     host = "127.0.0.1"
     port = _pick_port()
     base_url = f"http://{host}:{port}/"

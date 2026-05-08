@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Configuracoes de Banco{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Inicio</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Configuracoes de Banco</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-lg-8">
+      <h1 class="fw-bold text-primary mb-1">Configuracoes de Banco</h1>
+      <p class="text-muted mb-0">Escolha entre banco online (deploy) ou arquivo SQLite local.</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Modo de conexao</label>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="mode"
+                  id="mode_online"
+                  value="online"
+                  {% if database_mode == "online" %}checked{% endif %}
+                />
+                <label class="form-check-label" for="mode_online">
+                  Online (usa variaveis DB_* do ambiente)
+                </label>
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="mode"
+                  id="mode_arquivo"
+                  value="arquivo"
+                  {% if database_mode == "arquivo" %}checked{% endif %}
+                />
+                <label class="form-check-label" for="mode_arquivo">
+                  Arquivo SQLite (.db)
+                </label>
+              </div>
+            </div>
+
+            <div id="file-path-group" class="mb-3">
+              <label for="db_file_path" class="form-label fw-semibold">Caminho do arquivo .db</label>
+              <input
+                type="text"
+                class="form-control"
+                id="db_file_path"
+                name="db_file_path"
+                value="{{ db_file_path }}"
+                placeholder="Ex.: C:\dados\rh.db"
+              />
+              <div class="form-text">Esse caminho e usado apenas quando o modo for "arquivo".</div>
+            </div>
+
+            <div class="alert alert-warning py-2 mb-3" role="alert">
+              Apos salvar, reinicie o aplicativo para aplicar a nova configuracao de banco.
+            </div>
+
+            <button type="submit" class="btn btn-primary">Salvar configuracao</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modeOnline = document.getElementById("mode_online");
+      var modeArquivo = document.getElementById("mode_arquivo");
+      var filePathGroup = document.getElementById("file-path-group");
+      var filePathInput = document.getElementById("db_file_path");
+
+      function toggleFilePath() {
+        var useFileMode = modeArquivo.checked;
+        filePathGroup.style.display = useFileMode ? "" : "none";
+        filePathInput.required = useFileMode;
+      }
+
+      modeOnline.addEventListener("change", toggleFilePath);
+      modeArquivo.addEventListener("change", toggleFilePath);
+      toggleFilePath();
+    })();
+  </script>
+{% endblock %}

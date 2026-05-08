@@ -3,8 +3,11 @@ from urllib.parse import urlencode
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, timedelta
 import ast
+import json
+import os
 import re
 from collections import defaultdict
+from pathlib import Path
 
 from django.contrib import messages
 from django.db import IntegrityError, transaction
@@ -55,6 +58,34 @@ TIME_ENTRY_MINUTE_FIELDS = (
     ("absence_excused_minutes", "ausencias justificadas"),
     ("absence_bank_minutes", "ausencias por banco"),
 )
+
+
+def _db_config_file_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "data" / "db_config.json"
+
+
+def _load_db_runtime_config() -> dict:
+    config_path = _db_config_file_path()
+    if not config_path.exists():
+        return {}
+    try:
+        loaded = json.loads(config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _save_db_runtime_config(mode: str, db_file_path: str) -> None:
+    config_path = _db_config_file_path()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "mode": mode,
+        "db_file_path": db_file_path,
+    }
+    config_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _employees_redirect_with_flags(**params):
@@ -3211,6 +3242,55 @@ def sector_activate(request, sector_id):
     sector.save(update_fields=["deactivated_at"])
     messages.success(request, "Setor ativado com sucesso.")
     return redirect("sectors_page")
+
+
+def database_settings_page(request):
+    runtime_config = _load_db_runtime_config()
+    mode = str(
+        runtime_config.get("mode")
+        or os.getenv("DATABASE_MODE", "arquivo")
+    ).strip().lower()
+    if mode not in {"online", "arquivo"}:
+        mode = "arquivo"
+
+    default_db_path = str(Path(__file__).resolve().parent.parent / "data" / "rh.db")
+    db_file_path = str(
+        runtime_config.get("db_file_path")
+        or os.getenv("DB_FILE_PATH", "")
+        or default_db_path
+    ).strip()
+
+    if request.method == "POST":
+        posted_mode = (request.POST.get("mode") or "").strip().lower()
+        posted_db_file_path = (request.POST.get("db_file_path") or "").strip()
+
+        if posted_mode not in {"online", "arquivo"}:
+            messages.error(request, "Modo de banco invalido.")
+            return redirect("database_settings_page")
+
+        if posted_mode == "arquivo":
+            if not posted_db_file_path:
+                messages.error(request, "Informe o caminho do arquivo .db.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path.lower().endswith(".db"):
+                messages.error(request, "O arquivo informado deve ter extensao .db.")
+                return redirect("database_settings_page")
+            db_file_path = posted_db_file_path
+        else:
+            db_file_path = default_db_path
+
+        _save_db_runtime_config(posted_mode, db_file_path)
+        messages.success(
+            request,
+            "Configuracao salva. Reinicie o aplicativo para aplicar o novo banco de dados.",
+        )
+        return redirect("database_settings_page")
+
+    context = {
+        "database_mode": mode,
+        "db_file_path": db_file_path,
+    }
+    return render(request, "database_settings.html", context)
 
 
 

@@ -7,6 +7,7 @@
 {% url "bank_hours_closure_page" as bank_hours_closure_page_url %}
 {% url "sectors_page" as sectors_page_url %}
 {% url "work_schedules_page" as work_schedules_page_url %}
+{% url "database_settings_page" as database_settings_page_url %}
 <!doctype html>
 <html lang="pt-br">
   <head>
@@ -96,6 +97,14 @@
               href="{{ work_schedules_page_url }}"
             >
               Escalas
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link px-2 {% if request.path == '/configuracoes/banco/' %}active{% endif %}"
+              href="{{ database_settings_page_url }}"
+            >
+              Config. Banco
             </a>
           </li>
         </ul>
@@ -201,7 +210,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
-
 
 
 

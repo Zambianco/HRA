@@ -88,11 +88,50 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DATA_DIR / 'rh.db',
+DEFAULT_SQLITE_PATH = DATA_DIR / "rh.db"
+
+
+def _build_online_database() -> dict:
+    engine = os.getenv("DB_ENGINE", "django.db.backends.sqlite3").strip()
+    name = os.getenv("DB_NAME", "").strip()
+
+    if engine == "django.db.backends.sqlite3":
+        return {
+            "ENGINE": engine,
+            "NAME": name or str(DEFAULT_SQLITE_PATH),
+        }
+
+    database_config = {
+        "ENGINE": engine,
+        "NAME": name,
     }
+    for env_key, setting_key in [
+        ("DB_USER", "USER"),
+        ("DB_PASSWORD", "PASSWORD"),
+        ("DB_HOST", "HOST"),
+        ("DB_PORT", "PORT"),
+    ]:
+        value = os.getenv(env_key, "").strip()
+        if value:
+            database_config[setting_key] = value
+    return database_config
+
+
+def _build_database() -> dict:
+    mode = os.getenv("DATABASE_MODE", "arquivo").strip().lower()
+    if mode == "online":
+        return _build_online_database()
+
+    db_file_path = os.getenv("DB_FILE_PATH", "").strip()
+    sqlite_path = Path(db_file_path) if db_file_path else DEFAULT_SQLITE_PATH
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": str(sqlite_path),
+    }
+
+
+DATABASES = {
+    "default": _build_database(),
 }
 
 
