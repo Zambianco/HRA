@@ -29,6 +29,22 @@
     <form method="post" action="{% url 'sector_edit_page' sector.id %}">
       {% csrf_token %}
       <div class="card-body">
+        <label for="area_id" class="form-label fw-semibold">Area</label>
+        <select id="area_id" name="area_id" class="form-select mb-3" required>
+          <option value="">Selecione uma area...</option>
+          {% for area in active_areas %}
+            <option value="{{ area.id }}" {% if sector.department and sector.department.area_id == area.id %}selected{% endif %}>{{ area.nome }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="department_id" class="form-label fw-semibold">Departamento</label>
+        <select id="department_id" name="department_id" class="form-select mb-3" required>
+          <option value="">Selecione um departamento...</option>
+          {% for department in active_departments %}
+            <option value="{{ department.id }}" data-area-id="{{ department.area_id }}" {% if sector.department_id == department.id %}selected{% endif %}>{{ department.nome }}</option>
+          {% endfor %}
+        </select>
+
         <label for="nome" class="form-label fw-semibold">Nome do setor</label>
         <input
           id="nome"
@@ -48,5 +64,29 @@
       </div>
     </form>
   </div>
+  <script>
+    const areaInput = document.getElementById("area_id");
+    const departmentInput = document.getElementById("department_id");
+
+    function updateDepartmentOptions() {
+      if (!areaInput || !departmentInput) return;
+      const areaId = areaInput.value;
+      Array.from(departmentInput.options).forEach(function (option, index) {
+        if (index === 0) {
+          option.hidden = false;
+          return;
+        }
+        option.hidden = !!areaId && option.dataset.areaId !== areaId;
+      });
+      if (departmentInput.selectedOptions.length && departmentInput.selectedOptions[0].hidden) {
+        departmentInput.value = "";
+      }
+    }
+
+    if (areaInput && departmentInput) {
+      areaInput.addEventListener("change", updateDepartmentOptions);
+      updateDepartmentOptions();
+    }
+  </script>
 {% endblock %}
 

@@ -152,10 +152,10 @@
                           type="checkbox"
                           value="{{ sector.id }}"
                           id="sectorFilter{{ sector.id }}"
-                          data-label="{{ sector.nome }}"
+                          data-label="{{ sector.full_name }}"
                         />
                         <label class="form-check-label" for="sectorFilter{{ sector.id }}">
-                          {{ sector.nome }} {% if sector.deactivated_at %}(inativo){% else %}(ativo){% endif %}
+                          {{ sector.full_name }} {% if sector.deactivated_at %}(inativo){% else %}(ativo){% endif %}
                         </label>
                       </div>
                     {% endfor %}
@@ -214,7 +214,7 @@
                     data-compensation-regime="{{ employee.get_regime_compensacao_jornada_display|lower }}"
                     data-compensation-regime-code="{{ employee.regime_compensacao_jornada }}"
                     data-cargo-name="{{ employee.cargo.nome|default:'sem cargo'|lower }}"
-                    data-sector-name="{{ employee.sector.nome|default:'sem setor'|lower }}"
+                    data-sector-name="{{ employee.sector.full_name|default:'sem setor'|lower }}"
                     data-sector-id="{% if employee.sector %}{{ employee.sector.id }}{% else %}none{% endif %}"
                     data-schedule-name="{{ employee.work_schedule.nome|default:'sem escala'|lower }}"
                     data-status="{% if employee.deactivated_at %}inactive{% else %}active{% endif %}"
@@ -268,7 +268,7 @@
                     <td>
                       {% if employee.sector %}
                         <span class="text-muted small">
-                          <i class="bi bi-building me-1"></i>{{ employee.sector.nome }}
+                          <i class="bi bi-building me-1"></i>{{ employee.sector.full_name }}
                           {% if employee.sector.deactivated_at %}
                             <span class="badge bg-secondary-subtle text-secondary-emphasis border ms-1">Setor inativo</span>
                           {% endif %}
@@ -453,7 +453,7 @@
                 value="{{ sector.id }}"
                 {% if selected_sector_id and selected_sector_id == sector.id|stringformat:"s" %}selected{% endif %}
               >
-                {{ sector.nome }}
+                {{ sector.full_name }}
               </option>
             {% endfor %}
           </select>
@@ -504,6 +504,22 @@
       </div>
       <form method="post" action="{% url 'employee_create_sector' %}" class="form-grid app-form">
         {% csrf_token %}
+        <label for="employee_modal_area_id">Area</label>
+        <select id="employee_modal_area_id" name="area_id" class="form-select" required>
+          <option value="">Selecione uma area...</option>
+          {% for area in active_areas %}
+            <option value="{{ area.id }}">{{ area.nome }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="employee_modal_department_id">Departamento</label>
+        <select id="employee_modal_department_id" name="department_id" class="form-select" required>
+          <option value="">Selecione um departamento...</option>
+          {% for department in active_departments %}
+            <option value="{{ department.id }}" data-area-id="{{ department.area_id }}">{{ department.nome }}</option>
+          {% endfor %}
+        </select>
+
         <label for="employee_modal_sector_name">Nome do setor</label>
         <div class="input-group">
           <span class="input-group-text bg-transparent">
@@ -551,6 +567,8 @@
     const employeeTypeInput = document.getElementById("employee_tipo");
     const employeeMatriculaInput = document.getElementById("employee_matricula");
     const employeeMatriculaHelp = document.getElementById("employee_matricula_help");
+    const modalAreaInput = document.getElementById("employee_modal_area_id");
+    const modalDepartmentInput = document.getElementById("employee_modal_department_id");
 
     let currentFilter = "all";
     let selectedSectorFilters = new Set(["all"]);
@@ -595,9 +613,24 @@
       modal.setAttribute("aria-hidden", "false");
       updateBodyModalState();
       setTimeout(function () {
-        const input = document.getElementById("employee_modal_sector_name");
+        const input = document.getElementById("employee_modal_area_id");
         if (input) input.focus();
       }, 0);
+    }
+
+    function updateDepartmentOptions(areaInput, departmentInput) {
+      if (!areaInput || !departmentInput) return;
+      const areaId = areaInput.value;
+      Array.from(departmentInput.options).forEach(function (option, index) {
+        if (index === 0) {
+          option.hidden = false;
+          return;
+        }
+        option.hidden = !!areaId && option.dataset.areaId !== areaId;
+      });
+      if (departmentInput.selectedOptions.length && departmentInput.selectedOptions[0].hidden) {
+        departmentInput.value = "";
+      }
     }
 
     function closeEmployeeSectorCreateModal() {
@@ -827,6 +860,12 @@
     if (employeeTypeInput) {
       employeeTypeInput.addEventListener("change", updateEmployeeMatriculaRequirement);
       updateEmployeeMatriculaRequirement();
+    }
+    if (modalAreaInput && modalDepartmentInput) {
+      modalAreaInput.addEventListener("change", function () {
+        updateDepartmentOptions(modalAreaInput, modalDepartmentInput);
+      });
+      updateDepartmentOptions(modalAreaInput, modalDepartmentInput);
     }
 
     document.addEventListener("click", function (event) {

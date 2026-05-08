@@ -277,7 +277,7 @@
                 <select id="sector_id" name="sector_id" class="form-select" data-initial-value="{% if employee.sector %}{{ employee.sector.id }}{% endif %}" required>
                   <option value="">Selecione um setor...</option>
                   {% for sector in active_sectors %}
-                    <option value="{{ sector.id }}" {% if employee.sector and employee.sector.id == sector.id %}selected{% endif %}>{{ sector.nome }}</option>
+                    <option value="{{ sector.id }}" {% if employee.sector and employee.sector.id == sector.id %}selected{% endif %}>{{ sector.full_name }}</option>
                   {% endfor %}
                   {% if employee.sector and employee.sector.deactivated_at %}
                     <option value="{{ employee.sector.id }}" selected>{{ employee.sector.nome }} (inativo atual)</option>
@@ -322,8 +322,8 @@
                   {% for event in sector_history %}
                     <tr>
                       <td>{{ event.effective_date|date:"d/m/Y" }}</td>
-                      <td>{% if event.previous_sector %}{{ event.previous_sector.nome }}{% else %}<span class="text-muted">Sem setor</span>{% endif %}</td>
-                      <td>{% if event.new_sector %}{{ event.new_sector.nome }}{% else %}<span class="text-muted">Sem setor</span>{% endif %}</td>
+                      <td>{% if event.previous_sector %}{{ event.previous_sector.full_name }}{% else %}<span class="text-muted">Sem setor</span>{% endif %}</td>
+                      <td>{% if event.new_sector %}{{ event.new_sector.full_name }}{% else %}<span class="text-muted">Sem setor</span>{% endif %}</td>
                       <td>
                         {% if event.previous_sector_id != event.new_sector_id %}
                           <span class="badge rounded-pill text-bg-primary me-1 mb-1">Setor alterado</span>

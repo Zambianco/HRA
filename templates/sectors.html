@@ -1,9 +1,88 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Setores{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    .sector-actions .sector-action-btn {
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      white-space: nowrap;
+    }
+
+    #sectorTableBody tr.hierarchy-area-row td {
+      border-top: 16px solid #ffffff;
+      border-bottom: 1px solid #b6d4fe;
+      background-color: var(--area-bg, #dbeafe);
+    }
+
+    #sectorTableBody tr.hierarchy-area-row:first-child td {
+      border-top-width: 6px;
+    }
+
+    #sectorTableBody tr.hierarchy-area-row td:first-child {
+      border-left: 1px solid #b6d4fe;
+      border-top-left-radius: 0.65rem;
+      border-bottom-left-radius: 0.65rem;
+    }
+
+    #sectorTableBody tr.hierarchy-area-row td:last-child {
+      border-right: 1px solid #b6d4fe;
+      border-top-right-radius: 0.65rem;
+      border-bottom-right-radius: 0.65rem;
+    }
+
+    #sectorTableBody tr.hierarchy-department-row td {
+      border-top: 10px solid #ffffff;
+      background-color: var(--dept-bg, #edf4ff);
+      border-bottom: 1px solid #d0e2ff;
+    }
+
+    #sectorTableBody tr.hierarchy-department-row td:first-child {
+      border-left: 1px solid #d0e2ff;
+      border-top-left-radius: 0.55rem;
+      border-bottom-left-radius: 0.55rem;
+      box-shadow: inset 4px 0 0 #6ea8fe;
+    }
+
+    #sectorTableBody tr.hierarchy-department-row td:last-child {
+      border-right: 1px solid #d0e2ff;
+      border-top-right-radius: 0.55rem;
+      border-bottom-right-radius: 0.55rem;
+    }
+
+    #sectorTableBody tr.hierarchy-sector-row td:first-child {
+      box-shadow: inset 8px 0 0 #dfe6ee;
+    }
+
+    #sectorTableBody tr.hierarchy-sector-row td {
+      background-color: #ffffff;
+    }
+
+    #sectorTableBody tr.hierarchy-sector-row:nth-of-type(even) td {
+      background-color: #f8fbff;
+    }
+
+    #sectorTableBody tr.hierarchy-sector-row:hover td {
+      background-color: #eef6ff;
+    }
+
+    .hierarchy-toggle-btn {
+      width: 1.25rem;
+      height: 1.25rem;
+      padding: 0;
+      line-height: 1;
+      border: 0;
+      background: transparent;
+      color: #0d6efd;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -11,7 +90,7 @@
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">InÃ­cio</a></li>
           <li class="breadcrumb-item active" aria-current="page">Setores</li>
         </ol>
       </nav>
@@ -27,12 +106,7 @@
         </div>
       </div>
     </div>
-    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-      <button type="button" class="btn btn-primary" onclick="openSectorCreateModal()">
-        <i class="bi bi-plus-circle me-1"></i>
-        Novo Setor
-      </button>
-    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0"></div>
   </div>
 
   <div class="row mb-4">
@@ -54,7 +128,7 @@
             <i class="bi bi-check-circle-fill text-success me-1"></i>Ativos
           </h6>
           <h5 class="card-title fw-bold text-success" id="activeCount">{{ active_count }}</h5>
-          <p class="card-text text-muted mb-0">Em operação</p>
+          <p class="card-text text-muted mb-0">Em operaÃ§Ã£o</p>
         </div>
       </div>
     </div>
@@ -76,7 +150,7 @@
             <i class="bi bi-people me-1"></i>Empregados
           </h6>
           <h5 class="card-title fw-bold text-info">--</h5>
-          <p class="card-text text-muted mb-0">Distribuídos nos setores</p>
+          <p class="card-text text-muted mb-0">DistribuÃ­dos nos setores</p>
         </div>
       </div>
     </div>
@@ -92,6 +166,19 @@
               <h5 class="fw-semibold mb-0">Setores Cadastrados</h5>
             </div>
             <div class="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                onclick="openStructureModal('area', null, null, '')"
+              >
+                <i class="bi bi-plus-circle me-1"></i>Nova Area
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAllBtn">
+                <i class="bi bi-arrows-collapse me-1"></i>Recolher tudo
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="exportCsvBtn">
+                <i class="bi bi-download me-1"></i>Exportar CSV
+              </button>
               <div class="input-group input-group-sm" style="width: 250px;">
                 <span class="input-group-text bg-transparent border-end-0">
                   <i class="bi bi-search text-muted"></i>
@@ -115,66 +202,367 @@
 
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+                        <table class="table table-hover mb-0 align-middle">
               <thead class="table-light">
                 <tr>
+                  <th>Hierarquia</th>
                   <th style="width: 80px;" class="ps-4">ID</th>
-                  <th>Nome do Setor</th>
                   <th style="width: 110px;">Status</th>
                   <th style="width: 260px;" class="text-end pe-4">Ações</th>
                 </tr>
               </thead>
               <tbody id="sectorTableBody">
-                {% for sector in sectors %}
-                  <tr
-                    data-sector-id="{{ sector.id }}"
-                    data-sector-name="{{ sector.nome|lower }}"
-                    data-status="{% if sector.deactivated_at %}inactive{% else %}active{% endif %}"
-                    {% if sector.deactivated_at %}class="table-secondary opacity-75"{% endif %}
-                  >
-                    <td class="ps-4 fw-semibold text-primary">{{ sector.id }}</td>
+                {% regroup sectors by department.area as area_groups %}
+                {% for area_group in area_groups %}
+                  <tr class="table-primary-subtle hierarchy-area-row" data-area-id="{{ area_group.grouper.id|default:'' }}" data-area-name="{{ area_group.grouper.nome|default:'sem area'|lower }}" data-is-placeholder="{% if not area_group.grouper %}1{% else %}0{% endif %}">
                     <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-building text-secondary"></i>
-                        <span class="fw-medium {% if sector.deactivated_at %}text-decoration-line-through{% endif %}">
-                          {{ sector.nome }}
-                        </span>
+                      <div class="d-flex align-items-center gap-2 fw-semibold">
+                        <i class="bi bi-diagram-3"></i>
+                        <span>Área: {{ area_group.grouper.nome|default:"Sem área" }}</span>
                       </div>
                     </td>
+                    <td class="ps-4 text-primary fw-semibold">-</td>
                     <td>
-                      {% if sector.deactivated_at %}
-                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
-                          <i class="bi bi-x-circle-fill me-1 small"></i>Desativado
-                        </span>
+                      {% if not area_group.grouper %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill">Sem classificacao</span>
+                      {% elif area_group.grouper.deactivated_at %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Desativada</span>
                       {% else %}
-                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
-                          <i class="bi bi-check-circle-fill me-1 small"></i>Ativado
-                        </span>
+                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativa</span>
                       {% endif %}
                     </td>
                     <td class="text-end pe-4">
-                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do setor">
-                        {% if sector.deactivated_at %}
-                          <form method="post" action="{% url 'sector_activate' sector.id %}" class="d-inline">
+                      {% if area_group.grouper %}
+                        <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações da área">
+                          {% if area_group.grouper.deactivated_at %}
+                            <form method="post" action="{% url 'area_activate' area_group.grouper.id %}" class="d-inline">
+                              {% csrf_token %}
+                              <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Ativar
+                              </button>
+                            </form>
+                          {% else %}
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary sector-action-btn"
+                              onclick="openStructureModal('area_edit', '{{ area_group.grouper.id }}', null, 'Area: {{ area_group.grouper.nome|escapejs }}', '{{ area_group.grouper.nome|escapejs }}')"
+                            >
+                              <i class="bi bi-pencil me-1"></i>Editar
+                            </button>
+                            <form method="post" action="{% url 'area_deactivate' area_group.grouper.id %}" class="d-inline" onsubmit="return confirm('Confirmar desativacao da area {{ area_group.grouper.nome|escapejs }}?');">
+                              {% csrf_token %}
+                              <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn">
+                                <i class="bi bi-trash me-1"></i>Desativar
+                              </button>
+                            </form>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary sector-action-btn"
+                              onclick="openStructureModal('department', '{{ area_group.grouper.id }}', null, '{{ area_group.grouper.nome|escapejs }}')"
+                            >
+                              <i class="bi bi-plus-lg me-1"></i>Novo departamento
+                            </button>
+                          {% endif %}
+                        </div>
+                      {% else %}
+                        <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações sem área">
+                          <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('area', null, null, '')">
+                            <i class="bi bi-plus-lg me-1"></i>Nova area
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary sector-action-btn"
+                            onclick="openStructureModal('area', null, null, '')"
+                            title="Crie uma area para depois cadastrar departamentos."
+                          >
+                            <i class="bi bi-plus-lg me-1"></i>Novo departamento
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary sector-action-btn"
+                            disabled
+                            title="Sem area para editar."
+                          >
+                            <i class="bi bi-pencil me-1"></i>Editar
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-danger sector-action-btn"
+                            disabled
+                            title="Sem area para desativar."
+                          >
+                            <i class="bi bi-trash me-1"></i>Desativar
+                          </button>
+                        </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% regroup area_group.list by department as department_groups %}
+                  {% for department_group in department_groups %}
+                    <tr class="table-light hierarchy-department-row" data-area-id="{{ area_group.grouper.id|default:'' }}" data-department-id="{{ department_group.grouper.id|default:'' }}" data-area-name="{{ area_group.grouper.nome|default:'sem area'|lower }}" data-department-name="{{ department_group.grouper.nome|default:'sem departamento'|lower }}" data-is-placeholder="{% if not department_group.grouper %}1{% else %}0{% endif %}">
+                      <td>
+                        <div class="d-flex align-items-center gap-2 ps-4 fw-medium">
+                          <i class="bi bi-diagram-2"></i>
+                          <span>Departamento: {{ department_group.grouper.nome|default:"Sem departamento" }}</span>
+                        </div>
+                      </td>
+                      <td class="ps-4 text-primary fw-semibold">-</td>
+                      <td>
+                        {% if department_group.grouper and department_group.grouper.deactivated_at %}
+                          <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Desativado</span>
+                        {% else %}
+                          <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativo</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-end pe-4">
+                        {% if department_group.grouper %}
+                          <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do departamento">
+                            {% if department_group.grouper.deactivated_at %}
+                              <form method="post" action="{% url 'department_activate' department_group.grouper.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn">
+                                  <i class="bi bi-arrow-clockwise me-1"></i>Ativar
+                                </button>
+                              </form>
+                            {% else %}
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary sector-action-btn"
+                                onclick="openStructureModal('sector', '{{ area_group.grouper.id|default:'' }}', '{{ department_group.grouper.id|default:'' }}', '{{ area_group.grouper.nome|default:'Sem area'|escapejs }} / {{ department_group.grouper.nome|default:'Sem departamento'|escapejs }}')"
+                              >
+                                <i class="bi bi-plus-lg me-1"></i>Novo setor
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary sector-action-btn"
+                                onclick="openStructureModal('department_edit', '{{ area_group.grouper.id }}', '{{ department_group.grouper.id }}', 'Area: {{ area_group.grouper.nome|escapejs }}', '{{ department_group.grouper.nome|escapejs }}')"
+                              >
+                                <i class="bi bi-pencil me-1"></i>Editar
+                              </button>
+                              <form method="post" action="{% url 'department_deactivate' department_group.grouper.id %}" class="d-inline" onsubmit="return confirm('Confirmar desativacao do departamento {{ department_group.grouper.nome|escapejs }}?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn">
+                                  <i class="bi bi-trash me-1"></i>Desativar
+                                </button>
+                              </form>
+                            {% endif %}
+                          </div>
+                        {% else %}
+                          <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações sem departamento">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary sector-action-btn"
+                              onclick="openStructureModal('sector_orphan', null, null, 'Sem departamento')"
+                            >
+                              <i class="bi bi-plus-lg me-1"></i>Novo setor
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary sector-action-btn"
+                              disabled
+                              title="Sem departamento para editar."
+                            >
+                              <i class="bi bi-pencil me-1"></i>Editar
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-danger sector-action-btn"
+                              disabled
+                              title="Sem departamento para desativar."
+                            >
+                              <i class="bi bi-trash me-1"></i>Desativar
+                            </button>
+                          </div>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% for sector in department_group.list %}
+                      <tr class="hierarchy-sector-row {% if sector.deactivated_at %}table-secondary opacity-75{% endif %}" data-sector-id="{{ sector.id }}" data-area-id="{{ area_group.grouper.id|default:'' }}" data-department-id="{{ department_group.grouper.id|default:'' }}" data-sector-name="{{ sector.full_name|lower }}" data-area-name="{{ area_group.grouper.nome|default:'sem area'|lower }}" data-department-name="{{ department_group.grouper.nome|default:'sem departamento'|lower }}" data-status="{% if sector.deactivated_at %}inactive{% else %}active{% endif %}">
+                        <td>
+                          <div class="d-flex align-items-center gap-2 ps-5">
+                            <i class="bi bi-building text-secondary"></i>
+                            <span class="fw-medium {% if sector.deactivated_at %}text-decoration-line-through{% endif %}">
+                              {{ sector.nome }}
+                            </span>
+                          </div>
+                        </td>
+                        <td class="ps-4 fw-semibold text-primary">{{ sector.id }}</td>
+                        <td>
+                          {% if sector.deactivated_at %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
+                              <i class="bi bi-x-circle-fill me-1 small"></i>Desativado
+                            </span>
+                          {% else %}
+                            <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
+                              <i class="bi bi-check-circle-fill me-1 small"></i>Ativado
+                            </span>
+                          {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                          <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do setor">
+                            {% if sector.deactivated_at %}
+                              <form method="post" action="{% url 'sector_activate' sector.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn" title="Ativar">
+                                  <i class="bi bi-arrow-clockwise me-1"></i>Ativar
+                                </button>
+                              </form>
+                            {% else %}
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary sector-action-btn"
+                                onclick="openStructureModal('sector_edit', '{{ area_group.grouper.id|default:'' }}', '{{ department_group.grouper.id|default:'' }}', '{{ area_group.grouper.nome|default:'Sem area'|escapejs }} / {{ department_group.grouper.nome|default:'Sem departamento'|escapejs }}', '{{ sector.nome|escapejs }}', '{{ sector.id }}')"
+                                title="Editar"
+                              >
+                                <i class="bi bi-pencil"></i>Editar
+                              </button>
+                              <form method="post" action="{% url 'sector_deactivate' sector.id %}" onsubmit="return confirmDeactivate(event, '{{ sector.nome|escapejs }}');" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn" title="Desativar">
+                                  <i class="bi bi-trash"></i>Desativar
+                                </button>
+                              </form>
+                            {% endif %}
+                          </div>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  {% endfor %}
+
+                  {% for department in departments_without_sectors %}
+                    {% if area_group.grouper and department.area_id == area_group.grouper.id %}
+                    <tr class="table-light hierarchy-department-row" data-area-id="{{ area_group.grouper.id|default:'' }}" data-department-id="{{ department.id|default:'' }}" data-area-name="{{ area_group.grouper.nome|default:'sem area'|lower }}" data-department-name="{{ department.nome|lower }}">
+                        <td>
+                          <div class="d-flex align-items-center gap-2 ps-4 fw-medium">
+                            <i class="bi bi-diagram-2"></i>
+                            <span>Departamento: {{ department.nome }}</span>
+                          </div>
+                        </td>
+                        <td class="ps-4 text-primary fw-semibold">-</td>
+                        <td>
+                          {% if department.deactivated_at %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Desativado</span>
+                          {% else %}
+                            <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativo</span>
+                          {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                          <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do departamento sem setor">
+                            {% if department.deactivated_at %}
+                              <form method="post" action="{% url 'department_activate' department.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn">
+                                  <i class="bi bi-arrow-clockwise me-1"></i>Ativar
+                                </button>
+                              </form>
+                            {% else %}
+                              <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('sector', '{{ department.area.id }}', '{{ department.id }}', '{{ department.area.nome|escapejs }} / {{ department.nome|escapejs }}')">
+                                <i class="bi bi-plus-lg me-1"></i>Novo setor
+                              </button>
+                              <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('department_edit', '{{ department.area.id }}', '{{ department.id }}', 'Area: {{ department.area.nome|escapejs }}', '{{ department.nome|escapejs }}')">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                              </button>
+                              <form method="post" action="{% url 'department_deactivate' department.id %}" class="d-inline" onsubmit="return confirm('Confirmar desativacao do departamento {{ department.nome|escapejs }}?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn">
+                                  <i class="bi bi-trash me-1"></i>Desativar
+                                </button>
+                              </form>
+                            {% endif %}
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+
+                {% for area in areas_without_sectors %}
+                  <tr class="table-primary-subtle hierarchy-area-row" data-area-id="{{ area.id|default:'' }}" data-area-name="{{ area.nome|lower }}">
+                    <td>
+                      <div class="d-flex align-items-center gap-2 fw-semibold">
+                        <i class="bi bi-diagram-3"></i>
+                        <span>Área: {{ area.nome }}</span>
+                      </div>
+                    </td>
+                    <td class="ps-4 text-primary fw-semibold">-</td>
+                    <td>
+                      {% if area.deactivated_at %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Desativada</span>
+                      {% else %}
+                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativa</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                      <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações da área sem setor">
+                        {% if area.deactivated_at %}
+                          <form method="post" action="{% url 'area_activate' area.id %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn" title="Ativar">
+                            <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn">
                               <i class="bi bi-arrow-clockwise me-1"></i>Ativar
                             </button>
                           </form>
                         {% else %}
-                          <a href="{% url 'sector_edit_page' sector.id %}" class="btn btn-sm btn-outline-primary sector-action-btn" title="Editar">
-                            <i class="bi bi-pencil"></i>Editar
-                          </a>
-                          <form method="post" action="{% url 'sector_deactivate' sector.id %}" onsubmit="return confirmDeactivate(event, '{{ sector.nome|escapejs }}');" class="d-inline">
+                          <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('department', '{{ area.id }}', null, '{{ area.nome|escapejs }}')">
+                            <i class="bi bi-plus-lg me-1"></i>Novo departamento
+                          </button>
+                          <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('area_edit', '{{ area.id }}', null, 'Area: {{ area.nome|escapejs }}', '{{ area.nome|escapejs }}')">
+                            <i class="bi bi-pencil me-1"></i>Editar
+                          </button>
+                          <form method="post" action="{% url 'area_deactivate' area.id %}" class="d-inline" onsubmit="return confirm('Confirmar desativacao da area {{ area.nome|escapejs }}?');">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn" title="Desativar">
-                              <i class="bi bi-trash"></i>Desativar
+                            <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn">
+                              <i class="bi bi-trash me-1"></i>Desativar
                             </button>
                           </form>
                         {% endif %}
                       </div>
                     </td>
                   </tr>
+                  {% for department in departments_without_sectors %}
+                    {% if department.area_id == area.id %}
+                      <tr class="table-light hierarchy-department-row" data-area-id="{{ area.id|default:'' }}" data-department-id="{{ department.id|default:'' }}" data-area-name="{{ area.nome|lower }}" data-department-name="{{ department.nome|lower }}">
+                        <td>
+                          <div class="d-flex align-items-center gap-2 ps-4 fw-medium">
+                            <i class="bi bi-diagram-2"></i>
+                            <span>Departamento: {{ department.nome }}</span>
+                          </div>
+                        </td>
+                        <td class="ps-4 text-primary fw-semibold">-</td>
+                        <td>
+                          {% if department.deactivated_at %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Desativado</span>
+                          {% else %}
+                            <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativo</span>
+                          {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                          <div class="d-inline-flex gap-2 sector-actions" role="group" aria-label="Ações do departamento sem setor">
+                            {% if department.deactivated_at %}
+                              <form method="post" action="{% url 'department_activate' department.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success sector-action-btn">
+                                  <i class="bi bi-arrow-clockwise me-1"></i>Ativar
+                                </button>
+                              </form>
+                            {% else %}
+                              <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('sector', '{{ area.id }}', '{{ department.id }}', '{{ area.nome|escapejs }} / {{ department.nome|escapejs }}')">
+                                <i class="bi bi-plus-lg me-1"></i>Novo setor
+                              </button>
+                              <button type="button" class="btn btn-sm btn-outline-primary sector-action-btn" onclick="openStructureModal('department_edit', '{{ area.id }}', '{{ department.id }}', 'Area: {{ area.nome|escapejs }}', '{{ department.nome|escapejs }}')">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                              </button>
+                              <form method="post" action="{% url 'department_deactivate' department.id %}" class="d-inline" onsubmit="return confirm('Confirmar desativacao do departamento {{ department.nome|escapejs }}?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger sector-action-btn">
+                                  <i class="bi bi-trash me-1"></i>Desativar
+                                </button>
+                              </form>
+                            {% endif %}
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
+                  {% endfor %}
                 {% endfor %}
               </tbody>
             </table>
@@ -194,7 +582,7 @@
               <span id="visibleCount">{{ sectors|length }}</span> setor(es) exibido(s)
             </small>
             <small class="text-muted">
-              <i class="bi bi-clock me-1"></i>Última atualização: agora
+              <i class="bi bi-clock me-1"></i>Ãšltima atualizaÃ§Ã£o: agora
             </small>
           </div>
         </div>
@@ -202,36 +590,58 @@
     </div>
   </div>
 
-  <div id="sector-create-modal" class="app-modal-layer" hidden aria-hidden="true">
-    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="sector-create-modal-title">
+  <div id="structure-create-modal" class="app-modal-layer" hidden aria-hidden="true">
+    <div class="app-modal-panel app-modal-panel-surface" role="dialog" aria-modal="true" aria-labelledby="structure-create-modal-title">
       <div class="app-modal-header">
-        <h2 id="sector-create-modal-title"><i class="bi bi-plus-circle me-2"></i>Novo Setor</h2>
-        <button type="button" class="app-modal-close" onclick="closeSectorCreateModal()" aria-label="Fechar">
+        <h2 id="structure-create-modal-title"><i class="bi bi-plus-circle me-2"></i>Novo cadastro</h2>
+        <button type="button" class="app-modal-close" onclick="closeStructureModal()" aria-label="Fechar">
           &times;
         </button>
       </div>
-      <form method="post" action="{% url 'sectors_page' %}" class="form-grid app-form">
+      <form
+        id="structure-create-form"
+        method="post"
+        action="{% url 'area_create' %}"
+        class="form-grid app-form"
+        data-area-create-url="{% url 'area_create' %}"
+        data-area-edit-template="{% url 'area_edit' 999999 %}"
+        data-department-create-url="{% url 'department_create' %}"
+        data-department-edit-template="{% url 'department_edit' 999999 %}"
+        data-sectors-page-url="{% url 'sectors_page' %}"
+      >
         {% csrf_token %}
-        <label for="nome_modal">Nome do setor</label>
-        <div class="input-group">
-          <span class="input-group-text bg-transparent">
-            <i class="bi bi-building text-muted"></i>
-          </span>
-          <input
-            id="nome_modal"
-            name="nome"
-            type="text"
-            class="form-control"
-            placeholder="Ex: Recursos Humanos"
-            maxlength="120"
-            required
-          />
+        <div class="alert alert-light border mb-2">
+          <div class="small text-muted mb-1">Local de insercao</div>
+          <div id="structure-create-context" class="fw-semibold">Raiz</div>
         </div>
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary">
+        <input type="hidden" id="structure_area_id" name="area_id" value="" />
+        <input type="hidden" id="structure_department_id" name="department_id" value="" />
+        <input type="hidden" id="structure_create_without_department" name="create_without_department" value="0" />
+        <div id="structure-area-select-group" class="d-none">
+          <label for="structure_area_select">Area</label>
+          <select id="structure_area_select" class="form-select">
+            <option value="">Selecione uma area...</option>
+            {% for area in active_areas %}
+              <option value="{{ area.id }}">{{ area.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="structure-department-select-group" class="d-none">
+          <label for="structure_department_select">Departamento</label>
+          <select id="structure_department_select" class="form-select">
+            <option value="">Selecione um departamento...</option>
+            {% for department in active_departments %}
+              <option value="{{ department.id }}" data-area-id="{{ department.area_id }}">{{ department.nome }} ({{ department.area.nome }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <label for="structure_name">Nome</label>
+        <input id="structure_name" name="nome" type="text" class="form-control" maxlength="120" required />
+        <div class="d-flex gap-2 justify-content-end">
+          <button id="structure-submit-btn" type="submit" class="btn btn-primary">
             <i class="bi bi-save me-1"></i>Cadastrar
           </button>
-          <button type="button" class="btn btn-outline-secondary" onclick="closeSectorCreateModal()">Cancelar</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="closeStructureModal()">Cancelar</button>
         </div>
       </form>
     </div>
@@ -248,24 +658,426 @@
     const totalCountSpan = document.getElementById("totalCount");
     const activeCountSpan = document.getElementById("activeCount");
     const inactiveCountSpan = document.getElementById("inactiveCount");
+    const toggleAllBtn = document.getElementById("toggleAllBtn");
+    const exportCsvBtn = document.getElementById("exportCsvBtn");
 
     let currentFilter = "all";
     let searchTerm = "";
+    const COLLAPSE_STORAGE_KEY = "org_collapsed";
+    let collapsedState = { areas: {}, departments: {} };
 
-    function openSectorCreateModal() {
-      const modal = document.getElementById("sector-create-modal");
+    function loadCollapsedState() {
+      try {
+        const raw = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        collapsedState = {
+          areas: parsed && parsed.areas ? parsed.areas : {},
+          departments: parsed && parsed.departments ? parsed.departments : {},
+        };
+      } catch (error) {
+        collapsedState = { areas: {}, departments: {} };
+      }
+    }
+
+    function saveCollapsedState() {
+      localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(collapsedState));
+    }
+
+    function departmentCollapseKey(areaName, departmentName) {
+      return (areaName || "") + "||" + (departmentName || "");
+    }
+
+    function isAreaCollapsed(areaName) {
+      return Boolean(collapsedState.areas[areaName || ""]);
+    }
+
+    function isDepartmentCollapsed(areaName, departmentName) {
+      return Boolean(collapsedState.departments[departmentCollapseKey(areaName, departmentName)]);
+    }
+
+    function setAreaCollapsed(areaName, collapsed) {
+      const key = areaName || "";
+      if (!key) return;
+      if (collapsed) {
+        collapsedState.areas[key] = true;
+        if (sectorTableBody) {
+          Array.from(
+            sectorTableBody.querySelectorAll('.hierarchy-department-row[data-area-name="' + key + '"]')
+          ).forEach(function (row) {
+            const departmentName = row.dataset.departmentName || "";
+            if (!departmentName) return;
+            collapsedState.departments[departmentCollapseKey(key, departmentName)] = true;
+          });
+        }
+      } else {
+        delete collapsedState.areas[key];
+      }
+      saveCollapsedState();
+    }
+
+    function setDepartmentCollapsed(areaName, departmentName, collapsed) {
+      const key = departmentCollapseKey(areaName, departmentName);
+      if (!key || key === "||") return;
+      if (collapsed) {
+        collapsedState.departments[key] = true;
+      } else {
+        delete collapsedState.departments[key];
+      }
+      saveCollapsedState();
+    }
+
+    function createToggleButton(type, areaName, departmentName) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "hierarchy-toggle-btn";
+      button.dataset.toggleType = type;
+      button.dataset.areaName = areaName || "";
+      button.dataset.departmentName = departmentName || "";
+      button.setAttribute("aria-label", "Alternar visibilidade");
+      const icon = document.createElement("i");
+      icon.className = "bi bi-chevron-down";
+      button.appendChild(icon);
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (type === "area") {
+          const collapsed = !isAreaCollapsed(areaName);
+          setAreaCollapsed(areaName, collapsed);
+        } else {
+          const collapsed = !isDepartmentCollapsed(areaName, departmentName);
+          setDepartmentCollapsed(areaName, departmentName, collapsed);
+        }
+        applyFilters();
+      });
+      return button;
+    }
+
+    function hydrateHierarchyToggles() {
+      if (!sectorTableBody) return;
+
+      sectorTableBody.querySelectorAll(".hierarchy-area-row").forEach(function (row) {
+        const anchor = row.querySelector("td:first-child .d-flex");
+        if (!anchor || anchor.querySelector(".hierarchy-toggle-btn")) return;
+        const areaName = row.dataset.areaName || "";
+        anchor.prepend(createToggleButton("area", areaName, ""));
+      });
+
+      sectorTableBody.querySelectorAll(".hierarchy-department-row").forEach(function (row) {
+        const anchor = row.querySelector("td:first-child .d-flex");
+        if (!anchor || anchor.querySelector(".hierarchy-toggle-btn")) return;
+        const areaName = row.dataset.areaName || "";
+        const departmentName = row.dataset.departmentName || "";
+        anchor.prepend(createToggleButton("department", areaName, departmentName));
+      });
+    }
+
+    function updateToggleButtons() {
+      if (!sectorTableBody) return;
+      sectorTableBody.querySelectorAll(".hierarchy-toggle-btn").forEach(function (button) {
+        const type = button.dataset.toggleType;
+        const areaName = button.dataset.areaName || "";
+        const departmentName = button.dataset.departmentName || "";
+        const collapsed =
+          type === "area"
+            ? isAreaCollapsed(areaName)
+            : isDepartmentCollapsed(areaName, departmentName);
+        const icon = button.querySelector("i");
+        if (icon) {
+          icon.className = collapsed ? "bi bi-chevron-right" : "bi bi-chevron-down";
+        }
+      });
+    }
+
+    function applyHierarchyGradients() {
+      if (!sectorTableBody) return;
+      const areaRows = Array.from(sectorTableBody.querySelectorAll(".hierarchy-area-row"));
+      const departmentRows = Array.from(sectorTableBody.querySelectorAll(".hierarchy-department-row"));
+
+      function buildLightnessScale(total, start, end) {
+        if (total <= 1) return [start];
+        const delta = start - end;
+        const step = delta / (total - 1);
+        return Array.from({ length: total }, function (_, index) {
+          return +(start - step * index).toFixed(2);
+        });
+      }
+
+      const departmentsByArea = {};
+      departmentRows.forEach(function (row) {
+        const areaName = row.dataset.areaName || "sem area";
+        departmentsByArea[areaName] = departmentsByArea[areaName] || [];
+        departmentsByArea[areaName].push(row);
+      });
+
+      areaRows.forEach(function (areaRow) {
+        const areaName = areaRow.dataset.areaName || "sem area";
+        const children = departmentsByArea[areaName] || [];
+        const areaCount = Math.max(1, children.length);
+
+        const areaStart = 92;
+        const areaRange = Math.min(4, Math.max(1.2, areaCount * 0.55));
+        const areaLightness = areaStart - areaRange;
+        areaRow.style.setProperty("--area-bg", "hsl(213 100% " + areaLightness + "%)");
+
+        const deptStart = 96;
+        const deptRange = Math.min(7.5, Math.max(1.8, areaCount * 0.85));
+        const deptScale = buildLightnessScale(children.length, deptStart, deptStart - deptRange);
+        children.forEach(function (departmentRow, index) {
+          departmentRow.style.setProperty("--dept-bg", "hsl(213 100% " + deptScale[index] + "%)");
+        });
+      });
+
+      departmentRows.forEach(function (row) {
+        if (!row.style.getPropertyValue("--dept-bg")) {
+          row.style.setProperty("--dept-bg", "hsl(213 100% 95%)");
+        }
+      });
+    }
+
+    function updateToggleAllButtonLabel() {
+      if (!toggleAllBtn || !sectorTableBody) return;
+      const openAreas = Array.from(sectorTableBody.querySelectorAll(".hierarchy-area-row")).filter(function (row) {
+        return !isAreaCollapsed(row.dataset.areaName || "");
+      });
+      const allCollapsed = openAreas.length === 0;
+      toggleAllBtn.innerHTML = allCollapsed
+        ? '<i class="bi bi-arrows-expand me-1"></i>Expandir tudo'
+        : '<i class="bi bi-arrows-collapse me-1"></i>Recolher tudo';
+    }
+
+    function exportToCSV() {
+      if (!sectorTableBody) return;
+      const lines = [["Nivel", "Area", "Departamento", "Setor", "ID", "Status"]];
+      let currentArea = "";
+      let currentDepartment = "";
+      const rows = Array.from(sectorTableBody.querySelectorAll("tr"));
+
+      rows.forEach(function (row) {
+        if (row.classList.contains("hierarchy-area-row")) {
+          const nameText = (row.querySelector("td:first-child span") || { textContent: "" }).textContent || "";
+          currentArea = nameText.replace("Área:", "").trim();
+          currentDepartment = "";
+          lines.push(["Area", currentArea, "", "", "-", (row.querySelector("td:nth-child(3)") || { textContent: "" }).textContent.trim()]);
+          return;
+        }
+        if (row.classList.contains("hierarchy-department-row")) {
+          const nameText = (row.querySelector("td:first-child span") || { textContent: "" }).textContent || "";
+          currentDepartment = nameText.replace("Departamento:", "").trim();
+          lines.push(["Departamento", currentArea, currentDepartment, "", "-", (row.querySelector("td:nth-child(3)") || { textContent: "" }).textContent.trim()]);
+          return;
+        }
+        if (row.classList.contains("hierarchy-sector-row")) {
+          const sectorName = ((row.querySelector("td:first-child span") || { textContent: "" }).textContent || "").trim();
+          const sectorId = ((row.querySelector("td:nth-child(2)") || { textContent: "" }).textContent || "").trim();
+          const status = ((row.querySelector("td:nth-child(3)") || { textContent: "" }).textContent || "").replace(/\s+/g, " ").trim();
+          lines.push(["Setor", currentArea, currentDepartment, sectorName, sectorId, status]);
+        }
+      });
+
+      const csv = lines
+        .map(function (line) {
+          return line.map(function (value) {
+            const safe = String(value || "").replace(/"/g, '""');
+            return '"' + safe + '"';
+          }).join(";");
+        })
+        .join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "setores_hierarquia.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function updateDepartmentOptions(areaInput, departmentInput) {
+      if (!areaInput || !departmentInput) return;
+      const areaId = areaInput.value;
+      Array.from(departmentInput.options).forEach(function (option, index) {
+        if (index === 0) {
+          option.hidden = false;
+          return;
+        }
+        option.hidden = !areaId || option.dataset.areaId !== areaId;
+      });
+      if (!areaId) {
+        departmentInput.value = "";
+        departmentInput.disabled = true;
+        return;
+      }
+      departmentInput.disabled = false;
+      if (departmentInput.selectedOptions.length && departmentInput.selectedOptions[0].hidden) {
+        departmentInput.value = "";
+      }
+    }
+
+    function buildEditUrl(template, id) {
+      const numericId = String(id || "").trim();
+      if (!numericId) return "";
+      return (template || "").replace("999999", numericId);
+    }
+
+    function openStructureModal(type, areaId, departmentId, contextLabel, initialName, itemId) {
+      const modal = document.getElementById("structure-create-modal");
       if (!modal) return;
+      const form = document.getElementById("structure-create-form");
+      const context = document.getElementById("structure-create-context");
+      const areaInput = document.getElementById("structure_area_id");
+      const departmentInput = document.getElementById("structure_department_id");
+      const withoutDepartmentInput = document.getElementById("structure_create_without_department");
+      const areaSelectGroup = document.getElementById("structure-area-select-group");
+      const departmentSelectGroup = document.getElementById("structure-department-select-group");
+      const areaSelect = document.getElementById("structure_area_select");
+      const departmentSelect = document.getElementById("structure_department_select");
+      const nameInput = document.getElementById("structure_name");
+      const submitBtn = document.getElementById("structure-submit-btn");
+      if (!form || !context || !areaInput || !departmentInput || !withoutDepartmentInput || !nameInput || !submitBtn || !areaSelectGroup || !departmentSelectGroup || !areaSelect || !departmentSelect) return;
+
+      const areaCreateUrl = form.dataset.areaCreateUrl || "";
+      const areaEditTemplate = form.dataset.areaEditTemplate || "";
+      const departmentCreateUrl = form.dataset.departmentCreateUrl || "";
+      const departmentEditTemplate = form.dataset.departmentEditTemplate || "";
+      const sectorsPageUrl = form.dataset.sectorsPageUrl || "";
+      const sectorEditTemplate = "/setores/999999/editar/";
+
+      areaSelectGroup.classList.add("d-none");
+      departmentSelectGroup.classList.add("d-none");
+      areaSelect.value = "";
+      departmentSelect.value = "";
+
+      if (type === "area") {
+        form.action = areaCreateUrl;
+        areaInput.value = "";
+        departmentInput.value = "";
+        withoutDepartmentInput.value = "0";
+        context.textContent = "Raiz (Area)";
+        nameInput.placeholder = "Ex: Operacoes";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Cadastrar Area';
+      } else if (type === "area_edit") {
+        form.action = buildEditUrl(areaEditTemplate, areaId);
+        areaInput.value = "";
+        departmentInput.value = "";
+        withoutDepartmentInput.value = "0";
+        context.textContent = contextLabel || "Area";
+        nameInput.placeholder = "Ex: Operacoes";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Area';
+      } else if (type === "department_edit") {
+        form.action = buildEditUrl(departmentEditTemplate, departmentId);
+        areaInput.value = areaId || "";
+        departmentInput.value = "";
+        withoutDepartmentInput.value = "0";
+        areaSelectGroup.classList.remove("d-none");
+        areaSelect.required = true;
+        departmentSelect.required = false;
+        areaSelect.value = areaId || "";
+        context.textContent = contextLabel || "Area";
+        nameInput.placeholder = "Ex: Manutencao";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Departamento';
+      } else if (type === "department") {
+        form.action = departmentCreateUrl;
+        areaInput.value = areaId || "";
+        departmentInput.value = "";
+        withoutDepartmentInput.value = "0";
+        context.textContent = "Area: " + (contextLabel || "Sem area");
+        nameInput.placeholder = "Ex: Manutencao";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Cadastrar Departamento';
+      } else if (type === "sector_orphan") {
+        form.action = sectorsPageUrl;
+        areaInput.value = "";
+        departmentInput.value = "";
+        withoutDepartmentInput.value = "1";
+        context.textContent = "Sem departamento";
+        nameInput.placeholder = "Ex: Setor Geral";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Cadastrar Setor';
+      } else if (type === "sector_edit") {
+        form.action = buildEditUrl(sectorEditTemplate, itemId);
+        areaInput.value = areaId || "";
+        departmentInput.value = departmentId || "";
+        withoutDepartmentInput.value = "0";
+        areaSelectGroup.classList.remove("d-none");
+        departmentSelectGroup.classList.remove("d-none");
+        areaSelect.required = true;
+        departmentSelect.required = true;
+        areaSelect.value = areaId || "";
+        updateDepartmentOptions(areaSelect, departmentSelect);
+        departmentSelect.value = departmentId || "";
+        context.textContent = "Departamento: " + (contextLabel || "Sem contexto");
+        nameInput.placeholder = "Ex: Recursos Humanos";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Setor';
+      } else {
+        form.action = sectorsPageUrl;
+        areaInput.value = areaId || "";
+        departmentInput.value = departmentId || "";
+        withoutDepartmentInput.value = "0";
+        context.textContent = "Departamento: " + (contextLabel || "Sem contexto");
+        nameInput.placeholder = "Ex: Recursos Humanos";
+        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Cadastrar Setor';
+      }
+
+      if (type !== "department_edit" && type !== "sector_edit") {
+        areaSelect.required = false;
+        departmentSelect.required = false;
+      }
+
+      if (!form.action || form.action.endsWith("/999999/")) {
+        return;
+      }
+
+      nameInput.value = initialName || "";
       modal.hidden = false;
       modal.setAttribute("aria-hidden", "false");
       document.body.classList.add("modal-open");
       setTimeout(function () {
-        const input = document.getElementById("nome_modal");
-        if (input) input.focus();
+        nameInput.focus();
       }, 0);
     }
 
-    function closeSectorCreateModal() {
-      const modal = document.getElementById("sector-create-modal");
+    const structureAreaSelect = document.getElementById("structure_area_select");
+    const structureDepartmentSelect = document.getElementById("structure_department_select");
+    const structureAreaHiddenInput = document.getElementById("structure_area_id");
+    const structureDepartmentHiddenInput = document.getElementById("structure_department_id");
+    const structureCreateForm = document.getElementById("structure-create-form");
+
+    if (structureAreaSelect && structureDepartmentSelect) {
+      structureAreaSelect.addEventListener("change", function () {
+        updateDepartmentOptions(structureAreaSelect, structureDepartmentSelect);
+        if (structureAreaHiddenInput) structureAreaHiddenInput.value = structureAreaSelect.value || "";
+        if (structureDepartmentHiddenInput) structureDepartmentHiddenInput.value = structureDepartmentSelect.value || "";
+      });
+      structureDepartmentSelect.addEventListener("change", function () {
+        if (structureDepartmentHiddenInput) structureDepartmentHiddenInput.value = structureDepartmentSelect.value || "";
+      });
+      updateDepartmentOptions(structureAreaSelect, structureDepartmentSelect);
+    }
+
+    if (structureCreateForm) {
+      structureCreateForm.addEventListener("submit", function (event) {
+        const areaGroupVisible = !document.getElementById("structure-area-select-group").classList.contains("d-none");
+        const departmentGroupVisible = !document.getElementById("structure-department-select-group").classList.contains("d-none");
+        if (areaGroupVisible && !structureAreaSelect.value) {
+          event.preventDefault();
+          structureAreaSelect.focus();
+          return;
+        }
+        if (departmentGroupVisible && !structureDepartmentSelect.value) {
+          event.preventDefault();
+          structureDepartmentSelect.focus();
+          return;
+        }
+        if (structureAreaSelect && !document.getElementById("structure-area-select-group").classList.contains("d-none")) {
+          structureAreaHiddenInput.value = structureAreaSelect.value || "";
+        }
+        if (structureDepartmentSelect && !document.getElementById("structure-department-select-group").classList.contains("d-none")) {
+          structureDepartmentHiddenInput.value = structureDepartmentSelect.value || "";
+        }
+      });
+    }
+
+    function closeStructureModal() {
+      const modal = document.getElementById("structure-create-modal");
       if (!modal) return;
       modal.hidden = true;
       modal.setAttribute("aria-hidden", "true");
@@ -283,7 +1095,7 @@
     function updateCounters() {
       if (!sectorTableBody) return;
 
-      const allRows = Array.from(sectorTableBody.querySelectorAll("tr"));
+      const allRows = Array.from(sectorTableBody.querySelectorAll(".hierarchy-sector-row"));
       totalCountSpan.textContent = allRows.length;
       activeCountSpan.textContent = allRows.filter(function (row) {
         return row.dataset.status === "active";
@@ -296,20 +1108,24 @@
     function applyFilters() {
       if (!sectorTableBody) return;
 
-      const rows = sectorTableBody.querySelectorAll("tr");
+      const rows = sectorTableBody.querySelectorAll(".hierarchy-sector-row");
       let visible = 0;
 
       rows.forEach(function (row) {
         const status = row.dataset.status;
         const name = (row.dataset.sectorName || "").toLowerCase();
+        const areaName = row.dataset.areaName || "";
+        const departmentName = row.dataset.departmentName || "";
 
         const matchesStatus =
           currentFilter === "all" ||
           (currentFilter === "active" && status === "active") ||
           (currentFilter === "inactive" && status === "inactive");
         const matchesSearch = name.includes(searchTerm);
+        const blockedByCollapse =
+          isAreaCollapsed(areaName) || isDepartmentCollapsed(areaName, departmentName);
 
-        if (matchesStatus && matchesSearch) {
+        if (matchesStatus && matchesSearch && !blockedByCollapse) {
           row.style.display = "";
           visible += 1;
         } else {
@@ -317,8 +1133,46 @@
         }
       });
 
+      const departmentRows = sectorTableBody.querySelectorAll(".hierarchy-department-row");
+      departmentRows.forEach(function (row) {
+        const areaName = row.dataset.areaName || "";
+        const departmentName = row.dataset.departmentName || "";
+        const isPlaceholder = row.dataset.isPlaceholder === "1";
+        const areaCollapsed = isAreaCollapsed(areaName);
+        const hasVisibleChild = Array.from(
+          sectorTableBody.querySelectorAll(
+            '.hierarchy-sector-row[data-area-name="' + areaName + '"][data-department-name="' + departmentName + '"]'
+          )
+        ).some(function (child) {
+          return child.style.display !== "none";
+        });
+        if (areaCollapsed) {
+          row.style.display = "none";
+          return;
+        }
+        row.style.display = isPlaceholder ? (hasVisibleChild ? "" : "none") : "";
+      });
+
+      const areaRows = sectorTableBody.querySelectorAll(".hierarchy-area-row");
+      areaRows.forEach(function (row) {
+        const areaName = row.dataset.areaName || "";
+        const isPlaceholder = row.dataset.isPlaceholder === "1";
+        const hasVisibleDepartment = Array.from(
+          sectorTableBody.querySelectorAll('.hierarchy-department-row[data-area-name="' + areaName + '"]')
+        ).some(function (child) {
+          return child.style.display !== "none";
+        });
+        row.style.display = isPlaceholder ? (hasVisibleDepartment ? "" : "none") : "";
+      });
+
       visibleCountSpan.textContent = visible;
-      emptyState.classList.toggle("d-none", visible > 0);
+      const anyRowVisible = Array.from(sectorTableBody.querySelectorAll("tr")).some(function (row) {
+        return row.style.display !== "none";
+      });
+      emptyState.classList.toggle("d-none", anyRowVisible);
+      applyHierarchyGradients();
+      updateToggleButtons();
+      updateToggleAllButtonLabel();
       updateCounters();
     }
 
@@ -363,21 +1217,99 @@
     }
 
     document.addEventListener("click", function (event) {
-      const modal = document.getElementById("sector-create-modal");
+      const modal = document.getElementById("structure-create-modal");
       if (!modal || modal.hidden) return;
       if (event.target === modal) {
-        closeSectorCreateModal();
+        closeStructureModal();
       }
     });
 
     document.addEventListener("keydown", function (event) {
-      if (event.key !== "Escape") return;
-      const modal = document.getElementById("sector-create-modal");
-      if (!modal || modal.hidden) return;
-      closeSectorCreateModal();
+      const modal = document.getElementById("structure-create-modal");
+      const isModalOpen = modal && !modal.hidden;
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && searchInput) {
+        event.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (isModalOpen) {
+          closeStructureModal();
+          return;
+        }
+        if (searchInput && searchInput.value) {
+          searchInput.value = "";
+          searchTerm = "";
+          applyFilters();
+        }
+      }
     });
 
+    if (toggleAllBtn) {
+      toggleAllBtn.addEventListener("click", function () {
+        if (!sectorTableBody) return;
+        const areaRows = Array.from(sectorTableBody.querySelectorAll(".hierarchy-area-row"));
+        const shouldCollapse = areaRows.some(function (row) {
+          return !isAreaCollapsed(row.dataset.areaName || "");
+        });
+        if (shouldCollapse) {
+          areaRows.forEach(function (row) {
+            const areaName = row.dataset.areaName || "";
+            if (!areaName) return;
+            setAreaCollapsed(areaName, true);
+          });
+        } else {
+          collapsedState.areas = {};
+          collapsedState.departments = {};
+          saveCollapsedState();
+        }
+        applyFilters();
+      });
+    }
+
+    if (exportCsvBtn) {
+      exportCsvBtn.addEventListener("click", exportToCSV);
+    }
+
+    if (sectorTableBody) {
+      sectorTableBody.addEventListener("dblclick", function (event) {
+        const row = event.target.closest("tr");
+        if (!row || event.target.closest(".sector-actions,button,a,input,form")) return;
+
+        if (row.classList.contains("hierarchy-area-row")) {
+          const areaId = row.dataset.areaId || "";
+          const areaName = (row.querySelector("td:first-child span") || { textContent: "" }).textContent.replace("Área:", "").trim();
+          if (areaId) openStructureModal("area_edit", areaId, null, "Area: " + areaName, areaName);
+          return;
+        }
+        if (row.classList.contains("hierarchy-department-row")) {
+          const areaId = row.dataset.areaId || "";
+          const departmentId = row.dataset.departmentId || "";
+          const departmentName = (row.querySelector("td:first-child span") || { textContent: "" }).textContent.replace("Departamento:", "").trim();
+          const areaName = row.dataset.areaName || "Sem area";
+          if (areaId && departmentId) openStructureModal("department_edit", areaId, departmentId, "Area: " + areaName, departmentName);
+          return;
+        }
+        if (row.classList.contains("hierarchy-sector-row") && row.dataset.status === "active") {
+          const areaId = row.dataset.areaId || "";
+          const departmentId = row.dataset.departmentId || "";
+          const sectorId = row.dataset.sectorId || "";
+          const sectorName = ((row.querySelector("td:first-child span") || { textContent: "" }).textContent || "").trim();
+          const areaName = row.dataset.areaName || "Sem area";
+          const departmentName = row.dataset.departmentName || "Sem departamento";
+          if (sectorId) openStructureModal("sector_edit", areaId, departmentId, areaName + " / " + departmentName, sectorName, sectorId);
+        }
+      });
+    }
+
+    loadCollapsedState();
+    hydrateHierarchyToggles();
     applyFilters();
   </script>
 {% endblock %}
+
+
 

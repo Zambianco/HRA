@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import (
+    Area,
     Employee,
     EmployeeEvent,
     BankHoursRule,
@@ -26,6 +27,7 @@ from .models import (
     TimesheetMonthClosureEmployeeEventSnapshot,
     TimesheetMonthClosureWorkScheduleSnapshot,
     Cargo,
+    Department,
     Sector,
     WorkCalendar,
     WorkCalendarPeriod,
@@ -525,11 +527,58 @@ def _parse_employee_characteristics(request_data):
     return tipo, regime_compensacao_jornada, None
 
 
+def _active_taxonomy():
+    areas = Area.objects.filter(deactivated_at__isnull=True).order_by("nome")
+    departments = Department.objects.filter(
+        deactivated_at__isnull=True,
+        area__deactivated_at__isnull=True,
+    ).select_related("area").order_by("area__nome", "nome")
+    return areas, departments
+
+
+def _parse_sector_taxonomy_or_error(request_data):
+    area_id = (request_data.get("area_id") or "").strip()
+    department_id = (request_data.get("department_id") or "").strip()
+    sector_name = (request_data.get("nome") or "").strip()
+
+    if not area_id:
+        return None, None, None, "Selecione uma area."
+    if not department_id:
+        return None, None, None, "Selecione um departamento."
+    if not sector_name:
+        return None, None, None, "Nome do setor e obrigatorio."
+
+    area = Area.objects.filter(id=area_id, deactivated_at__isnull=True).first()
+    if not area:
+        return None, None, None, "Selecione uma area valida."
+
+    department = Department.objects.filter(
+        id=department_id,
+        area=area,
+        deactivated_at__isnull=True,
+    ).first()
+    if not department:
+        return None, None, None, "Selecione um departamento valido para a area."
+
+    return area, department, sector_name, None
+
+
 def employees_page(request):
-    active_sectors = Sector.objects.filter(deactivated_at__isnull=True).order_by("nome")
+    active_sectors = (
+        Sector.objects.filter(
+            deactivated_at__isnull=True,
+        )
+        .select_related("department__area")
+        .order_by("department__area__nome", "department__nome", "nome")
+    )
     active_cargos = Cargo.objects.filter(deactivated_at__isnull=True).order_by("nome")
     work_schedules = WorkSchedule.objects.all().order_by("nome")
-    all_sectors = Sector.objects.all().order_by("deactivated_at", "nome")
+    all_sectors = (
+        Sector.objects.all()
+        .select_related("department__area")
+        .order_by("deactivated_at", "department__area__nome", "department__nome", "nome")
+    )
+    active_areas, active_departments = _active_taxonomy()
 
     if request.method == "POST":
         matricula = (request.POST.get("matricula") or "").strip()
@@ -588,7 +637,11 @@ def employees_page(request):
         messages.success(request, "Empregado cadastrado com sucesso.")
         return redirect("employees_page")
 
-    employees = Employee.objects.select_related("cargo", "sector", "work_schedule").order_by(
+    employees = Employee.objects.select_related(
+        "cargo",
+        "sector__department__area",
+        "work_schedule",
+    ).order_by(
         "deactivated_at",
         "nome_completo",
     )
@@ -619,6 +672,8 @@ def employees_page(request):
             "open_employee_modal": request.GET.get("open_employee_modal") == "1",
             "open_sector_modal": request.GET.get("open_sector_modal") == "1",
             "selected_sector_id": selected_sector_id,
+            "active_areas": active_areas,
+            "active_departments": active_departments,
         },
     )
 
@@ -2286,10 +2341,9 @@ def bank_hours_rule_delete(request, rule_id):
 
 @require_POST
 def employee_create_sector(request):
-    nome = (request.POST.get("nome") or "").strip()
-
-    if not nome:
-        messages.error(request, "Nome do setor e obrigatorio.")
+    _, department, nome, taxonomy_error = _parse_sector_taxonomy_or_error(request.POST)
+    if taxonomy_error:
+        messages.error(request, taxonomy_error)
         return redirect(
             _employees_redirect_with_flags(
                 open_employee_modal=1,
@@ -2297,8 +2351,12 @@ def employee_create_sector(request):
             )
         )
 
-    if Sector.objects.filter(nome__iexact=nome, deactivated_at__isnull=True).exists():
-        messages.error(request, "Ja existe um setor com esse nome.")
+    if Sector.objects.filter(
+        department=department,
+        nome__iexact=nome,
+        deactivated_at__isnull=True,
+    ).exists():
+        messages.error(request, "Ja existe um setor com esse nome neste departamento.")
         return redirect(
             _employees_redirect_with_flags(
                 open_employee_modal=1,
@@ -2306,7 +2364,7 @@ def employee_create_sector(request):
             )
         )
 
-    sector = Sector.objects.create(nome=nome)
+    sector = Sector.objects.create(nome=nome, department=department)
     messages.success(request, "Setor cadastrado com sucesso.")
     return redirect(
         _employees_redirect_with_flags(
@@ -2318,11 +2376,16 @@ def employee_create_sector(request):
 
 def employee_edit_page(request, employee_id):
     employee = get_object_or_404(
-        Employee.objects.select_related("cargo", "sector", "work_schedule"),
+        Employee.objects.select_related("cargo", "sector__department__area", "work_schedule"),
         id=employee_id,
     )
     active_cargos = Cargo.objects.filter(deactivated_at__isnull=True).order_by("nome")
-    active_sectors = Sector.objects.filter(deactivated_at__isnull=True).order_by("nome")
+    active_sectors = (
+        Sector.objects.filter(deactivated_at__isnull=True)
+        .select_related("department__area")
+        .order_by("department__area__nome", "department__nome", "nome")
+    )
+    active_areas, active_departments = _active_taxonomy()
     work_schedules = WorkSchedule.objects.all().order_by("nome")
     current_cargo = employee.cargo
     current_sector = employee.sector
@@ -2330,8 +2393,8 @@ def employee_edit_page(request, employee_id):
         employee=employee,
         event_type=EmployeeEvent.EVENT_TYPE_ALLOCATION_CHANGE,
     ).select_related(
-        "previous_sector",
-        "new_sector",
+        "previous_sector__department__area",
+        "new_sector__department__area",
         "previous_work_schedule",
         "new_work_schedule",
     )
@@ -2574,6 +2637,8 @@ def employee_edit_page(request, employee_id):
             "compensation_regime_choices": Employee.REGIME_COMPENSACAO_JORNADA_CHOICES,
             "calendar_exception_events": calendar_exception_events,
             "selected_tab": selected_tab,
+            "active_areas": active_areas,
+            "active_departments": active_departments,
         },
     )
 
@@ -2675,23 +2740,67 @@ def cargo_activate(request, cargo_id):
 
 def sectors_page(request):
     if request.method == "POST":
-        nome = (request.POST.get("nome") or "").strip()
+        create_without_department = (
+            (request.POST.get("create_without_department") or "").strip() == "1"
+        )
+        if create_without_department:
+            nome = (request.POST.get("nome") or "").strip()
+            if not nome:
+                messages.error(request, "Nome do setor e obrigatorio.")
+                return redirect("sectors_page")
+            if Sector.objects.filter(
+                department__isnull=True,
+                nome__iexact=nome,
+                deactivated_at__isnull=True,
+            ).exists():
+                messages.error(request, "Ja existe um setor sem departamento com esse nome.")
+                return redirect("sectors_page")
+            Sector.objects.create(nome=nome, department=None)
+            messages.success(request, "Setor sem departamento cadastrado com sucesso.")
+            return redirect("sectors_page")
+        else:
+            _, department, nome, taxonomy_error = _parse_sector_taxonomy_or_error(request.POST)
+            if taxonomy_error:
+                messages.error(request, taxonomy_error)
+                return redirect("sectors_page")
 
-        if not nome:
-            messages.error(request, "Nome do setor e obrigatorio.")
+            if Sector.objects.filter(
+                department=department,
+                nome__iexact=nome,
+                deactivated_at__isnull=True,
+            ).exists():
+                messages.error(request, "Ja existe um setor com esse nome neste departamento.")
+                return redirect("sectors_page")
+
+            Sector.objects.create(nome=nome, department=department)
+            messages.success(request, "Setor cadastrado com sucesso.")
             return redirect("sectors_page")
 
-        if Sector.objects.filter(nome__iexact=nome, deactivated_at__isnull=True).exists():
-            messages.error(request, "Ja existe um setor com esse nome.")
-            return redirect("sectors_page")
-
-        Sector.objects.create(nome=nome)
-        messages.success(request, "Setor cadastrado com sucesso.")
-        return redirect("sectors_page")
-
-    sectors = Sector.objects.all().order_by("deactivated_at", "nome")
+    sectors = (
+        Sector.objects.select_related("department__area")
+        .all()
+        .order_by("deactivated_at", "department__area__nome", "department__nome", "nome")
+    )
+    all_areas = Area.objects.all().order_by("deactivated_at", "nome")
+    all_departments = Department.objects.select_related("area").all().order_by(
+        "deactivated_at",
+        "area__nome",
+        "nome",
+    )
+    department_ids_with_sector = set(
+        sectors.filter(department__isnull=False).values_list("department_id", flat=True)
+    )
+    area_ids_with_sector = set(
+        sectors.filter(department__area__isnull=False).values_list(
+            "department__area_id",
+            flat=True,
+        )
+    )
+    departments_without_sectors = all_departments.exclude(id__in=department_ids_with_sector)
+    areas_without_sectors = all_areas.exclude(id__in=area_ids_with_sector)
     active_count = sectors.filter(deactivated_at__isnull=True).count()
     deactivated_count = sectors.filter(deactivated_at__isnull=False).count()
+    active_areas, active_departments = _active_taxonomy()
     return render(
         request,
         "sectors.html",
@@ -2699,6 +2808,10 @@ def sectors_page(request):
             "sectors": sectors,
             "active_count": active_count,
             "deactivated_count": deactivated_count,
+            "active_areas": active_areas,
+            "active_departments": active_departments,
+            "departments_without_sectors": departments_without_sectors,
+            "areas_without_sectors": areas_without_sectors,
         },
     )
 
@@ -2886,30 +2999,200 @@ def work_schedules_page(request):
     )
 
 
+@require_POST
+def area_create(request):
+    nome = (request.POST.get("nome") or "").strip()
+    if not nome:
+        messages.error(request, "Nome da area e obrigatorio.")
+        return redirect("sectors_page")
+
+    if Area.objects.filter(nome__iexact=nome, deactivated_at__isnull=True).exists():
+        messages.error(request, "Ja existe uma area com esse nome.")
+        return redirect("sectors_page")
+
+    Area.objects.create(nome=nome)
+    messages.success(request, "Area cadastrada com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def area_edit(request, area_id):
+    area = get_object_or_404(Area, id=area_id)
+    nome = (request.POST.get("nome") or "").strip()
+    if not nome:
+        messages.error(request, "Nome da area e obrigatorio.")
+        return redirect("sectors_page")
+
+    duplicate = Area.objects.filter(
+        nome__iexact=nome,
+        deactivated_at__isnull=True,
+    ).exclude(id=area.id)
+    if duplicate.exists():
+        messages.error(request, "Ja existe uma area com esse nome.")
+        return redirect("sectors_page")
+
+    area.nome = nome
+    area.save(update_fields=["nome"])
+    messages.success(request, "Area atualizada com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def area_deactivate(request, area_id):
+    area = get_object_or_404(Area, id=area_id, deactivated_at__isnull=True)
+    now = timezone.now()
+    with transaction.atomic():
+        area.deactivated_at = now
+        area.save(update_fields=["deactivated_at"])
+        Department.objects.filter(area=area, deactivated_at__isnull=True).update(
+            deactivated_at=now
+        )
+        Sector.objects.filter(
+            department__area=area,
+            deactivated_at__isnull=True,
+        ).update(deactivated_at=now)
+    messages.success(request, "Area desativada com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def area_activate(request, area_id):
+    area = get_object_or_404(Area, id=area_id, deactivated_at__isnull=False)
+    area.deactivated_at = None
+    area.save(update_fields=["deactivated_at"])
+    messages.success(request, "Area ativada com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def department_create(request):
+    area_id = (request.POST.get("area_id") or "").strip()
+    nome = (request.POST.get("nome") or "").strip()
+
+    if not area_id:
+        messages.error(request, "Selecione uma area para o departamento.")
+        return redirect("sectors_page")
+    if not nome:
+        messages.error(request, "Nome do departamento e obrigatorio.")
+        return redirect("sectors_page")
+
+    area = Area.objects.filter(id=area_id, deactivated_at__isnull=True).first()
+    if not area:
+        messages.error(request, "Selecione uma area valida.")
+        return redirect("sectors_page")
+
+    if Department.objects.filter(
+        area=area,
+        nome__iexact=nome,
+        deactivated_at__isnull=True,
+    ).exists():
+        messages.error(request, "Ja existe um departamento com esse nome nesta area.")
+        return redirect("sectors_page")
+
+    Department.objects.create(area=area, nome=nome)
+    messages.success(request, "Departamento cadastrado com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def department_edit(request, department_id):
+    department = get_object_or_404(Department.objects.select_related("area"), id=department_id)
+    area_id = (request.POST.get("area_id") or "").strip()
+    nome = (request.POST.get("nome") or "").strip()
+
+    if not area_id:
+        messages.error(request, "Selecione uma area para o departamento.")
+        return redirect("sectors_page")
+    if not nome:
+        messages.error(request, "Nome do departamento e obrigatorio.")
+        return redirect("sectors_page")
+
+    area = Area.objects.filter(id=area_id, deactivated_at__isnull=True).first()
+    if not area:
+        messages.error(request, "Selecione uma area valida.")
+        return redirect("sectors_page")
+
+    duplicate = Department.objects.filter(
+        area=area,
+        nome__iexact=nome,
+        deactivated_at__isnull=True,
+    ).exclude(id=department.id)
+    if duplicate.exists():
+        messages.error(request, "Ja existe um departamento com esse nome nesta area.")
+        return redirect("sectors_page")
+
+    department.area = area
+    department.nome = nome
+    department.save(update_fields=["area", "nome"])
+    messages.success(request, "Departamento atualizado com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def department_deactivate(request, department_id):
+    department = get_object_or_404(Department, id=department_id, deactivated_at__isnull=True)
+    now = timezone.now()
+    with transaction.atomic():
+        department.deactivated_at = now
+        department.save(update_fields=["deactivated_at"])
+        Sector.objects.filter(
+            department=department,
+            deactivated_at__isnull=True,
+        ).update(deactivated_at=now)
+    messages.success(request, "Departamento desativado com sucesso.")
+    return redirect("sectors_page")
+
+
+@require_POST
+def department_activate(request, department_id):
+    department = get_object_or_404(Department, id=department_id, deactivated_at__isnull=False)
+    if department.area.deactivated_at:
+        messages.error(request, "Ative a area antes de ativar este departamento.")
+        return redirect("sectors_page")
+    department.deactivated_at = None
+    department.save(update_fields=["deactivated_at"])
+    messages.success(request, "Departamento ativado com sucesso.")
+    return redirect("sectors_page")
+
+
 def sector_edit_page(request, sector_id):
-    sector = get_object_or_404(Sector, id=sector_id, deactivated_at__isnull=True)
+    sector = get_object_or_404(
+        Sector.objects.select_related("department__area"),
+        id=sector_id,
+        deactivated_at__isnull=True,
+    )
 
     if request.method == "POST":
-        nome = (request.POST.get("nome") or "").strip()
-
-        if not nome:
-            messages.error(request, "Nome do setor e obrigatorio.")
+        _, department, nome, taxonomy_error = _parse_sector_taxonomy_or_error(request.POST)
+        if taxonomy_error:
+            messages.error(request, taxonomy_error)
             return redirect("sector_edit_page", sector_id=sector.id)
 
         duplicate = Sector.objects.filter(
+            department=department,
             nome__iexact=nome,
             deactivated_at__isnull=True,
         ).exclude(id=sector.id)
         if duplicate.exists():
-            messages.error(request, "Ja existe um setor com esse nome.")
+            messages.error(request, "Ja existe um setor com esse nome neste departamento.")
             return redirect("sector_edit_page", sector_id=sector.id)
 
         sector.nome = nome
-        sector.save(update_fields=["nome"])
+        sector.department = department
+        sector.save(update_fields=["nome", "department"])
         messages.success(request, "Setor atualizado com sucesso.")
         return redirect("sectors_page")
 
-    return render(request, "sector_edit.html", {"sector": sector})
+    active_areas, active_departments = _active_taxonomy()
+    return render(
+        request,
+        "sector_edit.html",
+        {
+            "sector": sector,
+            "active_areas": active_areas,
+            "active_departments": active_departments,
+        },
+    )
 
 
 @require_POST

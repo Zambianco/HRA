@@ -406,6 +406,13 @@ class WorkCalendarPeriod(models.Model):
 
 
 class Sector(models.Model):
+    department = models.ForeignKey(
+        "Department",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sectors",
+    )
     nome = models.CharField(max_length=120)
     deactivated_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -415,14 +422,69 @@ class Sector(models.Model):
         ordering = ("nome",)
         constraints = [
             models.UniqueConstraint(
+                fields=("department", "nome"),
+                condition=models.Q(deactivated_at__isnull=True),
+                name="uniq_setor_departamento_nome_ativo_nao_desativado",
+            )
+        ]
+
+    @property
+    def full_name(self) -> str:
+        if self.department_id:
+            return f"{self.department.full_name} / {self.nome}"
+        return self.nome
+
+    def __str__(self) -> str:
+        return self.full_name
+
+
+class Area(models.Model):
+    nome = models.CharField(max_length=120)
+    deactivated_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "areas"
+        ordering = ("nome",)
+        constraints = [
+            models.UniqueConstraint(
                 fields=("nome",),
                 condition=models.Q(deactivated_at__isnull=True),
-                name="uniq_setor_nome_ativo_nao_desativado",
+                name="uniq_area_nome_ativo_nao_desativado",
             )
         ]
 
     def __str__(self) -> str:
         return self.nome
+
+
+class Department(models.Model):
+    area = models.ForeignKey(
+        "Area",
+        on_delete=models.PROTECT,
+        related_name="departments",
+    )
+    nome = models.CharField(max_length=120)
+    deactivated_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "departamentos"
+        ordering = ("nome",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("area", "nome"),
+                condition=models.Q(deactivated_at__isnull=True),
+                name="uniq_departamento_area_nome_ativo_nao_desativado",
+            )
+        ]
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.area.nome} / {self.nome}"
+
+    def __str__(self) -> str:
+        return self.full_name
 
 
 class Cargo(models.Model):
