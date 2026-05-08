@@ -76,3 +76,97 @@
         {% endfor %}
     </tbody>
 </table>
+
+<div class="print-section-title">Detalhe por Departamento (horas)</div>
+<table class="print-data-table timesheet-print-table">
+    <colgroup>
+        <col class="ts-col-name" />
+        <col class="ts-col-prev" />
+        <col class="ts-col-lanc" />
+        <col class="ts-col-ext60" />
+        <col class="ts-col-ext100" />
+        <col class="ts-col-falta" />
+        <col class="ts-col-just" />
+        <col class="ts-col-banco" />
+        <col class="ts-col-prev" />
+    </colgroup>
+    <thead>
+        <tr>
+            <th>Departamento</th>
+            <th>Prev.</th>
+            <th>Trab.</th>
+            <th>HE 60</th>
+            <th>HE 100</th>
+            <th>Falta</th>
+            <th>Just.</th>
+            <th>Banco (uso banco)</th>
+            <th>Aproveitamento (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in department_rows %}
+        <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.expected_hhmm }}</td>
+            <td>{{ row.worked_hhmm }}</td>
+            <td>{{ row.overtime_60_hhmm }}</td>
+            <td>{{ row.overtime_100_hhmm }}</td>
+            <td>{{ row.absence_unexcused_hhmm }}</td>
+            <td>{{ row.absence_excused_hhmm }}</td>
+            <td>{{ row.absence_bank_hhmm }}</td>
+            <td>{{ row.utilization_percent }}%</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="9">Sem dados no mes selecionado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="print-section-title">Detalhe por Area (horas)</div>
+<table class="print-data-table timesheet-print-table">
+    <colgroup>
+        <col class="ts-col-name" />
+        <col class="ts-col-prev" />
+        <col class="ts-col-lanc" />
+        <col class="ts-col-ext60" />
+        <col class="ts-col-ext100" />
+        <col class="ts-col-falta" />
+        <col class="ts-col-just" />
+        <col class="ts-col-banco" />
+        <col class="ts-col-prev" />
+    </colgroup>
+    <thead>
+        <tr>
+            <th>Area</th>
+            <th>Prev.</th>
+            <th>Trab.</th>
+            <th>HE 60</th>
+            <th>HE 100</th>
+            <th>Falta</th>
+            <th>Just.</th>
+            <th>Banco (uso banco)</th>
+            <th>Aproveitamento (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in area_rows %}
+        <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.expected_hhmm }}</td>
+            <td>{{ row.worked_hhmm }}</td>
+            <td>{{ row.overtime_60_hhmm }}</td>
+            <td>{{ row.overtime_100_hhmm }}</td>
+            <td>{{ row.absence_unexcused_hhmm }}</td>
+            <td>{{ row.absence_excused_hhmm }}</td>
+            <td>{{ row.absence_bank_hhmm }}</td>
+            <td>{{ row.utilization_percent }}%</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="9">Sem dados no mes selecionado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

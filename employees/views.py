@@ -1464,7 +1464,12 @@ def timesheet_dashboard_page(request):
         return redirect(_timesheet_redirect_with_filters())
 
     employees = list(
-        Employee.objects.select_related("sector", "work_schedule")
+        Employee.objects.select_related(
+            "sector",
+            "sector__department",
+            "sector__department__area",
+            "work_schedule",
+        )
         .filter(deactivated_at__isnull=True)
         .order_by("nome_completo")
     )
@@ -1511,7 +1516,63 @@ def timesheet_dashboard_page(request):
         _get_month_date_range(end_month)[1],
     )
 
+    def _empty_group_bucket(name):
+        return {
+            "name": name,
+            "expected_minutes": 0,
+            "regular_minutes": 0,
+            "overtime_60_minutes": 0,
+            "overtime_100_minutes": 0,
+            "worked_minutes": 0,
+            "absence_unexcused_minutes": 0,
+            "absence_excused_minutes": 0,
+            "absence_bank_minutes": 0,
+        }
+
+    def _add_to_group_bucket(bucket, expected_minutes, regular_minutes, overtime_60_minutes, overtime_100_minutes, worked_minutes, absence_unexcused_minutes, absence_excused_minutes, absence_bank_minutes):
+        bucket["expected_minutes"] += expected_minutes
+        bucket["regular_minutes"] += regular_minutes
+        bucket["overtime_60_minutes"] += overtime_60_minutes
+        bucket["overtime_100_minutes"] += overtime_100_minutes
+        bucket["worked_minutes"] += worked_minutes
+        bucket["absence_unexcused_minutes"] += absence_unexcused_minutes
+        bucket["absence_excused_minutes"] += absence_excused_minutes
+        bucket["absence_bank_minutes"] += absence_bank_minutes
+
+    def _build_group_rows(group_data, limit=None):
+        rows = sorted(
+            group_data.values(),
+            key=lambda row: row["expected_minutes"],
+            reverse=True,
+        )
+        if limit:
+            rows = rows[:limit]
+        for row in rows:
+            row["balance_minutes"] = row["worked_minutes"] - row["expected_minutes"]
+            row["expected_hhmm"] = _format_minutes_as_hour_label(row["expected_minutes"])
+            row["worked_hhmm"] = _format_minutes_as_hour_label(row["worked_minutes"])
+            row["overtime_60_hhmm"] = _format_minutes_as_hour_label(row["overtime_60_minutes"])
+            row["overtime_100_hhmm"] = _format_minutes_as_hour_label(row["overtime_100_minutes"])
+            row["balance_hhmm"] = _format_signed_minutes_as_hour_label(row["balance_minutes"])
+            row["absence_unexcused_hhmm"] = _format_minutes_as_hour_label(
+                row["absence_unexcused_minutes"]
+            )
+            row["absence_excused_hhmm"] = _format_minutes_as_hour_label(
+                row["absence_excused_minutes"]
+            )
+            row["absence_bank_hhmm"] = _format_minutes_as_hour_label(
+                row["absence_bank_minutes"]
+            )
+            row["utilization_percent"] = (
+                round((row["worked_minutes"] * 100) / row["expected_minutes"])
+                if row["expected_minutes"] > 0
+                else 0
+            )
+        return rows
+
     sector_data = {}
+    department_data = {}
+    area_data = {}
     total_expected_minutes = 0
     total_regular_minutes = 0
     total_overtime_60_minutes = 0
@@ -1560,28 +1621,53 @@ def timesheet_dashboard_page(request):
             total_moi_minutes += worked_minutes
 
         sector_name = employee.sector.nome if employee.sector else "Sem setor"
-        if sector_name not in sector_data:
-            sector_data[sector_name] = {
-                "name": sector_name,
-                "expected_minutes": 0,
-                "regular_minutes": 0,
-                "overtime_60_minutes": 0,
-                "overtime_100_minutes": 0,
-                "worked_minutes": 0,
-                "absence_unexcused_minutes": 0,
-                "absence_excused_minutes": 0,
-                "absence_bank_minutes": 0,
-            }
+        sector_bucket = sector_data.setdefault(sector_name, _empty_group_bucket(sector_name))
+        _add_to_group_bucket(
+            sector_bucket,
+            expected_minutes,
+            regular_minutes,
+            overtime_60_minutes,
+            overtime_100_minutes,
+            worked_minutes,
+            absence_unexcused_minutes,
+            absence_excused_minutes,
+            absence_bank_minutes,
+        )
 
-        sector_bucket = sector_data[sector_name]
-        sector_bucket["expected_minutes"] += expected_minutes
-        sector_bucket["regular_minutes"] += regular_minutes
-        sector_bucket["overtime_60_minutes"] += overtime_60_minutes
-        sector_bucket["overtime_100_minutes"] += overtime_100_minutes
-        sector_bucket["worked_minutes"] += worked_minutes
-        sector_bucket["absence_unexcused_minutes"] += absence_unexcused_minutes
-        sector_bucket["absence_excused_minutes"] += absence_excused_minutes
-        sector_bucket["absence_bank_minutes"] += absence_bank_minutes
+        department_name = "Sem departamento"
+        area_name = "Sem area"
+        if employee.sector and employee.sector.department:
+            department_name = employee.sector.department.nome
+            if employee.sector.department.area:
+                area_name = employee.sector.department.area.nome
+
+        department_bucket = department_data.setdefault(
+            department_name, _empty_group_bucket(department_name)
+        )
+        _add_to_group_bucket(
+            department_bucket,
+            expected_minutes,
+            regular_minutes,
+            overtime_60_minutes,
+            overtime_100_minutes,
+            worked_minutes,
+            absence_unexcused_minutes,
+            absence_excused_minutes,
+            absence_bank_minutes,
+        )
+
+        area_bucket = area_data.setdefault(area_name, _empty_group_bucket(area_name))
+        _add_to_group_bucket(
+            area_bucket,
+            expected_minutes,
+            regular_minutes,
+            overtime_60_minutes,
+            overtime_100_minutes,
+            worked_minutes,
+            absence_unexcused_minutes,
+            absence_excused_minutes,
+            absence_bank_minutes,
+        )
 
     total_overtime_minutes = total_overtime_60_minutes + total_overtime_100_minutes
     total_worked_minutes = total_regular_minutes + total_overtime_minutes
@@ -1597,32 +1683,9 @@ def timesheet_dashboard_page(request):
     )
     moi_share_percent = 100 - mod_share_percent if total_type_minutes else 0
 
-    sector_rows = sorted(
-        sector_data.values(),
-        key=lambda row: row["expected_minutes"],
-        reverse=True,
-    )[:12]
-    for row in sector_rows:
-        row["balance_minutes"] = row["worked_minutes"] - row["expected_minutes"]
-        row["expected_hhmm"] = _format_minutes_as_hour_label(row["expected_minutes"])
-        row["worked_hhmm"] = _format_minutes_as_hour_label(row["worked_minutes"])
-        row["overtime_60_hhmm"] = _format_minutes_as_hour_label(row["overtime_60_minutes"])
-        row["overtime_100_hhmm"] = _format_minutes_as_hour_label(row["overtime_100_minutes"])
-        row["balance_hhmm"] = _format_signed_minutes_as_hour_label(row["balance_minutes"])
-        row["absence_unexcused_hhmm"] = _format_minutes_as_hour_label(
-            row["absence_unexcused_minutes"]
-        )
-        row["absence_excused_hhmm"] = _format_minutes_as_hour_label(
-            row["absence_excused_minutes"]
-        )
-        row["absence_bank_hhmm"] = _format_minutes_as_hour_label(
-            row["absence_bank_minutes"]
-        )
-        row["utilization_percent"] = (
-            round((row["worked_minutes"] * 100) / row["expected_minutes"])
-            if row["expected_minutes"] > 0
-            else 0
-        )
+    sector_rows = _build_group_rows(sector_data, limit=12)
+    department_rows = _build_group_rows(department_data)
+    area_rows = _build_group_rows(area_data)
 
     top_expected_minutes = max((row["expected_minutes"] for row in sector_rows), default=0)
 
@@ -1640,6 +1703,30 @@ def timesheet_dashboard_page(request):
     ]
     chart_excused_hours = [
         round(row["absence_excused_minutes"] / 60, 2) for row in sector_rows
+    ]
+    department_chart_rows = department_rows[:12]
+    area_chart_rows = area_rows[:12]
+    department_chart_labels = [row["name"] for row in department_chart_rows]
+    department_chart_expected_hours = [
+        round(row["expected_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    department_chart_worked_hours = [
+        round(row["regular_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    department_chart_overtime_60_hours = [
+        round(row["overtime_60_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    department_chart_overtime_100_hours = [
+        round(row["overtime_100_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    area_chart_labels = [row["name"] for row in area_chart_rows]
+    area_chart_expected_hours = [round(row["expected_minutes"] / 60, 2) for row in area_chart_rows]
+    area_chart_worked_hours = [round(row["regular_minutes"] / 60, 2) for row in area_chart_rows]
+    area_chart_overtime_60_hours = [
+        round(row["overtime_60_minutes"] / 60, 2) for row in area_chart_rows
+    ]
+    area_chart_overtime_100_hours = [
+        round(row["overtime_100_minutes"] / 60, 2) for row in area_chart_rows
     ]
 
     range_start = _get_month_date_range(start_month)[0]
@@ -1675,6 +1762,8 @@ def timesheet_dashboard_page(request):
             "mod_share_percent": mod_share_percent,
             "moi_share_percent": moi_share_percent,
             "sector_rows": sector_rows,
+            "department_rows": department_rows,
+            "area_rows": area_rows,
             "top_expected_minutes": top_expected_minutes,
             "chart_labels": chart_labels,
             "chart_expected_hours": chart_expected_hours,
@@ -1684,6 +1773,16 @@ def timesheet_dashboard_page(request):
             "chart_balance_hours": chart_balance_hours,
             "chart_absence_hours": chart_absence_hours,
             "chart_excused_hours": chart_excused_hours,
+            "department_chart_labels": department_chart_labels,
+            "department_chart_expected_hours": department_chart_expected_hours,
+            "department_chart_worked_hours": department_chart_worked_hours,
+            "department_chart_overtime_60_hours": department_chart_overtime_60_hours,
+            "department_chart_overtime_100_hours": department_chart_overtime_100_hours,
+            "area_chart_labels": area_chart_labels,
+            "area_chart_expected_hours": area_chart_expected_hours,
+            "area_chart_worked_hours": area_chart_worked_hours,
+            "area_chart_overtime_60_hours": area_chart_overtime_60_hours,
+            "area_chart_overtime_100_hours": area_chart_overtime_100_hours,
             "total_expected_hhmm": _format_minutes_as_hour_label(total_expected_minutes),
             "total_worked_hhmm": _format_minutes_as_hour_label(total_worked_minutes),
             "total_overtime_hhmm": _format_minutes_as_hour_label(total_overtime_minutes),

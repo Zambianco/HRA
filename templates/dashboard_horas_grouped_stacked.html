@@ -681,6 +681,32 @@
         </div>
       </div>
     </div>
+
+    <div class="dash-two-columns mt-3">
+      <div class="card-dash">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Distribuicao por departamento</div>
+          <div class="card-sub-dash">Previsto vs Real (Trabalhadas + Extras 60%/100%)</div>
+        </div>
+        <div class="p-3 pt-0">
+          <div class="chart-wrapper">
+            <canvas id="departmentStackedBarChart" role="img" aria-label="Grafico de horas por departamento"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-dash">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Distribuicao por area</div>
+          <div class="card-sub-dash">Previsto vs Real (Trabalhadas + Extras 60%/100%)</div>
+        </div>
+        <div class="p-3 pt-0">
+          <div class="chart-wrapper">
+            <canvas id="areaStackedBarChart" role="img" aria-label="Grafico de horas por area"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
     </div>
 
     <div class="tab-pane fade" id="pane-tabela" role="tabpanel" aria-labelledby="tab-tabela" tabindex="0">
@@ -785,11 +811,91 @@
             </table>
           </div>
         </div>
+
+        <div class="table-section pt-0">
+          <h2 class="table-section-title">Detalhe Por Departamento (horas)</h2>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
+              <thead>
+                <tr>
+                  <th>Departamento</th>
+                  <th>Prev.</th>
+                  <th>Trab.</th>
+                  <th>HE 60</th>
+                  <th>HE 100</th>
+                  <th>Falta</th>
+                  <th>Just.</th>
+                  <th>Banco (uso banco)</th>
+                  <th>Aproveitamento (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in department_rows %}
+                  <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.expected_hhmm }}</td>
+                    <td>{{ row.worked_hhmm }}</td>
+                    <td>{{ row.overtime_60_hhmm }}</td>
+                    <td>{{ row.overtime_100_hhmm }}</td>
+                    <td>{{ row.absence_unexcused_hhmm }}</td>
+                    <td>{{ row.absence_excused_hhmm }}</td>
+                    <td>{{ row.absence_bank_hhmm }}</td>
+                    <td>{{ row.utilization_percent }}%</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="9">Sem dados no mes selecionado.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-section pt-0">
+          <h2 class="table-section-title">Detalhe Por Area (horas)</h2>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Prev.</th>
+                  <th>Trab.</th>
+                  <th>HE 60</th>
+                  <th>HE 100</th>
+                  <th>Falta</th>
+                  <th>Just.</th>
+                  <th>Banco (uso banco)</th>
+                  <th>Aproveitamento (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in area_rows %}
+                  <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.expected_hhmm }}</td>
+                    <td>{{ row.worked_hhmm }}</td>
+                    <td>{{ row.overtime_60_hhmm }}</td>
+                    <td>{{ row.overtime_100_hhmm }}</td>
+                    <td>{{ row.absence_unexcused_hhmm }}</td>
+                    <td>{{ row.absence_excused_hhmm }}</td>
+                    <td>{{ row.absence_bank_hhmm }}</td>
+                    <td>{{ row.utilization_percent }}%</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="9">Sem dados no mes selecionado.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </div>
     </div>
 
-    {% with print_title="Relatorio Dashboard de Horas" print_subtitle="Consolidado mensal por setor" print_meta_label="Competencia" print_meta_value=competence_month_label print_body_template="prints/partials/dashboard_horas_print_body.html" print_footer_left="Documento gerado pelo modulo de dashboard de horas." print_footer_right="FIM DO RELATORIO" %}
+    {% with print_title="Relatorio Dashboard de Horas" print_subtitle="Consolidado mensal por setor, departamento e area" print_meta_label="Competencia" print_meta_value=competence_month_label print_body_template="prints/partials/dashboard_horas_print_body.html" print_footer_left="Documento gerado pelo modulo de dashboard de horas." print_footer_right="FIM DO RELATORIO" %}
       <div class="js-dashboard-table-report-wrapper">
         {% include "prints/partials/report_sheet.html" %}
       </div>
@@ -804,6 +910,16 @@
   {{ chart_overtime_60_hours|json_script:"chart-overtime-60-hours" }}
   {{ chart_overtime_100_hours|json_script:"chart-overtime-100-hours" }}
   {{ chart_balance_hours|json_script:"chart-balance-hours" }}
+  {{ department_chart_labels|json_script:"department-chart-labels" }}
+  {{ department_chart_expected_hours|json_script:"department-chart-expected-hours" }}
+  {{ department_chart_worked_hours|json_script:"department-chart-worked-hours" }}
+  {{ department_chart_overtime_60_hours|json_script:"department-chart-overtime-60-hours" }}
+  {{ department_chart_overtime_100_hours|json_script:"department-chart-overtime-100-hours" }}
+  {{ area_chart_labels|json_script:"area-chart-labels" }}
+  {{ area_chart_expected_hours|json_script:"area-chart-expected-hours" }}
+  {{ area_chart_worked_hours|json_script:"area-chart-worked-hours" }}
+  {{ area_chart_overtime_60_hours|json_script:"area-chart-overtime-60-hours" }}
+  {{ area_chart_overtime_100_hours|json_script:"area-chart-overtime-100-hours" }}
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
@@ -832,6 +948,16 @@
       const overtime60 = JSON.parse(document.getElementById("chart-overtime-60-hours").textContent);
       const overtime100 = JSON.parse(document.getElementById("chart-overtime-100-hours").textContent);
       const balance = JSON.parse(document.getElementById("chart-balance-hours").textContent);
+      const departmentLabels = JSON.parse(document.getElementById("department-chart-labels").textContent);
+      const departmentExpected = JSON.parse(document.getElementById("department-chart-expected-hours").textContent);
+      const departmentWorked = JSON.parse(document.getElementById("department-chart-worked-hours").textContent);
+      const departmentOvertime60 = JSON.parse(document.getElementById("department-chart-overtime-60-hours").textContent);
+      const departmentOvertime100 = JSON.parse(document.getElementById("department-chart-overtime-100-hours").textContent);
+      const areaLabels = JSON.parse(document.getElementById("area-chart-labels").textContent);
+      const areaExpected = JSON.parse(document.getElementById("area-chart-expected-hours").textContent);
+      const areaWorked = JSON.parse(document.getElementById("area-chart-worked-hours").textContent);
+      const areaOvertime60 = JSON.parse(document.getElementById("area-chart-overtime-60-hours").textContent);
+      const areaOvertime100 = JSON.parse(document.getElementById("area-chart-overtime-100-hours").textContent);
       const charts = [];
       let chartsInPrintMode = false;
 
@@ -888,6 +1014,56 @@
             tooltip: { callbacks: { label: function (ctx) { return ctx.raw + " horas " + (ctx.raw >= 0 ? "acima" : "abaixo"); } } },
           },
           scales: { y: { title: { display: true, text: "Horas" }, grid: { color: "#e9edf2" } } },
+        },
+      }));
+
+      charts.push(new Chart(document.getElementById("departmentStackedBarChart"), {
+        type: "bar",
+        data: {
+          labels: departmentLabels,
+          datasets: [
+            { label: "Previsto", data: departmentExpected, backgroundColor: "#cbd5e1", borderRadius: 6, stack: "stack0", barPercentage: 0.65, categoryPercentage: 0.8 },
+            { label: "Trabalhadas", data: departmentWorked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
+            { label: "HE 60%", data: departmentOvertime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
+            { label: "HE 100%", data: departmentOvertime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 } },
+            tooltip: { mode: "index", intersect: false },
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: "Horas" }, grid: { color: "#eef2f6" } },
+            x: { grid: { display: false } },
+          },
+        },
+      }));
+
+      charts.push(new Chart(document.getElementById("areaStackedBarChart"), {
+        type: "bar",
+        data: {
+          labels: areaLabels,
+          datasets: [
+            { label: "Previsto", data: areaExpected, backgroundColor: "#cbd5e1", borderRadius: 6, stack: "stack0", barPercentage: 0.65, categoryPercentage: 0.8 },
+            { label: "Trabalhadas", data: areaWorked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
+            { label: "HE 60%", data: areaOvertime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
+            { label: "HE 100%", data: areaOvertime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 } },
+            tooltip: { mode: "index", intersect: false },
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: "Horas" }, grid: { color: "#eef2f6" } },
+            x: { grid: { display: false } },
+          },
         },
       }));
 
