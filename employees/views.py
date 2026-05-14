@@ -16,7 +16,9 @@ from pathlib import Path
 from openpyxl import load_workbook
 from django.contrib import messages
 from django.db import IntegrityError, transaction
+from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -1395,8 +1397,8 @@ def _import_employees_from_csv(uploaded_file):
         if not nome:
             errors.append(f"Linha {line_index}: nome obrigatorio.")
             continue
-        if not matricula:
-            errors.append(f"Linha {line_index}: ID/matricula obrigatorio.")
+        if tipo == Employee.TYPE_DIRETO and not matricula:
+            errors.append(f"Linha {line_index}: ID/matricula obrigatorio para empregado direto.")
             continue
         if not sector_name:
             errors.append(f"Linha {line_index}: setor obrigatorio.")
@@ -1417,17 +1419,18 @@ def _import_employees_from_csv(uploaded_file):
             )
             continue
 
-        first_line_for_id = seen_csv_ids.get(matricula)
-        if first_line_for_id:
-            errors.append(
-                f"Linha {line_index}: ID/matricula '{matricula}' repetido no CSV (primeira ocorrencia na linha {first_line_for_id})."
-            )
-            continue
-        if matricula in existing_ids:
-            errors.append(
-                f"Linha {line_index}: ID/matricula '{matricula}' ja existe no banco."
-            )
-            continue
+        if tipo == Employee.TYPE_DIRETO:
+            first_line_for_id = seen_csv_ids.get(matricula)
+            if first_line_for_id:
+                errors.append(
+                    f"Linha {line_index}: ID/matricula '{matricula}' repetido no CSV (primeira ocorrencia na linha {first_line_for_id})."
+                )
+                continue
+            if matricula in existing_ids:
+                errors.append(
+                    f"Linha {line_index}: ID/matricula '{matricula}' ja existe no banco."
+                )
+                continue
 
         name_date_key = (_normalize_name_key(nome), admission_date)
         first_line_for_name_date = seen_csv_name_date.get(name_date_key)
@@ -1479,9 +1482,11 @@ def _import_employees_from_csv(uploaded_file):
                 effective_date=admission_date,
                 notes="Evento de admissao criado automaticamente por importacao CSV.",
             )
-        seen_csv_ids[matricula] = line_index
+        if tipo == Employee.TYPE_DIRETO:
+            seen_csv_ids[matricula] = line_index
         seen_csv_name_date[name_date_key] = line_index
-        existing_ids.add(matricula)
+        if tipo == Employee.TYPE_DIRETO:
+            existing_ids.add(matricula)
         existing_name_date.add(name_date_key)
         imported += 1
 
@@ -1525,134 +1530,145 @@ def _parse_sector_taxonomy_or_error(request_data):
 
 
 def employees_page(request):
-    active_sectors = (
-        Sector.objects.filter(
-            deactivated_at__isnull=True,
-        )
-        .select_related("department__area")
-        .order_by("department__area__nome", "department__nome", "nome")
-    )
-    active_cargos = Cargo.objects.filter(deactivated_at__isnull=True).order_by("nome")
-    work_schedules = WorkSchedule.objects.all().order_by("nome")
-    all_sectors = (
-        Sector.objects.all()
-        .select_related("department__area")
-        .order_by("deactivated_at", "department__area__nome", "department__nome", "nome")
-    )
-    active_areas, active_departments = _active_taxonomy()
-    import_errors = request.session.pop("employee_import_errors", None)
-    import_result_count = request.session.pop("employee_import_result_count", None)
-
-    if request.method == "POST":
-        if (request.POST.get("form_type") or "").strip() == "employee_import_csv":
-            imported_count, errors = _import_employees_from_csv(request.FILES.get("csv_file"))
-            if errors:
-                request.session["employee_import_errors"] = errors
-                request.session["employee_import_result_count"] = imported_count
-            elif imported_count:
-                messages.success(
-                    request,
-                    f"Importacao concluida: {imported_count} empregado(s) importado(s).",
-                )
-            return redirect("employees_page")
-
-        matricula = (request.POST.get("matricula") or "").strip()
-        nome_completo = (request.POST.get("nome_completo") or "").strip()
-        tipo, regime_compensacao_jornada, characteristics_error = (
-            _parse_employee_characteristics(request.POST)
-        )
-        cargo_id = (request.POST.get("cargo_id") or "").strip()
-        sector_id = (request.POST.get("sector_id") or "").strip()
-        work_schedule_id = (request.POST.get("work_schedule_id") or "").strip()
-
-        if not nome_completo or not cargo_id or not sector_id:
-            messages.error(
-                request,
-                "Nome completo, cargo e setor sao obrigatorios.",
+    try:
+        active_sectors = (
+            Sector.objects.filter(
+                deactivated_at__isnull=True,
             )
-            return redirect("employees_page")
-
-        if characteristics_error:
-            messages.error(request, characteristics_error)
-            return redirect("employees_page")
-
-        if tipo == Employee.TYPE_DIRETO and not matricula:
-            messages.error(request, "Matricula e obrigatoria para empregado direto.")
-            return redirect("employees_page")
-
-        if matricula and Employee.objects.filter(matricula=matricula).exists():
-            messages.error(request, "Ja existe empregado com essa matricula.")
-            return redirect("employees_page")
-
-        cargo = active_cargos.filter(id=cargo_id).first()
-        if not cargo:
-            messages.error(request, "Selecione um cargo ativo valido.")
-            return redirect("employees_page")
-
-        sector = active_sectors.filter(id=sector_id).first()
-        if not sector:
-            messages.error(request, "Selecione um setor ativo valido.")
-            return redirect("employees_page")
-
-        work_schedule, schedule_error = _get_work_schedule_or_error(work_schedule_id)
-        if schedule_error:
-            messages.error(request, schedule_error)
-            return redirect("employees_page")
-
-        Employee.objects.create(
-            matricula=matricula or None,
-            nome_completo=nome_completo,
-            tipo=tipo,
-            regime_compensacao_jornada=regime_compensacao_jornada,
-            cargo=cargo,
-            sector=sector,
-            work_schedule=work_schedule,
+            .select_related("department__area")
+            .order_by("department__area__nome", "department__nome", "nome")
         )
+        active_cargos = Cargo.objects.filter(deactivated_at__isnull=True).order_by("nome")
+        work_schedules = WorkSchedule.objects.all().order_by("nome")
+        all_sectors = (
+            Sector.objects.all()
+            .select_related("department__area")
+            .order_by("deactivated_at", "department__area__nome", "department__nome", "nome")
+        )
+        active_areas, active_departments = _active_taxonomy()
+        import_errors = request.session.pop("employee_import_errors", None)
+        import_result_count = request.session.pop("employee_import_result_count", None)
 
-        messages.success(request, "Empregado cadastrado com sucesso.")
-        return redirect("employees_page")
+        if request.method == "POST":
+            if (request.POST.get("form_type") or "").strip() == "employee_import_csv":
+                imported_count, errors = _import_employees_from_csv(request.FILES.get("csv_file"))
+                if errors:
+                    request.session["employee_import_errors"] = errors
+                    request.session["employee_import_result_count"] = imported_count
+                elif imported_count:
+                    messages.success(
+                        request,
+                        f"Importacao concluida: {imported_count} empregado(s) importado(s).",
+                    )
+                return redirect("employees_page")
 
-    employees = Employee.objects.select_related(
-        "cargo",
-        "sector__department__area",
-        "work_schedule",
-    ).order_by(
-        "deactivated_at",
-        "nome_completo",
-    )
-    active_count = employees.filter(deactivated_at__isnull=True).count()
-    inactive_count = employees.filter(deactivated_at__isnull=False).count()
-    participants_count = employees.filter(
-        regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE
-    ).count()
-    unassigned_count = employees.filter(sector__isnull=True).count()
-    selected_sector_id = (request.GET.get("selected_sector") or "").strip()
+            matricula = (request.POST.get("matricula") or "").strip()
+            nome_completo = (request.POST.get("nome_completo") or "").strip()
+            tipo, regime_compensacao_jornada, characteristics_error = (
+                _parse_employee_characteristics(request.POST)
+            )
+            cargo_id = (request.POST.get("cargo_id") or "").strip()
+            sector_id = (request.POST.get("sector_id") or "").strip()
+            work_schedule_id = (request.POST.get("work_schedule_id") or "").strip()
 
-    return render(
-        request,
-        "employees.html",
-        {
-            "employees": employees,
-            "employees_count": employees.count(),
-            "active_count": active_count,
-            "inactive_count": inactive_count,
-            "participants_count": participants_count,
-            "active_sectors": active_sectors,
-            "active_cargos": active_cargos,
-            "work_schedules": work_schedules,
-            "all_sectors": all_sectors,
-            "unassigned_count": unassigned_count,
-            "employee_type_choices": Employee.TYPE_CHOICES,
-            "compensation_regime_choices": Employee.REGIME_COMPENSACAO_JORNADA_CHOICES,
-            "open_employee_modal": request.GET.get("open_employee_modal") == "1",
-            "open_sector_modal": request.GET.get("open_sector_modal") == "1",
-            "selected_sector_id": selected_sector_id,
-            "active_areas": active_areas,
-            "active_departments": active_departments,
-            "employee_import_errors": import_errors or [],
-            "employee_import_result_count": import_result_count,
-        },
-    )
+            if not nome_completo or not cargo_id or not sector_id:
+                messages.error(
+                    request,
+                    "Nome completo, cargo e setor sao obrigatorios.",
+                )
+                return redirect("employees_page")
+
+            if characteristics_error:
+                messages.error(request, characteristics_error)
+                return redirect("employees_page")
+
+            if tipo == Employee.TYPE_DIRETO and not matricula:
+                messages.error(request, "Matricula e obrigatoria para empregado direto.")
+                return redirect("employees_page")
+
+            if matricula and Employee.objects.filter(matricula=matricula).exists():
+                messages.error(request, "Ja existe empregado com essa matricula.")
+                return redirect("employees_page")
+
+            cargo = active_cargos.filter(id=cargo_id).first()
+            if not cargo:
+                messages.error(request, "Selecione um cargo ativo valido.")
+                return redirect("employees_page")
+
+            sector = active_sectors.filter(id=sector_id).first()
+            if not sector:
+                messages.error(request, "Selecione um setor ativo valido.")
+                return redirect("employees_page")
+
+            work_schedule, schedule_error = _get_work_schedule_or_error(work_schedule_id)
+            if schedule_error:
+                messages.error(request, schedule_error)
+                return redirect("employees_page")
+
+            Employee.objects.create(
+                matricula=matricula or None,
+                nome_completo=nome_completo,
+                tipo=tipo,
+                regime_compensacao_jornada=regime_compensacao_jornada,
+                cargo=cargo,
+                sector=sector,
+                work_schedule=work_schedule,
+            )
+
+            messages.success(request, "Empregado cadastrado com sucesso.")
+            return redirect("employees_page")
+
+        employees = Employee.objects.select_related(
+            "cargo",
+            "sector__department__area",
+            "work_schedule",
+        ).order_by(
+            "deactivated_at",
+            "nome_completo",
+        )
+        active_count = employees.filter(deactivated_at__isnull=True).count()
+        inactive_count = employees.filter(deactivated_at__isnull=False).count()
+        participants_count = employees.filter(
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE
+        ).count()
+        unassigned_count = employees.filter(sector__isnull=True).count()
+        selected_sector_id = (request.GET.get("selected_sector") or "").strip()
+
+        return render(
+            request,
+            "employees.html",
+            {
+                "employees": employees,
+                "employees_count": employees.count(),
+                "active_count": active_count,
+                "inactive_count": inactive_count,
+                "participants_count": participants_count,
+                "active_sectors": active_sectors,
+                "active_cargos": active_cargos,
+                "work_schedules": work_schedules,
+                "all_sectors": all_sectors,
+                "unassigned_count": unassigned_count,
+                "employee_type_choices": Employee.TYPE_CHOICES,
+                "compensation_regime_choices": Employee.REGIME_COMPENSACAO_JORNADA_CHOICES,
+                "open_employee_modal": request.GET.get("open_employee_modal") == "1",
+                "open_sector_modal": request.GET.get("open_sector_modal") == "1",
+                "selected_sector_id": selected_sector_id,
+                "active_areas": active_areas,
+                "active_departments": active_departments,
+                "employee_import_errors": import_errors or [],
+                "employee_import_result_count": import_result_count,
+            },
+        )
+    except (OperationalError, ProgrammingError):
+        messages.error(
+            request,
+            (
+                "Banco de dados indisponivel ou sem estrutura inicial. "
+                "Vá em Configuracoes de banco para criar um novo .db do zero "
+                "ou informar o caminho de um banco existente."
+            ),
+        )
+        return redirect("database_settings_page")
 
 
 def _iterate_competence_months(start_date, end_date):
@@ -3879,16 +3895,16 @@ def employee_edit_page(request, employee_id):
         employee.matricula = matricula or None
         employee.nome_completo = nome_completo
         employee.tipo = tipo
-        employee.regime_compensacao_jornada = regime_compensacao_jornada
         employee.cargo = cargo
         employee.sector = sector
         employee.work_schedule = work_schedule
+        # Regime de compensacao nao e atualizado nesta tela.
+        # A mudanca deve ocorrer via registro de evento.
         employee.save(
             update_fields=[
                 "matricula",
                 "nome_completo",
                 "tipo",
-                "regime_compensacao_jornada",
                 "cargo",
                 "sector",
                 "work_schedule",
@@ -4525,8 +4541,23 @@ def database_settings_page(request):
         or os.getenv("DB_FILE_PATH", "")
         or default_db_path
     ).strip()
+    import_errors = request.session.pop("db_settings_employee_import_errors", None)
+    import_result_count = request.session.pop("db_settings_employee_import_result_count", None)
 
     if request.method == "POST":
+        form_type = (request.POST.get("form_type") or "").strip()
+        if form_type == "employee_import_csv_db_settings":
+            imported_count, errors = _import_employees_from_csv(request.FILES.get("csv_file"))
+            if errors:
+                request.session["db_settings_employee_import_errors"] = errors
+                request.session["db_settings_employee_import_result_count"] = imported_count
+            elif imported_count:
+                messages.success(
+                    request,
+                    f"Importacao concluida: {imported_count} empregado(s) importado(s).",
+                )
+            return redirect("database_settings_page")
+
         posted_mode = (request.POST.get("mode") or "").strip().lower()
         posted_db_file_path = (request.POST.get("db_file_path") or "").strip()
         wants_to_open_location = (request.POST.get("open_location") or "").strip() == "1"
@@ -4616,8 +4647,22 @@ def database_settings_page(request):
     context = {
         "database_mode": mode,
         "db_file_path": _portable_db_path_for_storage(db_file_path),
+        "employee_import_errors": import_errors or [],
+        "employee_import_result_count": import_result_count,
     }
     return render(request, "database_settings.html", context)
+
+
+def employees_csv_template_download(request):
+    csv_lines = [
+        "matricula,admissao,nome,setor,cargo,tipo",
+        "12345,14/05/2026,Joao da Silva,Usinagem,Operador,direto",
+        "99999,02/01/2026,Maria Souza,Logistica,Analista,indireto",
+    ]
+    content = "\n".join(csv_lines) + "\n"
+    response = HttpResponse(content, content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="modelo_importacao_empregados.csv"'
+    return response
 
 
 

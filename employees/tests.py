@@ -413,7 +413,7 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(employee.tipo, Employee.TYPE_INDIRETO)
         self.assertEqual(
             employee.regime_compensacao_jornada,
-            Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+            Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
         )
         self.assertEqual(employee.sector, sector_b)
         self.assertEqual(employee.work_schedule, work_schedule)

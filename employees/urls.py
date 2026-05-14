@@ -15,6 +15,7 @@ from .views import (
     cargo_edit_page,
     cargos_page,
     database_settings_page,
+    employees_csv_template_download,
     department_create,
     department_deactivate,
     department_activate,
@@ -82,4 +83,9 @@ urlpatterns = [
     path("setores/<int:sector_id>/ativar/", sector_activate, name="sector_activate"),
     path("escalas/", work_schedules_page, name="work_schedules_page"),
     path("configuracoes/banco/", database_settings_page, name="database_settings_page"),
+    path(
+        "configuracoes/banco/modelo-importacao-empregados.csv",
+        employees_csv_template_download,
+        name="employees_csv_template_download",
+    ),
 ]

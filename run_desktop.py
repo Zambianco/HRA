@@ -4,6 +4,8 @@ import threading
 import time
 import json
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -12,6 +14,12 @@ from urllib.request import urlopen
 
 import webview
 from django.core.management import execute_from_command_line
+
+
+REQUIRED_SQLITE_TABLES = {
+    "django_migrations",
+    "employees_employee",
+}
 
 
 def _wait_for_server(url: str, timeout_seconds: float = 20.0) -> None:
@@ -68,6 +76,59 @@ def _normalize_db_path(path_value: str, base_dir: Path, data_dir: Path) -> str:
     return str(resolved)
 
 
+def _sqlite_has_required_schema(db_file_path: str) -> bool:
+    target = Path(db_file_path).expanduser()
+    if not target.exists() or not target.is_file():
+        return False
+
+    try:
+        with sqlite3.connect(str(target)) as conn:
+            rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table';"
+            ).fetchall()
+    except sqlite3.Error:
+        return False
+
+    table_names = {str(row[0]) for row in rows if row and row[0]}
+    return REQUIRED_SQLITE_TABLES.issubset(table_names)
+
+
+def _run_migrate_for_sqlite(db_file_path: str, base_dir: Path) -> tuple[bool, str]:
+    db_target = Path(db_file_path).expanduser()
+    db_target.parent.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["DATABASE_MODE"] = "arquivo"
+    env["DB_FILE_PATH"] = str(db_target)
+    env.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+    completed = subprocess.run(
+        [sys.executable, "manage.py", "migrate", "--noinput"],
+        cwd=str(base_dir),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or "").strip() or (completed.stdout or "").strip()
+        return False, detail[:800]
+    return True, ""
+
+
+def _prompt_for_database_file(initial_dir: Path) -> str:
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        selected = filedialog.askopenfilename(
+            title="Selecione um arquivo de banco SQLite (.db)",
+            initialdir=str(initial_dir),
+            filetypes=[("SQLite DB", "*.db"), ("Todos os arquivos", "*.*")],
+        )
+    finally:
+        root.destroy()
+    return str(selected or "").strip()
+
+
 def _apply_database_mode_from_saved_config() -> None:
     base_dir = Path(__file__).resolve().parent
     data_dir = base_dir / "data"
@@ -95,6 +156,23 @@ def _apply_database_mode_from_saved_config() -> None:
             db_path = Path(db_file_path).expanduser()
             if db_path.exists() and _sqlite_has_required_schema(str(db_path)):
                 break
+
+            should_create = messagebox.askyesno(
+                "Banco de dados nao encontrado",
+                (
+                    "O arquivo de banco nao existe ou esta sem estrutura.\n\n"
+                    "Deseja criar um novo banco neste caminho e aplicar migrate agora?"
+                ),
+            )
+            if should_create:
+                created, error_detail = _run_migrate_for_sqlite(str(db_path), base_dir)
+                if created and _sqlite_has_required_schema(str(db_path)):
+                    break
+                messagebox.showerror(
+                    "Falha ao criar banco",
+                    "Nao foi possivel criar o banco com migrate.\n\n"
+                    f"Detalhe: {error_detail or 'erro desconhecido.'}",
+                )
 
             selected_db = _prompt_for_database_file(initial_dir=data_dir)
             if not selected_db:

@@ -222,12 +222,14 @@
               <label for="regime_compensacao_jornada" class="form-label fw-semibold">Regime de compensação</label>
               <div class="input-group">
                 <span class="input-group-text bg-transparent"><i class="bi bi-hourglass-split text-muted"></i></span>
-                <select id="regime_compensacao_jornada" name="regime_compensacao_jornada" class="form-select" required>
+                <select id="regime_compensacao_jornada" class="form-select" disabled>
                   {% for regime_value, regime_label in compensation_regime_choices %}
                     <option value="{{ regime_value }}" {% if employee.regime_compensacao_jornada == regime_value %}selected{% endif %}>{{ regime_label }}</option>
                   {% endfor %}
                 </select>
               </div>
+              <input type="hidden" name="regime_compensacao_jornada" value="{{ employee.regime_compensacao_jornada }}">
+              <small class="inline-note">A alteração do regime deve ser feita por registro de evento.</small>
             </div>
           </div>
         </div>
