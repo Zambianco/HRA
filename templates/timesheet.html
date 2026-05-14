@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
 
 {% block title %}Timesheet{% endblock %}
@@ -254,7 +254,7 @@
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">InÃ­cio</a></li>
           <li class="breadcrumb-item active" aria-current="page">Timesheet</li>
         </ol>
       </nav>
@@ -264,7 +264,7 @@
   <div class="row mb-4">
     <div class="col-lg-8">
       <h1 class="fw-bold text-primary mb-1">Timesheet Mensal</h1>
-      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mês de competência.</p>
+      <p class="text-muted mb-2">Lance o compilado mensal para todos os empregados por mÃªs de competÃªncia.</p>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
@@ -278,7 +278,7 @@
     <div class="col-lg-4 mt-3 mt-lg-0">
       <form id="timesheet-month-form" method="get" class="d-flex gap-2 justify-content-lg-end align-items-end mb-2">
         <div class="me-1">
-          <label for="competence_month" class="form-label fw-semibold mb-1">Mês de competência</label>
+          <label for="competence_month" class="form-label fw-semibold mb-1">MÃªs de competÃªncia</label>
           <input
             id="competence_month"
             name="competence_month"
@@ -310,7 +310,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-journal-check me-1"></i>Com lançamento
+            <i class="bi bi-journal-check me-1"></i>Com lanÃ§amento
           </h6>
           <h5 class="card-title fw-bold text-success mb-0">{{ registered_employees_count }}</h5>
         </div>
@@ -348,7 +348,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-stopwatch me-1"></i>Horas lançadas
+            <i class="bi bi-stopwatch me-1"></i>Horas lanÃ§adas
           </h6>
           <h5
             class="card-title fw-bold text-dark mb-0 timesheet-total"
@@ -376,7 +376,7 @@
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted">
-            <i class="bi bi-person-x me-1"></i>Ausências
+            <i class="bi bi-person-x me-1"></i>AusÃªncias
           </h6>
           <h5
             class="card-title fw-bold text-danger mb-0 timesheet-total"
@@ -393,7 +393,7 @@
       <div>
         <h5 class="fw-semibold mb-0 print-title">Tabela mensal de timesheet</h5>
         <p class="print-subtitle print-only mb-0">
-          Competência {{ selected_competence_month }} · {% if is_month_closed %}Mês encerrado{% else %}Mês aberto{% endif %}
+          CompetÃªncia {{ selected_competence_month }} Â· {% if is_month_closed %}MÃªs encerrado{% else %}MÃªs aberto{% endif %}
         </p>
       </div>
       <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
@@ -423,13 +423,32 @@
         >
           <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
         </button>
+        {% if not is_month_closed %}
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-dark no-print"
+            data-bs-toggle="modal"
+            data-bs-target="#timesheet-import-modal"
+          >
+            <i class="bi bi-upload me-1"></i>Importar espelho ponto
+          </button>
+          {% if timesheet_import_preview and timesheet_import_preview.rows %}
+            <form method="post" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="competence_month" value="{{ selected_competence_month }}" />
+              <button type="submit" name="action" value="confirm_import_timesheet" class="btn btn-sm btn-primary no-print">
+                <i class="bi bi-check2-circle me-1"></i>Confirmar importacao pendente
+              </button>
+            </form>
+          {% endif %}
+        {% endif %}
         <span class="badge text-bg-light border">
           Competencia: {{ selected_competence_month }}
         </span>
         {% if is_month_closed %}
-          <span class="badge text-bg-danger">Mês encerrado</span>
+          <span class="badge text-bg-danger">MÃªs encerrado</span>
         {% else %}
-          <span class="badge text-bg-success">Mês aberto</span>
+          <span class="badge text-bg-success">MÃªs aberto</span>
         {% endif %}
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted">Exibicao</span>
@@ -457,14 +476,14 @@
       <div class="card-body p-0">
         {% if is_month_closed %}
           <div class="alert alert-warning rounded-0 border-0 border-bottom mb-0 px-3 py-2">
-            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mês de competência. Para alterar os lançamentos, reabra o mês.
+            <i class="bi bi-lock-fill me-1"></i>Timesheet encerrado para este mÃªs de competÃªncia. Para alterar os lanÃ§amentos, reabra o mÃªs.
           </div>
         {% endif %}
         <div class="point-sheet-wrapper">
           <table id="timesheet-table" class="point-sheet mb-0">
             <thead class="table-light">
               <tr>
-                <th class="sticky-col-1">Matrícula</th>
+                <th class="sticky-col-1">MatrÃ­cula</th>
                 <th class="sticky-col-2">Empregado</th>
                 <th style="min-width: 129px;">Previstas</th>
                 <th style="min-width: 129px;">Lan&ccedil;adas</th>
@@ -498,7 +517,7 @@
                   <span class="badge text-bg-secondary">Total</span>
                 </td>
                 <td class="meta-cell sticky-col-2">
-                  <div class="fw-semibold">Totais da competência</div>
+                  <div class="fw-semibold">Totais da competÃªncia</div>
                 </td>
                 <td class="meta-cell text-start">
                   <span class="fw-bold timesheet-total" data-minutes="{{ total_expected_minutes }}" data-total-target="expected"></span>
@@ -554,7 +573,7 @@
                       data-col="0"
                       data-minutes-field="regular_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
                       value=""
                     />
                     <input
@@ -572,7 +591,7 @@
                       data-col="1"
                       data-minutes-field="overtime_60_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
                       value=""
                     />
                     <input
@@ -590,7 +609,7 @@
                       data-col="2"
                       data-minutes-field="overtime_100_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
                       value=""
                     />
                     <input
@@ -608,7 +627,7 @@
                       data-col="3"
                       data-minutes-field="absence_unexcused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
                       value=""
                     />
                     <input
@@ -626,7 +645,7 @@
                       data-col="4"
                       data-minutes-field="absence_excused_minutes_{{ row.employee.id }}"
                       autocomplete="off"
-                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competência"{% endif %}
+                      {% if is_month_closed %}disabled tabindex="-1" title="Timesheet encerrado para esta competÃªncia"{% endif %}
                       value=""
                     />
                     <input
@@ -656,7 +675,7 @@
                     />
                     {% if row.employee.regime_compensacao_jornada != "participante" %}
                       <div class="bank-disabled-chip">
-                        <i class="bi bi-lock-fill"></i>Não participante
+                        <i class="bi bi-lock-fill"></i>NÃ£o participante
                       </div>
                     {% endif %}
                     <input
@@ -679,16 +698,16 @@
       </div>
       <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <small class="text-muted mb-0">
-          Linhas sem valores e sem observacao sao removidas da competência ao salvar.
+          Linhas sem valores e sem observacao sao removidas da competÃªncia ao salvar.
         </small>
         <div class="d-flex align-items-center gap-2">
           {% if is_month_closed %}
             <button type="submit" class="btn btn-outline-warning" name="action" value="reopen_month">
-              <i class="bi bi-unlock me-1"></i>Reabrir mês
+              <i class="bi bi-unlock me-1"></i>Reabrir mÃªs
             </button>
           {% else %}
-            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mês de competência Apos encerrar, alterações ficarao bloqueadas até reabertura.')">
-              <i class="bi bi-lock me-1"></i>Encerrar mês
+            <button type="submit" class="btn btn-outline-danger" name="action" value="close_month" onclick="return confirm('Deseja encerrar este mÃªs de competÃªncia Apos encerrar, alteraÃ§Ãµes ficarao bloqueadas atÃ© reabertura.')">
+              <i class="bi bi-lock me-1"></i>Encerrar mÃªs
             </button>
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-save me-1"></i>Salvar compilado mensal
@@ -705,6 +724,72 @@
       {% endif %}
     </form>
   </div>
+
+  {% if timesheet_import_preview %}
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Resumo da importacao do espelho ponto</h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">
+          Linhas validas: <strong>{{ timesheet_import_preview.rows|length }}</strong> ·
+          Linhas com problema: <strong>{{ timesheet_import_preview.skipped_rows|length }}</strong>
+        </p>
+        {% if timesheet_import_preview.warnings %}
+          <div class="alert alert-warning py-2 mb-2">
+            {% for warning in timesheet_import_preview.warnings|slice:":10" %}
+              <div>{{ warning }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if timesheet_import_preview.skipped_rows %}
+          <div class="alert alert-danger py-2 mb-3">
+            {% for row in timesheet_import_preview.skipped_rows|slice:":10" %}
+              <div>
+                Matricula {{ row.registration }}: {{ row.issues|join:", " }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if timesheet_import_preview.rows %}
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="competence_month" value="{{ selected_competence_month }}" />
+            <button type="submit" name="action" value="confirm_import_timesheet" class="btn btn-primary">
+              <i class="bi bi-check2-circle me-1"></i>Confirmar importacao para o timesheet
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not is_month_closed %}
+    <div class="modal fade" id="timesheet-import-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="competence_month" value="{{ selected_competence_month }}" />
+            <div class="modal-header">
+              <h5 class="modal-title">Importar espelho ponto</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+              <p class="text-muted mb-2">Selecione o arquivo <code>.xlsx</code> para pre-validacao.</p>
+              <input type="file" class="form-control" name="timesheet_import_file" accept=".xlsx" required />
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary" name="action" value="preview_import_timesheet">
+                <i class="bi bi-search me-1"></i>Validar arquivo
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endif %}
   </section>
 
   {% with print_title="Relatorio de Timesheet" print_subtitle="Consolidado mensal do timesheet por empregado" print_meta_label="Competencia" print_meta_value=selected_competence_month print_body_template="prints/partials/timesheet_print_body.html" print_footer_left="Documento gerado pelo modulo de timesheet." print_footer_right="FIM DO RELATORIO" %}
@@ -1266,7 +1351,7 @@
         if (!trimmed) return { ok: true, empty: true, minutes: 0 };
 
         if (!/^[0-9+\-*/().,:\s]+$/.test(trimmed)) {
-          return { ok: false, error: "Use apenas números e operadores matematicos." };
+          return { ok: false, error: "Use apenas nÃºmeros e operadores matematicos." };
         }
 
         const compact = trimmed.replace(/\s+/g, "");
@@ -1288,14 +1373,14 @@
           try {
             resultMinutes = Function('"use strict"; return (' + normalized + ");")();
           } catch (error) {
-            return { ok: false, error: "ExpressÃ£o invalida." };
+            return { ok: false, error: "ExpressÃƒÂ£o invalida." };
           }
 
           if (typeof resultMinutes !== "number" || !Number.isFinite(resultMinutes)) {
-            return { ok: false, error: "ExpressÃ£o invalida." };
+            return { ok: false, error: "ExpressÃƒÂ£o invalida." };
           }
           if (resultMinutes < 0) {
-            return { ok: false, error: "O resultado nÃ£o pode ser negativo." };
+            return { ok: false, error: "O resultado nÃƒÂ£o pode ser negativo." };
           }
           if (resultMinutes > 59999) {
             return { ok: false, error: "O resultado deve ser no maximo 59999 minutos." };
@@ -1339,7 +1424,7 @@
           }
 
           if (normalized.includes(",")) {
-            return { ok: false, error: "Formato HH:MM inválido." };
+            return { ok: false, error: "Formato HH:MM invÃ¡lido." };
           }
         } else {
           normalized = normalized.replace(/,/g, ".");
@@ -1356,22 +1441,22 @@
         );
 
         if (expression.includes(":")) {
-          return { ok: false, error: "Formato HH:MM inválido." };
+          return { ok: false, error: "Formato HH:MM invÃ¡lido." };
         }
 
         let result;
         try {
           result = Function('"use strict"; return (' + expression + ");")();
         } catch (error) {
-          return { ok: false, error: "Expressão invalida." };
+          return { ok: false, error: "ExpressÃ£o invalida." };
         }
 
         if (typeof result !== "number" || !Number.isFinite(result)) {
-          return { ok: false, error: "Expressão invalida." };
+          return { ok: false, error: "ExpressÃ£o invalida." };
         }
 
         if (result < 0) {
-          return { ok: false, error: "O resultado não pode ser negativo." };
+          return { ok: false, error: "O resultado nÃ£o pode ser negativo." };
         }
 
         if (result > 999.99) {
@@ -1406,7 +1491,7 @@
           return true;
         }
 
-        markInvalid(input, evaluated.error || "Valor inválido.");
+        markInvalid(input, evaluated.error || "Valor invÃ¡lido.");
         if (useFallbackValue) {
           const fallbackMinutes = Number(input.dataset.lastMinutes || hiddenInput.value || "0");
           const safeFallbackMinutes = Number.isFinite(fallbackMinutes)
@@ -1678,6 +1763,9 @@
     })();
   </script>
 {% endblock %}
+
+
+
 
 
 

@@ -1,7 +1,7 @@
-from calendar import monthrange
+﻿from calendar import monthrange
 from urllib.parse import urlencode
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 import csv
 import ast
 import io
@@ -13,7 +13,7 @@ import sys
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
-
+from openpyxl import load_workbook
 from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
@@ -325,6 +325,200 @@ def _parse_non_negative_minutes(raw_value, field_label):
     return value, None
 
 
+
+def _time_value_to_decimal_hours(value):
+    if value is None or value == "":
+        return 0.0
+
+    if isinstance(value, timedelta):
+        return round(value.total_seconds() / 3600, 2)
+
+    if isinstance(value, time):
+        return round(value.hour + (value.minute / 60) + (value.second / 3600), 2)
+
+    if isinstance(value, datetime):
+        return round(value.hour + (value.minute / 60) + (value.second / 3600), 2)
+
+    raw = str(value).strip()
+    if not raw:
+        return 0.0
+
+    if "day" in raw:
+        day_parts = raw.split(",")
+        days = int(day_parts[0].split()[0])
+        hour_text = day_parts[1].strip() if len(day_parts) > 1 else "0:00:00"
+        h, m, s = map(int, hour_text.split(":"))
+        return round((days * 24) + h + (m / 60) + (s / 3600), 2)
+
+    parts = raw.split(":")
+    h = int(parts[0])
+    m = int(parts[1]) if len(parts) > 1 else 0
+    s = int(parts[2]) if len(parts) > 2 else 0
+    return round(h + (m / 60) + (s / 3600), 2)
+
+
+def _decimal_hours_to_minutes(hours_value):
+    return int(round(Decimal(str(hours_value)) * Decimal("60")))
+
+
+
+def _parse_point_sheet_header_period(raw_text):
+    text = (str(raw_text or "")).strip()
+    if not text:
+        return None, None, "Cabecalho A2 vazio: informe periodo no formato De: DD/MM/AAAA ate DD/MM/AAAA."
+
+    match = re.search(r"de\s*:\s*(\d{2}/\d{2}/\d{4})\s*at[eé]\s*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
+    if not match:
+        return None, None, "Nao foi possivel ler o periodo em A2. Formato esperado: De: DD/MM/AAAA ate DD/MM/AAAA."
+
+    try:
+        start_date = datetime.strptime(match.group(1), "%d/%m/%Y").date()
+        end_date = datetime.strptime(match.group(2), "%d/%m/%Y").date()
+    except ValueError:
+        return None, None, "Periodo em A2 invalido."
+
+    if end_date < start_date:
+        return None, None, "Periodo em A2 invalido: data final menor que inicial."
+
+    return start_date, end_date, None
+def _build_timesheet_import_preview(uploaded_file, competence_month):
+    if not uploaded_file:
+        return None, ["Selecione um arquivo XLSX para importar."], []
+
+    file_name = (uploaded_file.name or "").lower()
+    if not file_name.endswith(".xlsx"):
+        return None, ["Formato invalido. Envie um arquivo .xlsx."], []
+
+    try:
+        workbook = load_workbook(uploaded_file, data_only=True)
+    except Exception as exc:
+        return None, [f"Nao foi possivel ler o arquivo XLSX: {exc}"], []
+
+    first_sheet = workbook.worksheets[0] if workbook.worksheets else None
+    if not first_sheet:
+        return None, ["Arquivo XLSX sem abas para importacao."], []
+
+    period_start, period_end, period_error = _parse_point_sheet_header_period(first_sheet["A2"].value)
+    if period_error:
+        return None, [period_error], []
+
+    expected_start, expected_end = _get_month_date_range(competence_month)
+    if period_start != expected_start or period_end != expected_end:
+        return None, [
+            (
+                "Periodo do espelho ponto diferente do mes selecionado. "
+                f"Arquivo: {period_start.strftime('%d/%m/%Y')} ate {period_end.strftime('%d/%m/%Y')}. "
+                f"Competencia: {expected_start.strftime('%d/%m/%Y')} ate {expected_end.strftime('%d/%m/%Y')}."
+            )
+        ], []
+
+    aggregated_by_registration = defaultdict(
+        lambda: {
+            "regular_minutes": 0,
+            "overtime_60_minutes": 0,
+            "overtime_100_minutes": 0,
+            "absence_unexcused_minutes": 0,
+            "absence_excused_minutes": 0,
+        }
+    )
+    warnings = []
+    hard_errors = []
+
+    for sheet in workbook.worksheets:
+        registration = None
+        for row in range(1, sheet.max_row + 1):
+            value_a = sheet[f"A{row}"].value
+            value_a = str(value_a).strip() if value_a else ""
+
+            if value_a == "Nº Folha":
+                registration = (sheet[f"B{row}"].value or "")
+                registration = str(registration).strip()
+                continue
+
+            if value_a != "Data":
+                continue
+
+            if not registration:
+                warnings.append(
+                    f'Aba "{sheet.title}" linha {row}: bloco sem matricula em "Nº Folha".'
+                )
+                continue
+
+            values_row = row + 1
+            try:
+                normal_b = _time_value_to_decimal_hours(sheet[f"B{values_row}"].value)
+                normal_g = _time_value_to_decimal_hours(sheet[f"G{values_row}"].value)
+                absence_unexcused = _time_value_to_decimal_hours(sheet[f"C{values_row}"].value)
+                overtime_60_d = _time_value_to_decimal_hours(sheet[f"D{values_row}"].value)
+                overtime_60_f = _time_value_to_decimal_hours(sheet[f"F{values_row}"].value)
+                overtime_100 = _time_value_to_decimal_hours(sheet[f"E{values_row}"].value)
+                absence_excused = _time_value_to_decimal_hours(sheet[f"G{values_row}"].value)
+            except Exception as exc:
+                warnings.append(
+                    f'Aba "{sheet.title}" linha {values_row}: valor invalido ({exc}).'
+                )
+                continue
+
+            regular_hours = normal_b - normal_g
+            overtime_60_hours = overtime_60_d + overtime_60_f
+
+            entry = aggregated_by_registration[registration]
+            entry["regular_minutes"] += _decimal_hours_to_minutes(regular_hours)
+            entry["overtime_60_minutes"] += _decimal_hours_to_minutes(overtime_60_hours)
+            entry["overtime_100_minutes"] += _decimal_hours_to_minutes(overtime_100)
+            entry["absence_unexcused_minutes"] += _decimal_hours_to_minutes(absence_unexcused)
+            entry["absence_excused_minutes"] += _decimal_hours_to_minutes(absence_excused)
+
+    if not aggregated_by_registration:
+        return None, ["Nenhum bloco de horas valido foi encontrado no arquivo."], warnings
+
+    employees_by_registration = {
+        str(employee.matricula).strip(): employee
+        for employee in Employee.objects.filter(deactivated_at__isnull=True)
+        if str(employee.matricula or "").strip()
+    }
+    preview_rows = []
+    skipped_rows = []
+    for registration, values in aggregated_by_registration.items():
+        issues = []
+        employee = employees_by_registration.get(registration)
+        if not employee:
+            issues.append("matricula nao encontrada entre empregados ativos")
+
+        for field_name, field_label in TIME_ENTRY_MINUTE_FIELDS:
+            if field_name == "absence_bank_minutes":
+                continue
+            value = values[field_name]
+            _, value_error = _parse_non_negative_minutes(str(value), field_label)
+            if value_error:
+                issues.append(value_error)
+
+        row_payload = {
+            "registration": registration,
+            "employee_id": employee.id if employee else None,
+            "employee_name": employee.nome_completo if employee else "",
+            "regular_minutes": values["regular_minutes"],
+            "overtime_60_minutes": values["overtime_60_minutes"],
+            "overtime_100_minutes": values["overtime_100_minutes"],
+            "absence_unexcused_minutes": values["absence_unexcused_minutes"],
+            "absence_excused_minutes": values["absence_excused_minutes"],
+            "issues": issues,
+        }
+        if issues:
+            skipped_rows.append(row_payload)
+        else:
+            preview_rows.append(row_payload)
+
+    if not preview_rows:
+        hard_errors.append("Nenhuma linha valida para importacao apos validacao.")
+
+    preview = {
+        "rows": preview_rows,
+        "skipped_rows": skipped_rows,
+        "warnings": warnings,
+        "hard_errors": hard_errors,
+    }
+    return preview, hard_errors, warnings
 def _resolve_competence_month(raw_value):
     normalized = (raw_value or "").strip()
     if not normalized:
@@ -1494,6 +1688,106 @@ def timesheet_page(request):
                 _timesheet_redirect_with_filters(competence_month=competence_month_value)
             )
 
+        if action == "preview_import_timesheet":
+            preview, hard_errors, warnings = _build_timesheet_import_preview(
+                request.FILES.get("timesheet_import_file"),
+                competence_month,
+            )
+            if preview:
+                request.session["timesheet_import_preview"] = {
+                    "competence_month": competence_month_value,
+                    "rows": preview["rows"],
+                    "skipped_rows": preview["skipped_rows"],
+                    "warnings": preview["warnings"],
+                    "hard_errors": preview["hard_errors"],
+                }
+            if hard_errors:
+                messages.error(request, "Importacao com erro: " + " | ".join(hard_errors[:3]))
+            elif warnings or (preview and preview["skipped_rows"]):
+                messages.warning(request, "Arquivo lido com alertas. Revise o resumo da importacao antes de confirmar.")
+            else:
+                messages.success(request, "Arquivo validado. Pronto para confirmar a importacao no timesheet.")
+            return redirect(
+                _timesheet_redirect_with_filters(competence_month=competence_month_value)
+            )
+
+        if action == "confirm_import_timesheet":
+            preview_data = request.session.get("timesheet_import_preview") or {}
+            if preview_data.get("competence_month") != competence_month_value:
+                messages.error(request, "Nao existe pre-validacao para este mes. Reimporte o arquivo.")
+                return redirect(
+                    _timesheet_redirect_with_filters(competence_month=competence_month_value)
+                )
+
+            if TimesheetMonthClosure.objects.filter(competence_month=competence_month).exists():
+                messages.error(
+                    request,
+                    f"O timesheet de {competence_month_label} esta encerrado. Reabra o mes para importar.",
+                )
+                return redirect(
+                    _timesheet_redirect_with_filters(competence_month=competence_month_value)
+                )
+
+            is_bank_hours_column_locked = _is_month_locked_by_bank_hours_semester_closure(
+                competence_month
+            )
+            entries_in_month = {
+                entry.employee_id: entry
+                for entry in EmployeeTimeEntry.objects.filter(
+                    competence_month=competence_month
+                ).select_related("employee")
+            }
+            employee_by_id = {employee.id: employee for employee in employees}
+            imported_count = 0
+            for row in preview_data.get("rows", []):
+                employee_id = row.get("employee_id")
+                if not employee_id:
+                    continue
+                employee = employee_by_id.get(employee_id)
+                if not employee:
+                    continue
+
+                existing_entry = entries_in_month.get(employee.id)
+                defaults = {
+                    "regular_minutes": int(row.get("regular_minutes") or 0),
+                    "overtime_60_minutes": int(row.get("overtime_60_minutes") or 0),
+                    "overtime_100_minutes": int(row.get("overtime_100_minutes") or 0),
+                    "absence_unexcused_minutes": int(row.get("absence_unexcused_minutes") or 0),
+                    "absence_excused_minutes": int(row.get("absence_excused_minutes") or 0),
+                    "absence_bank_minutes": (
+                        existing_entry.absence_bank_minutes if existing_entry else 0
+                    ),
+                    "notes": existing_entry.notes if existing_entry else "",
+                }
+                if (
+                    employee.regime_compensacao_jornada
+                    != Employee.REGIME_COMPENSACAO_PARTICIPANTE
+                ):
+                    defaults["absence_bank_minutes"] = 0
+                if (
+                    is_bank_hours_column_locked
+                    and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE
+                    and existing_entry
+                ):
+                    defaults["absence_bank_minutes"] = existing_entry.absence_bank_minutes
+
+                has_content = any(
+                    defaults[field_name] > 0
+                    for field_name, _ in TIME_ENTRY_MINUTE_FIELDS
+                ) or defaults["notes"]
+                if has_content:
+                    EmployeeTimeEntry.objects.update_or_create(
+                        employee=employee,
+                        competence_month=competence_month,
+                        defaults=defaults,
+                    )
+                    imported_count += 1
+
+            request.session.pop("timesheet_import_preview", None)
+            messages.success(request, f"Importacao concluida para {imported_count} empregado(s).")
+            return redirect(
+                _timesheet_redirect_with_filters(competence_month=competence_month_value)
+            )
         if TimesheetMonthClosure.objects.filter(competence_month=competence_month).exists():
             messages.error(
                 request,
@@ -1592,6 +1886,7 @@ def timesheet_page(request):
     is_month_locked_by_bank_hours_closure = _is_month_locked_by_bank_hours_semester_closure(
         competence_month
     )
+    timesheet_import_preview = request.session.get("timesheet_import_preview", None)
 
     month_entries = EmployeeTimeEntry.objects.select_related("employee").filter(
         competence_month=competence_month
@@ -1694,6 +1989,7 @@ def timesheet_page(request):
             "total_absence_bank_minutes": total_absence_bank_minutes,
             "total_absence_minutes": total_absence_minutes,
             "total_expected_minutes": total_expected_minutes,
+            "timesheet_import_preview": timesheet_import_preview,
         },
     )
 
@@ -3754,6 +4050,21 @@ def database_settings_page(request):
         "db_file_path": _portable_db_path_for_storage(db_file_path),
     }
     return render(request, "database_settings.html", context)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

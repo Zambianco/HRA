@@ -1,2 +1,4 @@
-Django>=5.2,<6.0
+﻿Django>=5.2,<6.0
 pywebview>=5.1,<6.0
+openpyxl>=3.1,<4.0
+
