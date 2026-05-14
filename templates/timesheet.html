@@ -116,6 +116,17 @@
       outline-offset: -2px;
       background: #e8f0fe !important;
     }
+    .point-sheet td.is-selected {
+      background: #eef4ff !important;
+      box-shadow: inset 0 0 0 1px #c7d7ff;
+    }
+    .point-sheet td.selection-head {
+      position: relative;
+      outline: 2px solid #4f8cf7;
+      outline-offset: -2px;
+      box-shadow: inset 0 0 0 1px #9ebcfb;
+      z-index: 2;
+    }
 
     .point-sheet tr.row-active td {
       background: #f4f8ff !important;
@@ -931,6 +942,13 @@
           input.dataset.lastText = input.value || "";
         }
       });
+      let selectedInputs = [];
+      let selectionAnchor = null;
+      let selectionFocus = null;
+      let isMouseSelecting = false;
+      let preserveSelectionOnFocus = false;
+      const undoStack = [];
+      const maxUndoSteps = 120;
 
       const numericInputsByTotalKey = {
         regular: numericInputs.filter(function (input) {
@@ -1042,6 +1060,214 @@
         });
       }
 
+      function clearSelectionStates() {
+        document.querySelectorAll(".point-sheet td.is-selected").forEach(function (cell) {
+          cell.classList.remove("is-selected");
+        });
+        document.querySelectorAll(".point-sheet td.selection-head").forEach(function (cell) {
+          cell.classList.remove("selection-head");
+        });
+      }
+
+      function compareInputsByPosition(a, b) {
+        const rowA = Number(a.dataset.row || "0");
+        const rowB = Number(b.dataset.row || "0");
+        if (rowA !== rowB) return rowA - rowB;
+        return Number(a.dataset.col || "0") - Number(b.dataset.col || "0");
+      }
+
+      function selectRange(anchorInput, focusInput) {
+        if (!anchorInput || !focusInput) return;
+        const minRow = Math.min(Number(anchorInput.dataset.row), Number(focusInput.dataset.row));
+        const maxRow = Math.max(Number(anchorInput.dataset.row), Number(focusInput.dataset.row));
+        const minCol = Math.min(Number(anchorInput.dataset.col), Number(focusInput.dataset.col));
+        const maxCol = Math.max(Number(anchorInput.dataset.col), Number(focusInput.dataset.col));
+
+        clearSelectionStates();
+        selectedInputs = inputs.filter(function (input) {
+          if (input.disabled) return false;
+          const row = Number(input.dataset.row);
+          const col = Number(input.dataset.col);
+          return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+        });
+        selectedInputs.sort(compareInputsByPosition);
+        selectedInputs.forEach(function (input) {
+          const cell = input.closest("td");
+          if (cell) cell.classList.add("is-selected");
+        });
+        const headCell = focusInput.closest("td");
+        if (headCell) headCell.classList.add("selection-head");
+      }
+
+      function setSelection(anchorInput, focusInput) {
+        selectionAnchor = anchorInput || null;
+        selectionFocus = focusInput || null;
+        if (!selectionAnchor || !selectionFocus) {
+          selectedInputs = [];
+          clearSelectionStates();
+          return;
+        }
+        selectRange(selectionAnchor, selectionFocus);
+      }
+
+      function getCanonicalCellValue(input) {
+        if (input.classList.contains("sheet-number")) {
+          return String(safeHiddenMinutes(input));
+        }
+        return input.value || "";
+      }
+
+      function snapshotCells(cellInputs) {
+        return cellInputs.map(function (input) {
+          return { input: input, value: getCanonicalCellValue(input) };
+        });
+      }
+
+      function pushUndoSnapshot(beforeSnapshot, afterSnapshot) {
+        const beforeMap = new Map();
+        beforeSnapshot.forEach(function (entry) {
+          beforeMap.set(entry.input, entry.value);
+        });
+        const changes = [];
+        afterSnapshot.forEach(function (entry) {
+          const beforeValue = beforeMap.get(entry.input);
+          if (beforeValue === undefined || beforeValue === entry.value) return;
+          changes.push({ input: entry.input, previous: beforeValue, next: entry.value });
+        });
+        if (!changes.length) return;
+        undoStack.push(changes);
+        if (undoStack.length > maxUndoSteps) {
+          undoStack.shift();
+        }
+      }
+
+      function applyCanonicalValue(input, canonicalValue) {
+        if (input.classList.contains("sheet-number")) {
+          const hiddenInput = document.getElementById(input.dataset.minutesField);
+          const rawMinutes = Number(canonicalValue || "0");
+          const safeMinutes = Number.isFinite(rawMinutes) ? Math.max(0, Math.round(rawMinutes)) : 0;
+          if (hiddenInput) {
+            hiddenInput.value = String(safeMinutes);
+          }
+          input.dataset.lastMinutes = String(safeMinutes);
+          clearInvalid(input);
+          renderNumericInput(input);
+          return;
+        }
+        input.value = canonicalValue || "";
+        input.dataset.lastText = input.value;
+      }
+
+      function undoLastChange() {
+        const lastChange = undoStack.pop();
+        if (!lastChange || !lastChange.length) return;
+        lastChange.forEach(function (entry) {
+          if (!entry || !entry.input || entry.input.disabled) return;
+          applyCanonicalValue(entry.input, entry.previous);
+        });
+        recalculateCompetenceTotals();
+      }
+
+      function copySelectionToClipboard() {
+        if (!selectedInputs.length) return;
+        const rows = new Map();
+        selectedInputs.forEach(function (input) {
+          const row = Number(input.dataset.row);
+          const col = Number(input.dataset.col);
+          if (!rows.has(row)) rows.set(row, new Map());
+          rows.get(row).set(col, input.value || "");
+        });
+
+        const rowKeys = Array.from(rows.keys()).sort(function (a, b) {
+          return a - b;
+        });
+        const clipboardText = rowKeys
+          .map(function (rowKey) {
+            const cols = rows.get(rowKey);
+            const colKeys = Array.from(cols.keys()).sort(function (a, b) {
+              return a - b;
+            });
+            return colKeys.map(function (colKey) { return cols.get(colKey); }).join("\t");
+          })
+          .join("\n");
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(clipboardText).catch(function () {});
+          return;
+        }
+        const temp = document.createElement("textarea");
+        temp.value = clipboardText;
+        document.body.appendChild(temp);
+        temp.select();
+        try {
+          document.execCommand("copy");
+        } catch (error) {}
+        document.body.removeChild(temp);
+      }
+
+      function applyValueToInput(input, rawValue) {
+        if (!input || input.disabled) return;
+        input.value = (rawValue || "").trim();
+        if (input.classList.contains("sheet-number")) {
+          input.value = input.value.replace(/[^0-9+\-*/().,:\s]/g, "");
+          normalizeNumericInput(input, true, true);
+          return;
+        }
+        input.dataset.lastText = input.value || "";
+      }
+
+      function getSelectionTopLeftInput() {
+        if (!selectedInputs.length) return null;
+        const sorted = selectedInputs.slice().sort(compareInputsByPosition);
+        return sorted[0] || null;
+      }
+
+      function pasteIntoSelection(rawText, fallbackInput) {
+        const text = (rawText || "").replace(/\r/g, "");
+        if (!text) return;
+        const rows = text
+          .split("\n")
+          .filter(function (line, index, arr) {
+            return !(index === arr.length - 1 && line === "");
+          });
+        if (!rows.length) return;
+
+        const hasMatrix = rows.length > 1 || rows[0].includes("\t");
+        const activeSelection = selectedInputs.length ? selectedInputs.slice() : [];
+        const beforeSnapshot = snapshotCells(
+          activeSelection.length ? activeSelection : [fallbackInput].filter(Boolean)
+        );
+
+        if (activeSelection.length > 1 && !hasMatrix) {
+          activeSelection.forEach(function (input) {
+            applyValueToInput(input, rows[0]);
+          });
+          recalculateCompetenceTotals();
+          pushUndoSnapshot(beforeSnapshot, snapshotCells(activeSelection));
+          return;
+        }
+
+        const startInput = getSelectionTopLeftInput() || fallbackInput;
+        if (!startInput) return;
+
+        const affectedInputs = [];
+        const startRow = Number(startInput.dataset.row);
+        const startCol = Number(startInput.dataset.col);
+        rows.forEach(function (line, rowOffset) {
+          line.split("\t").forEach(function (value, colOffset) {
+            const target = inputByCell.get(
+              String(startRow + rowOffset) + ":" + String(startCol + colOffset)
+            );
+            if (!target || target.disabled) return;
+            affectedInputs.push(target);
+            applyValueToInput(target, value);
+          });
+        });
+
+        recalculateCompetenceTotals();
+        pushUndoSnapshot(beforeSnapshot, snapshotCells(affectedInputs));
+      }
+
       function activateCell(input) {
         clearActiveStates();
         const cell = input.closest("td");
@@ -1056,6 +1282,9 @@
           .forEach(function (cellItem) {
             cellItem.classList.add("col-active");
           });
+        if (!preserveSelectionOnFocus) {
+          setSelection(input, input);
+        }
       }
 
       function moveFocus(current, rowDelta, colDelta) {
@@ -1076,6 +1305,49 @@
           return true;
         }
         return false;
+      }
+
+      function getNextInputByDirection(current, rowDelta, colDelta, jumpToEdge) {
+        let row = Number(current.dataset.row);
+        let col = Number(current.dataset.col);
+        let attempts = 0;
+        let lastEnabled = null;
+
+        while (attempts < 400) {
+          row += rowDelta;
+          col += colDelta;
+          const target = inputByCell.get(String(row) + ":" + String(col));
+          if (!target) {
+            return jumpToEdge ? lastEnabled : null;
+          }
+          if (!target.disabled) {
+            if (!jumpToEdge) return target;
+            lastEnabled = target;
+          }
+          attempts += 1;
+        }
+
+        return jumpToEdge ? lastEnabled : null;
+      }
+
+      function focusByArrow(current, rowDelta, colDelta, options) {
+        const jumpToEdge = options && options.jumpToEdge;
+        const extendSelection = options && options.extendSelection;
+        const target = getNextInputByDirection(current, rowDelta, colDelta, jumpToEdge);
+        if (!target) return false;
+
+        preserveSelectionOnFocus = !!extendSelection;
+        target.focus();
+        target.select();
+        preserveSelectionOnFocus = false;
+
+        if (extendSelection) {
+          const anchor = selectionAnchor || current;
+          setSelection(anchor, target);
+        } else {
+          setSelection(target, target);
+        }
+        return true;
       }
 
       function toggleDisplayMode() {
@@ -1140,6 +1412,7 @@
       }
 
       function enterEditMode(input, initialValue) {
+        input.dataset.undoBaseline = getCanonicalCellValue(input);
         input.dataset.editMode = "1";
         input.removeAttribute("readonly");
         if (typeof initialValue === "string") {
@@ -1157,6 +1430,7 @@
       }
 
       function exitEditMode(input, commitChanges) {
+        const beforeValue = input.dataset.undoBaseline;
         if (commitChanges) {
           if (input.classList.contains("sheet-number")) {
             normalizeNumericInput(input, true);
@@ -1171,9 +1445,16 @@
         }
 
         input.dataset.editMode = "0";
+        delete input.dataset.undoBaseline;
         input.setAttribute("readonly", "readonly");
         if (!commitChanges && input.classList.contains("sheet-number")) {
           recalculateCompetenceTotals();
+        }
+        if (commitChanges && typeof beforeValue === "string") {
+          pushUndoSnapshot(
+            [{ input: input, value: beforeValue }],
+            [{ input: input, value: getCanonicalCellValue(input) }]
+          );
         }
       }
 
@@ -1191,6 +1472,7 @@
       }
 
       function copyFromAbove(currentInput) {
+        const beforeSnapshot = snapshotCells([currentInput]);
         const sourceRow = String(Number(currentInput.dataset.row) - 1);
         const sourceCol = String(currentInput.dataset.col);
         const sourceInput = inputByCell.get(sourceRow + ":" + sourceCol);
@@ -1208,11 +1490,13 @@
             clearInvalid(currentInput);
             renderNumericInput(currentInput);
             recalculateCompetenceTotals();
+            pushUndoSnapshot(beforeSnapshot, snapshotCells([currentInput]));
             return;
           }
         }
 
         currentInput.value = sourceInput.value || "";
+        pushUndoSnapshot(beforeSnapshot, snapshotCells([currentInput]));
       }
 
       function formatMinutes(minutes) {
@@ -1559,22 +1843,29 @@
         });
 
         input.addEventListener("blur", function () {
-          normalizeNumericInput(input, true);
-          input.dataset.editMode = "0";
-          input.setAttribute("readonly", "readonly");
+          exitEditMode(input, true);
         });
       });
 
       inputs.forEach(function (input) {
+        input.addEventListener("mousedown", function (event) {
+          if (event.button !== 0) return;
+          isMouseSelecting = true;
+          setSelection(input, input);
+        });
+
+        input.addEventListener("mouseenter", function () {
+          if (!isMouseSelecting || !selectionAnchor) return;
+          setSelection(selectionAnchor, input);
+        });
+
         input.addEventListener("focus", function () {
           activateCell(input);
         });
 
         if (!input.classList.contains("sheet-number")) {
           input.addEventListener("blur", function () {
-            input.dataset.lastText = input.value || "";
-            input.dataset.editMode = "0";
-            input.setAttribute("readonly", "readonly");
+            exitEditMode(input, true);
           });
         }
 
@@ -1614,25 +1905,49 @@
             return;
           }
 
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c" && !editing) {
+            event.preventDefault();
+            copySelectionToClipboard();
+            return;
+          }
+
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !editing) {
+            event.preventDefault();
+            undoLastChange();
+            return;
+          }
+
           if (!editing) {
             if (event.key === "ArrowUp") {
               event.preventDefault();
-              moveFocus(input, -1, 0);
+              focusByArrow(input, -1, 0, {
+                jumpToEdge: event.ctrlKey || event.metaKey,
+                extendSelection: event.shiftKey,
+              });
               return;
             }
             if (event.key === "ArrowDown") {
               event.preventDefault();
-              moveFocus(input, 1, 0);
+              focusByArrow(input, 1, 0, {
+                jumpToEdge: event.ctrlKey || event.metaKey,
+                extendSelection: event.shiftKey,
+              });
               return;
             }
             if (event.key === "ArrowLeft") {
               event.preventDefault();
-              moveFocus(input, 0, -1);
+              focusByArrow(input, 0, -1, {
+                jumpToEdge: event.ctrlKey || event.metaKey,
+                extendSelection: event.shiftKey,
+              });
               return;
             }
             if (event.key === "ArrowRight") {
               event.preventDefault();
-              moveFocus(input, 0, 1);
+              focusByArrow(input, 0, 1, {
+                jumpToEdge: event.ctrlKey || event.metaKey,
+                extendSelection: event.shiftKey,
+              });
               return;
             }
             if (event.key === "Backspace" || event.key === "Delete") {
@@ -1683,10 +1998,30 @@
 
         input.addEventListener("paste", function (event) {
           const pastedText = (event.clipboardData || window.clipboardData).getData("text");
-          if (!pastedText || (!pastedText.includes("\t") && !pastedText.includes("\n"))) return;
           event.preventDefault();
-          applyMatrixPaste(input, pastedText);
+          pasteIntoSelection(pastedText, input);
         });
+      });
+
+      document.addEventListener("mouseup", function () {
+        isMouseSelecting = false;
+      });
+
+      document.addEventListener("keydown", function (event) {
+        const key = event.key.toLowerCase();
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (key === "c" && selectedInputs.length > 0) {
+          event.preventDefault();
+          copySelectionToClipboard();
+          return;
+        }
+        if (key === "v" && selectedInputs.length > 0) {
+          if (!navigator.clipboard || !navigator.clipboard.readText) return;
+          event.preventDefault();
+          navigator.clipboard.readText().then(function (text) {
+            pasteIntoSelection(text, getSelectionTopLeftInput());
+          }).catch(function () {});
+        }
       });
 
       if (sheetForm) {
