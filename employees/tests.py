@@ -603,6 +603,62 @@ class EmployeeViewTests(TestCase):
             "Informe o valor em horas para movimento de banco de horas.",
         )
 
+    def test_bank_hours_adoption_event_updates_employee_regime(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3004C",
+            nome_completo="Adesao BH",
+            sector=sector,
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+        )
+
+        response = self.client.post(
+            reverse("events_page"),
+            data={
+                "employee_id": str(employee.id),
+                "event_type": EmployeeEvent.EVENT_TYPE_BANK_HOURS_ADOPTION,
+                "effective_date": "2026-04-24",
+                "end_date": "",
+                "notes": "Entrada no banco de horas",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        employee.refresh_from_db()
+        self.assertEqual(
+            employee.regime_compensacao_jornada,
+            Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+        )
+
+    def test_bank_hours_withdrawal_event_updates_employee_regime(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3004D",
+            nome_completo="Saida BH",
+            sector=sector,
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+        )
+
+        response = self.client.post(
+            reverse("events_page"),
+            data={
+                "employee_id": str(employee.id),
+                "event_type": EmployeeEvent.EVENT_TYPE_BANK_HOURS_WITHDRAWAL,
+                "effective_date": "2026-04-24",
+                "end_date": "",
+                "notes": "Saida do banco de horas",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        employee.refresh_from_db()
+        self.assertEqual(
+            employee.regime_compensacao_jornada,
+            Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+        )
+
     def test_absences_legacy_url_redirects_to_events(self):
         response = self.client.get("/ausencias/")
         self.assertEqual(response.status_code, 301)

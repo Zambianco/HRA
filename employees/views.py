@@ -1351,6 +1351,26 @@ def events_page(request):
             bank_hours_amount=bank_hours_amount,
             notes=notes,
         )
+
+        if event_type == EmployeeEvent.EVENT_TYPE_BANK_HOURS_ADOPTION:
+            if (
+                employee.regime_compensacao_jornada
+                != Employee.REGIME_COMPENSACAO_PARTICIPANTE
+            ):
+                employee.regime_compensacao_jornada = (
+                    Employee.REGIME_COMPENSACAO_PARTICIPANTE
+                )
+                employee.save(update_fields=["regime_compensacao_jornada"])
+        elif event_type == EmployeeEvent.EVENT_TYPE_BANK_HOURS_WITHDRAWAL:
+            if (
+                employee.regime_compensacao_jornada
+                != Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
+            ):
+                employee.regime_compensacao_jornada = (
+                    Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
+                )
+                employee.save(update_fields=["regime_compensacao_jornada"])
+
         messages.success(request, "Evento registrado com sucesso.")
         return redirect(
             _events_redirect_with_filters(
