@@ -90,7 +90,7 @@
     <div class="col-12">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">InÃ­cio</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'employees_page' %}">Início</a></li>
           <li class="breadcrumb-item active" aria-current="page">Setores</li>
         </ol>
       </nav>
@@ -128,7 +128,7 @@
             <i class="bi bi-check-circle-fill text-success me-1"></i>Ativos
           </h6>
           <h5 class="card-title fw-bold text-success" id="activeCount">{{ active_count }}</h5>
-          <p class="card-text text-muted mb-0">Em operaÃ§Ã£o</p>
+          <p class="card-text text-muted mb-0">Em operação</p>
         </div>
       </div>
     </div>
@@ -150,7 +150,7 @@
             <i class="bi bi-people me-1"></i>Empregados
           </h6>
           <h5 class="card-title fw-bold text-info">--</h5>
-          <p class="card-text text-muted mb-0">DistribuÃ­dos nos setores</p>
+          <p class="card-text text-muted mb-0">Distribuídos nos setores</p>
         </div>
       </div>
     </div>
@@ -582,7 +582,7 @@
               <span id="visibleCount">{{ sectors|length }}</span> setor(es) exibido(s)
             </small>
             <small class="text-muted">
-              <i class="bi bi-clock me-1"></i>Ãšltima atualizaÃ§Ã£o: agora
+              <i class="bi bi-clock me-1"></i>Última atualização: agora
             </small>
           </div>
         </div>
@@ -672,8 +672,8 @@
         if (!raw) return;
         const parsed = JSON.parse(raw);
         collapsedState = {
-          areas: parsed && parsed.areas ? parsed.areas : {},
-          departments: parsed && parsed.departments ? parsed.departments : {},
+          areas: parsed && parsed.areas  parsed.areas : {},
+          departments: parsed && parsed.departments  parsed.departments : {},
         };
       } catch (error) {
         collapsedState = { areas: {}, departments: {} };
@@ -780,11 +780,11 @@
         const departmentName = button.dataset.departmentName || "";
         const collapsed =
           type === "area"
-            ? isAreaCollapsed(areaName)
+             isAreaCollapsed(areaName)
             : isDepartmentCollapsed(areaName, departmentName);
         const icon = button.querySelector("i");
         if (icon) {
-          icon.className = collapsed ? "bi bi-chevron-right" : "bi bi-chevron-down";
+          icon.className = collapsed  "bi bi-chevron-right" : "bi bi-chevron-down";
         }
       });
     }
@@ -842,7 +842,7 @@
       });
       const allCollapsed = openAreas.length === 0;
       toggleAllBtn.innerHTML = allCollapsed
-        ? '<i class="bi bi-arrows-expand me-1"></i>Expandir tudo'
+         '<i class="bi bi-arrows-expand me-1"></i>Expandir tudo'
         : '<i class="bi bi-arrows-collapse me-1"></i>Recolher tudo';
     }
 
@@ -1150,7 +1150,7 @@
           row.style.display = "none";
           return;
         }
-        row.style.display = isPlaceholder ? (hasVisibleChild ? "" : "none") : "";
+        row.style.display = isPlaceholder  (hasVisibleChild  "" : "none") : "";
       });
 
       const areaRows = sectorTableBody.querySelectorAll(".hierarchy-area-row");
@@ -1162,7 +1162,7 @@
         ).some(function (child) {
           return child.style.display !== "none";
         });
-        row.style.display = isPlaceholder ? (hasVisibleDepartment ? "" : "none") : "";
+        row.style.display = isPlaceholder  (hasVisibleDepartment  "" : "none") : "";
       });
 
       visibleCountSpan.textContent = visible;
