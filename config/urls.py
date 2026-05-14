@@ -15,7 +15,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import include, path
+from django.conf import settings
+from django.urls import include, path, re_path
+from django.views.static import serve
 from config import error_views
 
 urlpatterns = [
@@ -28,3 +30,7 @@ urlpatterns = [
 handler403 = "config.error_views.error_403"
 handler404 = "config.error_views.error_404"
 handler500 = "config.error_views.error_500"
+
+urlpatterns += [
+    re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATICFILES_DIRS[0]}),
+]
