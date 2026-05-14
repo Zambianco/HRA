@@ -599,18 +599,6 @@
     </div>
 
     <div class="dash-two-columns">
-      <div class="card-dash">
-        <div class="card-header-custom">
-          <div class="card-title-dash">Distribuição por setor</div>
-          <div class="card-sub-dash">Previsto vs Real (Trabalhadas + Extras 60%/100%)</div>
-        </div>
-        <div class="p-3 pt-0">
-          <div class="chart-wrapper">
-            <canvas id="stackedBarChart" role="img" aria-label="Grafico de horas por setor"></canvas>
-          </div>
-        </div>
-      </div>
-
       <div class="card-dash d-flex flex-column">
         <div class="card-header-custom">
           <div class="card-title-dash">MOD vs MOI</div>
@@ -627,7 +615,7 @@
     <div class="dash-three-columns">
       <div class="card-dash">
         <div class="card-header-custom">
-          <div class="card-title-dash">Aproveitamento (%)</div>
+          <div class="card-title-dash">Aproveitamento (%) por setor</div>
           <div class="card-sub-dash">realizado / previsto</div>
         </div>
         <div class="p-3">
@@ -649,25 +637,25 @@
         </div>
       </div>
 
-      <div class="card-dash">
+      <div class="card-dash" style="grid-column: 1 / -1;">
         <div class="card-header-custom">
-          <div class="card-title-dash">Banco de horas por setor</div>
-          <div class="card-sub-dash">horas positivas = excedente</div>
+          <div class="card-title-dash">Distribuicao por departamento</div>
+          <div class="card-sub-dash">Previsto, trabalhadas, extras, faltas, justificadas e banco</div>
         </div>
         <div class="p-2">
-          <div class="chart-wrapper" style="height: 190px;">
-            <canvas id="balanceChart" role="img" aria-label="Grafico de saldo de horas por setor"></canvas>
+          <div class="chart-wrapper" style="height: 320px;">
+            <canvas id="departmentStackedBarChart" role="img" aria-label="Grafico de horas por departamento"></canvas>
           </div>
         </div>
       </div>
 
       <div class="card-dash">
         <div class="card-header-custom">
-          <div class="card-title-dash">Ausencias e faltas</div>
+          <div class="card-title-dash">Ausencias por setor</div>
           <div class="card-sub-dash">impacto das horas</div>
         </div>
         <div class="p-3">
-          {% for row in sector_rows %}
+          {% for row in sector_rows|slice:":8" %}
             <div class="absence-item-modern {% if not forloop.first %}mt-2{% endif %}" style="border-left-color: {% if row.absence_unexcused_minutes > 0 %}#ef4444{% elif row.absence_excused_minutes > 0 %}#f97316{% else %}#94a3b8{% endif %};">
               <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
                 <strong>{{ row.name }}</strong>
@@ -682,31 +670,7 @@
       </div>
     </div>
 
-    <div class="dash-two-columns mt-3">
-      <div class="card-dash">
-        <div class="card-header-custom">
-          <div class="card-title-dash">Distribuicao por departamento</div>
-          <div class="card-sub-dash">Previsto vs Real (Trabalhadas + Extras 60%/100%)</div>
-        </div>
-        <div class="p-3 pt-0">
-          <div class="chart-wrapper">
-            <canvas id="departmentStackedBarChart" role="img" aria-label="Grafico de horas por departamento"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="card-dash">
-        <div class="card-header-custom">
-          <div class="card-title-dash">Distribuicao por area</div>
-          <div class="card-sub-dash">Previsto vs Real (Trabalhadas + Extras 60%/100%)</div>
-        </div>
-        <div class="p-3 pt-0">
-          <div class="chart-wrapper">
-            <canvas id="areaStackedBarChart" role="img" aria-label="Grafico de horas por area"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
+    
     </div>
 
     <div class="tab-pane fade" id="pane-tabela" role="tabpanel" aria-labelledby="tab-tabela" tabindex="0">
@@ -904,22 +868,14 @@
     <footer class="mt-4 screen-only">RH ABN · Dados consolidados por mês de competencia</footer>
   </div>
 
-  {{ chart_labels|json_script:"chart-labels" }}
-  {{ chart_expected_hours|json_script:"chart-expected-hours" }}
-  {{ chart_worked_hours|json_script:"chart-worked-hours" }}
-  {{ chart_overtime_60_hours|json_script:"chart-overtime-60-hours" }}
-  {{ chart_overtime_100_hours|json_script:"chart-overtime-100-hours" }}
-  {{ chart_balance_hours|json_script:"chart-balance-hours" }}
   {{ department_chart_labels|json_script:"department-chart-labels" }}
   {{ department_chart_expected_hours|json_script:"department-chart-expected-hours" }}
   {{ department_chart_worked_hours|json_script:"department-chart-worked-hours" }}
   {{ department_chart_overtime_60_hours|json_script:"department-chart-overtime-60-hours" }}
   {{ department_chart_overtime_100_hours|json_script:"department-chart-overtime-100-hours" }}
-  {{ area_chart_labels|json_script:"area-chart-labels" }}
-  {{ area_chart_expected_hours|json_script:"area-chart-expected-hours" }}
-  {{ area_chart_worked_hours|json_script:"area-chart-worked-hours" }}
-  {{ area_chart_overtime_60_hours|json_script:"area-chart-overtime-60-hours" }}
-  {{ area_chart_overtime_100_hours|json_script:"area-chart-overtime-100-hours" }}
+  {{ department_chart_absence_unexcused_hours|json_script:"department-chart-absence-unexcused-hours" }}
+  {{ department_chart_absence_excused_hours|json_script:"department-chart-absence-excused-hours" }}
+  {{ department_chart_absence_bank_hours|json_script:"department-chart-absence-bank-hours" }}
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
@@ -942,49 +898,16 @@
         endMonthInput.addEventListener("change", maybeSubmitRange);
       }
 
-      const labels = JSON.parse(document.getElementById("chart-labels").textContent);
-      const expected = JSON.parse(document.getElementById("chart-expected-hours").textContent);
-      const worked = JSON.parse(document.getElementById("chart-worked-hours").textContent);
-      const overtime60 = JSON.parse(document.getElementById("chart-overtime-60-hours").textContent);
-      const overtime100 = JSON.parse(document.getElementById("chart-overtime-100-hours").textContent);
-      const balance = JSON.parse(document.getElementById("chart-balance-hours").textContent);
       const departmentLabels = JSON.parse(document.getElementById("department-chart-labels").textContent);
       const departmentExpected = JSON.parse(document.getElementById("department-chart-expected-hours").textContent);
       const departmentWorked = JSON.parse(document.getElementById("department-chart-worked-hours").textContent);
       const departmentOvertime60 = JSON.parse(document.getElementById("department-chart-overtime-60-hours").textContent);
       const departmentOvertime100 = JSON.parse(document.getElementById("department-chart-overtime-100-hours").textContent);
-      const areaLabels = JSON.parse(document.getElementById("area-chart-labels").textContent);
-      const areaExpected = JSON.parse(document.getElementById("area-chart-expected-hours").textContent);
-      const areaWorked = JSON.parse(document.getElementById("area-chart-worked-hours").textContent);
-      const areaOvertime60 = JSON.parse(document.getElementById("area-chart-overtime-60-hours").textContent);
-      const areaOvertime100 = JSON.parse(document.getElementById("area-chart-overtime-100-hours").textContent);
+      const departmentAbsenceUnexcused = JSON.parse(document.getElementById("department-chart-absence-unexcused-hours").textContent);
+      const departmentAbsenceExcused = JSON.parse(document.getElementById("department-chart-absence-excused-hours").textContent);
+      const departmentAbsenceBank = JSON.parse(document.getElementById("department-chart-absence-bank-hours").textContent);
       const charts = [];
       let chartsInPrintMode = false;
-
-      charts.push(new Chart(document.getElementById("stackedBarChart"), {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [
-            { label: "Previsto", data: expected, backgroundColor: "#cbd5e1", borderRadius: 6, stack: "stack0", barPercentage: 0.65, categoryPercentage: 0.8 },
-            { label: "Trabalhadas", data: worked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
-            { label: "HE 60%", data: overtime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
-            { label: "HE 100%", data: overtime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 } },
-            tooltip: { mode: "index", intersect: false },
-          },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: "Horas" }, grid: { color: "#eef2f6" } },
-            x: { grid: { display: false } },
-          },
-        },
-      }));
 
       charts.push(new Chart(document.getElementById("donutChartMod"), {
         type: "doughnut",
@@ -1000,23 +923,6 @@
         },
       }));
 
-      charts.push(new Chart(document.getElementById("balanceChart"), {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [{ label: "Saldo (real - previsto)", data: balance, backgroundColor: function (ctx) { return ctx.raw >= 0 ? "#10b981" : "#ef4444"; }, borderRadius: 8 }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: function (ctx) { return ctx.raw + " horas " + (ctx.raw >= 0 ? "acima" : "abaixo"); } } },
-          },
-          scales: { y: { title: { display: true, text: "Horas" }, grid: { color: "#e9edf2" } } },
-        },
-      }));
-
       charts.push(new Chart(document.getElementById("departmentStackedBarChart"), {
         type: "bar",
         data: {
@@ -1026,31 +932,9 @@
             { label: "Trabalhadas", data: departmentWorked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
             { label: "HE 60%", data: departmentOvertime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
             { label: "HE 100%", data: departmentOvertime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 } },
-            tooltip: { mode: "index", intersect: false },
-          },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: "Horas" }, grid: { color: "#eef2f6" } },
-            x: { grid: { display: false } },
-          },
-        },
-      }));
-
-      charts.push(new Chart(document.getElementById("areaStackedBarChart"), {
-        type: "bar",
-        data: {
-          labels: areaLabels,
-          datasets: [
-            { label: "Previsto", data: areaExpected, backgroundColor: "#cbd5e1", borderRadius: 6, stack: "stack0", barPercentage: 0.65, categoryPercentage: 0.8 },
-            { label: "Trabalhadas", data: areaWorked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
-            { label: "HE 60%", data: areaOvertime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
-            { label: "HE 100%", data: areaOvertime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
+            { label: "Falta", data: departmentAbsenceUnexcused, backgroundColor: "#ef4444", borderRadius: 6, stack: "stack2" },
+            { label: "Justificada", data: departmentAbsenceExcused, backgroundColor: "#f59e0b", borderRadius: 6, stack: "stack2" },
+            { label: "Banco", data: departmentAbsenceBank, backgroundColor: "#8b5cf6", borderRadius: 6, stack: "stack2" },
           ]
         },
         options: {

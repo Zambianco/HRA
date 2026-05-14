@@ -2802,8 +2802,21 @@ def timesheet_dashboard_page(request):
         else:
             total_moi_minutes += worked_minutes
 
-        sector_name = employee.sector.nome if employee.sector else "Sem setor"
-        sector_bucket = sector_data.setdefault(sector_name, _empty_group_bucket(sector_name))
+        if employee.sector and employee.sector.department:
+            area_part = (
+                employee.sector.department.area.nome
+                if employee.sector.department.area
+                else "Sem area"
+            )
+            department_part = employee.sector.department.nome
+            sector_part = employee.sector.nome
+            sector_key = f"{area_part}::{department_part}::{sector_part}"
+            sector_name = f"{department_part} / {sector_part}"
+        else:
+            sector_key = "sem_departamento::sem_setor"
+            sector_name = "Sem departamento / Sem setor"
+
+        sector_bucket = sector_data.setdefault(sector_key, _empty_group_bucket(sector_name))
         _add_to_group_bucket(
             sector_bucket,
             expected_minutes,
@@ -2865,7 +2878,8 @@ def timesheet_dashboard_page(request):
     )
     moi_share_percent = 100 - mod_share_percent if total_type_minutes else 0
 
-    sector_rows = _build_group_rows(sector_data, limit=12)
+    sector_rows = _build_group_rows(sector_data)
+    sector_rows = sorted(sector_rows, key=lambda row: row["name"].casefold())[:12]
     department_rows = _build_group_rows(department_data)
     area_rows = _build_group_rows(area_data)
 
@@ -2900,6 +2914,15 @@ def timesheet_dashboard_page(request):
     ]
     department_chart_overtime_100_hours = [
         round(row["overtime_100_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    department_chart_absence_unexcused_hours = [
+        round(row["absence_unexcused_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    department_chart_absence_excused_hours = [
+        round(row["absence_excused_minutes"] / 60, 2) for row in department_chart_rows
+    ]
+    department_chart_absence_bank_hours = [
+        round(row["absence_bank_minutes"] / 60, 2) for row in department_chart_rows
     ]
     area_chart_labels = [row["name"] for row in area_chart_rows]
     area_chart_expected_hours = [round(row["expected_minutes"] / 60, 2) for row in area_chart_rows]
@@ -2960,6 +2983,9 @@ def timesheet_dashboard_page(request):
             "department_chart_worked_hours": department_chart_worked_hours,
             "department_chart_overtime_60_hours": department_chart_overtime_60_hours,
             "department_chart_overtime_100_hours": department_chart_overtime_100_hours,
+            "department_chart_absence_unexcused_hours": department_chart_absence_unexcused_hours,
+            "department_chart_absence_excused_hours": department_chart_absence_excused_hours,
+            "department_chart_absence_bank_hours": department_chart_absence_bank_hours,
             "area_chart_labels": area_chart_labels,
             "area_chart_expected_hours": area_chart_expected_hours,
             "area_chart_worked_hours": area_chart_worked_hours,
