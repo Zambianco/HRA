@@ -8,6 +8,7 @@ import io
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import unicodedata
@@ -184,6 +185,36 @@ def _create_clean_sqlite_db(db_file_path: str) -> tuple[bool, str]:
         detail = stderr or stdout or "Falha desconhecida durante migracao."
         return False, detail[:800]
     return True, ""
+
+
+def _run_sqlite_vacuum(db_file_path: str) -> tuple[bool, str]:
+    target = Path(_normalize_db_file_path(db_file_path))
+    if not target.exists():
+        return False, "Arquivo de banco nao encontrado."
+    try:
+        with sqlite3.connect(str(target)) as conn:
+            conn.execute("VACUUM;")
+    except sqlite3.Error as exc:
+        return False, str(exc)
+    return True, ""
+
+
+def _run_sqlite_integrity_check(db_file_path: str) -> tuple[bool, list[str], str]:
+    target = Path(_normalize_db_file_path(db_file_path))
+    if not target.exists():
+        return False, [], "Arquivo de banco nao encontrado."
+    try:
+        with sqlite3.connect(str(target)) as conn:
+            rows = conn.execute("PRAGMA integrity_check;").fetchall()
+    except sqlite3.Error as exc:
+        return False, [], str(exc)
+
+    issues = [str(row[0]).strip() for row in rows if row and str(row[0]).strip()]
+    if len(issues) == 1 and issues[0].lower() == "ok":
+        return True, ["ok"], ""
+    if not issues:
+        return False, [], "Resultado vazio no integrity_check."
+    return False, issues, ""
 
 
 def _employees_redirect_with_flags(**params):
@@ -4588,6 +4619,8 @@ def database_settings_page(request):
         posted_db_file_path = (request.POST.get("db_file_path") or "").strip()
         wants_to_open_location = (request.POST.get("open_location") or "").strip() == "1"
         wants_to_create_new_db = (request.POST.get("create_new_db") or "").strip() == "1"
+        wants_to_vacuum_db = (request.POST.get("vacuum_db") or "").strip() == "1"
+        wants_to_check_integrity = (request.POST.get("check_integrity") or "").strip() == "1"
 
         if posted_mode not in {"online", "arquivo"}:
             messages.error(request, "Modo de banco invalido.")
@@ -4616,6 +4649,51 @@ def database_settings_page(request):
                 messages.error(request, "Nao foi possivel abrir a localizacao informada.")
             else:
                 messages.success(request, "Localizacao aberta no explorador de arquivos.")
+            return redirect("database_settings_page")
+
+        if wants_to_vacuum_db:
+            if posted_mode != "arquivo":
+                messages.error(request, "O VACUUM so funciona no modo arquivo.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path:
+                messages.error(request, "Informe o caminho do arquivo .db para executar VACUUM.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path.lower().endswith(".db"):
+                messages.error(request, "O caminho informado deve apontar para um arquivo .db.")
+                return redirect("database_settings_page")
+
+            vacuum_ok, vacuum_error = _run_sqlite_vacuum(posted_db_file_path)
+            if not vacuum_ok:
+                messages.error(request, f"Falha ao executar VACUUM: {vacuum_error}")
+            else:
+                messages.success(request, "VACUUM executado com sucesso.")
+            return redirect("database_settings_page")
+
+        if wants_to_check_integrity:
+            if posted_mode != "arquivo":
+                messages.error(request, "A verificacao de integridade so funciona no modo arquivo.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path:
+                messages.error(request, "Informe o caminho do arquivo .db para verificar integridade.")
+                return redirect("database_settings_page")
+            if not posted_db_file_path.lower().endswith(".db"):
+                messages.error(request, "O caminho informado deve apontar para um arquivo .db.")
+                return redirect("database_settings_page")
+
+            integrity_ok, integrity_issues, integrity_error = _run_sqlite_integrity_check(
+                posted_db_file_path
+            )
+            if integrity_ok:
+                messages.success(request, "Verificacao concluida: integridade OK.")
+            elif integrity_error:
+                messages.error(request, f"Falha ao verificar integridade: {integrity_error}")
+            else:
+                issues_preview = "; ".join(integrity_issues[:3])
+                suffix = " ..." if len(integrity_issues) > 3 else ""
+                messages.error(
+                    request,
+                    f"Verificacao encontrou problemas: {issues_preview}{suffix}",
+                )
             return redirect("database_settings_page")
 
         if wants_to_create_new_db:
