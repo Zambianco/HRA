@@ -177,6 +177,80 @@ class EmployeeTimeEntry(models.Model):
         return f"{self.employee_id} - {self.competence_month}"
 
 
+class TimesheetImportReport(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = (
+        (STATUS_PENDING, "Pendente"),
+        (STATUS_APPROVED, "Aprovado"),
+        (STATUS_REJECTED, "Rejeitado"),
+    )
+
+    competence_month = models.DateField(db_index=True)
+    source_file_name = models.CharField(max_length=255, blank=True)
+    file_period_start = models.DateField(null=True, blank=True)
+    file_period_end = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+    )
+    summary = models.JSONField(default=dict, blank=True)
+    applied_entries_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self) -> str:
+        return f"{self.competence_month} - {self.get_status_display()}"
+
+
+class TimesheetImportReportRow(models.Model):
+    TYPE_IMPORTED = "imported"
+    TYPE_SKIPPED = "skipped"
+    TYPE_MISSING_IN_IMPORT = "missing_in_import"
+    TYPE_CHOICES = (
+        (TYPE_IMPORTED, "Apto para importar"),
+        (TYPE_SKIPPED, "Com problema"),
+        (TYPE_MISSING_IN_IMPORT, "Ausente no arquivo"),
+    )
+
+    report = models.ForeignKey(
+        "TimesheetImportReport",
+        on_delete=models.CASCADE,
+        related_name="rows",
+    )
+    employee = models.ForeignKey(
+        "Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="timesheet_import_report_rows",
+    )
+    row_type = models.CharField(max_length=30, choices=TYPE_CHOICES, db_index=True)
+    sort_order = models.IntegerField(default=0)
+    registration = models.CharField(max_length=50, blank=True)
+    employee_name = models.CharField(max_length=150, blank=True)
+    regular_minutes = models.IntegerField(default=0)
+    overtime_60_minutes = models.IntegerField(default=0)
+    overtime_100_minutes = models.IntegerField(default=0)
+    absence_unexcused_minutes = models.IntegerField(default=0)
+    absence_excused_minutes = models.IntegerField(default=0)
+    absence_bank_minutes = models.IntegerField(default=0)
+    issues = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ("report_id", "sort_order", "id")
+
+    def __str__(self) -> str:
+        return f"{self.report_id} - {self.registration or '-'} - {self.get_row_type_display()}"
+
+
 class BankHoursRule(models.Model):
     COLUMN_B = "B"
     COLUMN_C = "C"

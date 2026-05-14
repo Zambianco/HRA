@@ -30,6 +30,8 @@ from .models import (
     EmployeeTimeEntry,
     BankHoursSemesterClosure,
     BankHoursSemesterClosureAdjustment,
+    TimesheetImportReport,
+    TimesheetImportReportRow,
     TimesheetMonthClosure,
     TimesheetMonthClosureCalendarPeriodSnapshot,
     TimesheetMonthClosureEmployeeEventSnapshot,
@@ -385,7 +387,8 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
     if not uploaded_file:
         return None, ["Selecione um arquivo XLSX para importar."], []
 
-    file_name = (uploaded_file.name or "").lower()
+    source_file_name = uploaded_file.name or ""
+    file_name = source_file_name.lower()
     if not file_name.endswith(".xlsx"):
         return None, ["Formato invalido. Envie um arquivo .xlsx."], []
 
@@ -475,15 +478,13 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
     base_employees = _get_timesheet_base_employees()
     base_employee_ids = [employee.id for employee in base_employees]
     lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
-    eligible_employee_ids = {
-        employee.id
-        for employee in _filter_employees_active_in_period(
-            base_employees,
-            expected_start,
-            expected_end,
-            lifecycle_dates,
-        )
-    }
+    eligible_employees = _filter_employees_active_in_period(
+        base_employees,
+        expected_start,
+        expected_end,
+        lifecycle_dates,
+    )
+    eligible_employee_ids = {employee.id for employee in eligible_employees}
     employees_by_registration = {
         str(employee.matricula).strip(): employee
         for employee in base_employees
@@ -491,6 +492,11 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
     }
     preview_rows = []
     skipped_rows = []
+    imported_registrations = {
+        str(registration or "").strip()
+        for registration in aggregated_by_registration.keys()
+        if str(registration or "").strip()
+    }
     for registration, values in aggregated_by_registration.items():
         issues = []
         employee = employees_by_registration.get(registration)
@@ -507,6 +513,16 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
             if value_error:
                 issues.append(value_error)
 
+        absence_unexcused_minutes = values["absence_unexcused_minutes"]
+        absence_bank_minutes = 0
+        if (
+            employee
+            and employee.regime_compensacao_jornada
+            == Employee.REGIME_COMPENSACAO_PARTICIPANTE
+        ):
+            absence_bank_minutes = absence_unexcused_minutes
+            absence_unexcused_minutes = 0
+
         row_payload = {
             "registration": registration,
             "employee_id": employee.id if employee else None,
@@ -514,8 +530,9 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
             "regular_minutes": values["regular_minutes"],
             "overtime_60_minutes": values["overtime_60_minutes"],
             "overtime_100_minutes": values["overtime_100_minutes"],
-            "absence_unexcused_minutes": values["absence_unexcused_minutes"],
+            "absence_unexcused_minutes": absence_unexcused_minutes,
             "absence_excused_minutes": values["absence_excused_minutes"],
+            "absence_bank_minutes": absence_bank_minutes,
             "issues": issues,
         }
         if issues:
@@ -523,16 +540,237 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
         else:
             preview_rows.append(row_payload)
 
+    missing_employee_rows = []
+    for employee in eligible_employees:
+        registration = str(employee.matricula or "").strip()
+        if registration and registration in imported_registrations:
+            continue
+
+        issues = []
+        if registration:
+            issues.append("empregado no timesheet da competencia nao encontrado na importacao")
+        else:
+            issues.append("empregado no timesheet sem matricula cadastrada")
+
+        missing_employee_rows.append(
+            {
+                "registration": registration,
+                "employee_id": employee.id,
+                "employee_name": employee.nome_completo,
+                "regular_minutes": 0,
+                "overtime_60_minutes": 0,
+                "overtime_100_minutes": 0,
+                "absence_unexcused_minutes": 0,
+                "absence_excused_minutes": 0,
+                "absence_bank_minutes": 0,
+                "issues": issues,
+            }
+        )
+
     if not preview_rows:
         hard_errors.append("Nenhuma linha valida para importacao apos validacao.")
 
     preview = {
+        "source_file_name": source_file_name,
+        "period_start": period_start,
+        "period_end": period_end,
         "rows": preview_rows,
         "skipped_rows": skipped_rows,
+        "missing_employee_rows": missing_employee_rows,
         "warnings": warnings,
         "hard_errors": hard_errors,
     }
     return preview, hard_errors, warnings
+
+
+def _as_list(value):
+    return value if isinstance(value, list) else []
+
+
+def _create_timesheet_import_report(preview, competence_month):
+    rows = preview.get("rows") or []
+    skipped_rows = preview.get("skipped_rows") or []
+    missing_employee_rows = preview.get("missing_employee_rows") or []
+    warnings = _as_list(preview.get("warnings"))
+    hard_errors = _as_list(preview.get("hard_errors"))
+
+    report = TimesheetImportReport.objects.create(
+        competence_month=competence_month,
+        source_file_name=(preview.get("source_file_name") or "")[:255],
+        file_period_start=preview.get("period_start"),
+        file_period_end=preview.get("period_end"),
+        summary={
+            "warnings": warnings,
+            "hard_errors": hard_errors,
+            "valid_rows_count": len(rows),
+            "skipped_rows_count": len(skipped_rows),
+            "missing_employee_rows_count": len(missing_employee_rows),
+        },
+    )
+
+    report_rows = []
+
+    def append_report_row(row, row_type):
+        issues = row.get("issues") or []
+        if not isinstance(issues, list):
+            issues = [str(issues)]
+        report_rows.append(
+            TimesheetImportReportRow(
+                report=report,
+                row_type=row_type,
+                sort_order=len(report_rows) + 1,
+                employee_id=row.get("employee_id") or None,
+                registration=str(row.get("registration") or "")[:50],
+                employee_name=str(row.get("employee_name") or "")[:150],
+                regular_minutes=int(row.get("regular_minutes") or 0),
+                overtime_60_minutes=int(row.get("overtime_60_minutes") or 0),
+                overtime_100_minutes=int(row.get("overtime_100_minutes") or 0),
+                absence_unexcused_minutes=int(row.get("absence_unexcused_minutes") or 0),
+                absence_excused_minutes=int(row.get("absence_excused_minutes") or 0),
+                absence_bank_minutes=int(row.get("absence_bank_minutes") or 0),
+                issues=issues,
+            )
+        )
+
+    for row in rows:
+        append_report_row(row, TimesheetImportReportRow.TYPE_IMPORTED)
+    for row in skipped_rows:
+        append_report_row(row, TimesheetImportReportRow.TYPE_SKIPPED)
+    for row in missing_employee_rows:
+        append_report_row(row, TimesheetImportReportRow.TYPE_MISSING_IN_IMPORT)
+
+    if report_rows:
+        TimesheetImportReportRow.objects.bulk_create(report_rows)
+
+    return report
+
+
+def _timesheet_import_report_messages(report):
+    summary = report.summary if isinstance(report.summary, dict) else {}
+    return _as_list(summary.get("warnings")), _as_list(summary.get("hard_errors"))
+
+
+def _decorate_timesheet_import_report_rows(rows):
+    decorated_rows = []
+    for row in rows:
+        total_minutes = (
+            row.regular_minutes
+            + row.overtime_60_minutes
+            + row.overtime_100_minutes
+            + row.absence_unexcused_minutes
+            + row.absence_excused_minutes
+            + row.absence_bank_minutes
+        )
+        decorated_rows.append(
+            {
+                "row": row,
+                "issues": _as_list(row.issues),
+                "regular_label": _format_minutes_as_hour_label(row.regular_minutes),
+                "overtime_60_label": _format_minutes_as_hour_label(row.overtime_60_minutes),
+                "overtime_100_label": _format_minutes_as_hour_label(row.overtime_100_minutes),
+                "absence_unexcused_label": _format_minutes_as_hour_label(row.absence_unexcused_minutes),
+                "absence_excused_label": _format_minutes_as_hour_label(row.absence_excused_minutes),
+                "absence_bank_label": _format_minutes_as_hour_label(row.absence_bank_minutes),
+                "total_label": _format_minutes_as_hour_label(total_minutes),
+            }
+        )
+    return decorated_rows
+
+
+def _apply_timesheet_import_report(report):
+    expected_start, expected_end = _get_month_date_range(report.competence_month)
+    if report.file_period_start != expected_start or report.file_period_end != expected_end:
+        return 0, (
+            "Periodo do relatorio diferente do mes selecionado. "
+            f"Arquivo: {report.file_period_start} ate {report.file_period_end}. "
+            f"Competencia: {expected_start} ate {expected_end}."
+        )
+
+    _, hard_errors = _timesheet_import_report_messages(report)
+    if hard_errors:
+        return 0, "Relatorio contem erro bloqueante e nao pode ser aprovado."
+
+    import_rows = list(
+        report.rows.select_related("employee").filter(
+            row_type=TimesheetImportReportRow.TYPE_IMPORTED
+        )
+    )
+    if not import_rows:
+        return 0, "Relatorio sem lancamentos aptos para importar."
+
+    month_start, month_end = _get_month_date_range(report.competence_month)
+    base_employees = _get_timesheet_base_employees()
+    base_employee_ids = [employee.id for employee in base_employees]
+    lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+    employees = _filter_employees_active_in_period(
+        base_employees,
+        month_start,
+        month_end,
+        lifecycle_dates,
+    )
+    employee_by_id = {employee.id: employee for employee in employees}
+
+    is_bank_hours_column_locked = _is_month_locked_by_bank_hours_semester_closure(
+        report.competence_month
+    )
+    entries_in_month = {
+        entry.employee_id: entry
+        for entry in EmployeeTimeEntry.objects.filter(
+            competence_month=report.competence_month
+        ).select_related("employee")
+    }
+
+    imported_count = 0
+    for row in import_rows:
+        if not row.employee_id:
+            continue
+        employee = employee_by_id.get(row.employee_id)
+        if not employee:
+            continue
+
+        existing_entry = entries_in_month.get(employee.id)
+        defaults = {
+            "regular_minutes": int(row.regular_minutes or 0),
+            "overtime_60_minutes": int(row.overtime_60_minutes or 0),
+            "overtime_100_minutes": int(row.overtime_100_minutes or 0),
+            "absence_unexcused_minutes": int(row.absence_unexcused_minutes or 0),
+            "absence_excused_minutes": int(row.absence_excused_minutes or 0),
+            "absence_bank_minutes": int(row.absence_bank_minutes or 0),
+            "notes": existing_entry.notes if existing_entry else "",
+        }
+        if (
+            employee.regime_compensacao_jornada
+            != Employee.REGIME_COMPENSACAO_PARTICIPANTE
+        ):
+            defaults["absence_bank_minutes"] = 0
+        if (
+            is_bank_hours_column_locked
+            and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE
+        ):
+            defaults["absence_bank_minutes"] = (
+                existing_entry.absence_bank_minutes if existing_entry else 0
+            )
+
+        has_content = any(
+            defaults[field_name] > 0
+            for field_name, _ in TIME_ENTRY_MINUTE_FIELDS
+        ) or defaults["notes"]
+        if not has_content:
+            continue
+
+        EmployeeTimeEntry.objects.update_or_create(
+            employee=employee,
+            competence_month=report.competence_month,
+            defaults=defaults,
+        )
+        imported_count += 1
+
+    if not imported_count:
+        return 0, "Nenhum lancamento do relatorio foi aplicado ao timesheet."
+
+    return imported_count, None
+
+
 def _resolve_competence_month(raw_value):
     normalized = (raw_value or "").strip()
     if not normalized:
@@ -1938,98 +2176,29 @@ def timesheet_page(request):
                 request.FILES.get("timesheet_import_file"),
                 competence_month,
             )
+            report = None
             if preview:
-                request.session["timesheet_import_preview"] = {
-                    "competence_month": competence_month_value,
-                    "rows": preview["rows"],
-                    "skipped_rows": preview["skipped_rows"],
-                    "warnings": preview["warnings"],
-                    "hard_errors": preview["hard_errors"],
-                }
+                with transaction.atomic():
+                    report = _create_timesheet_import_report(preview, competence_month)
             if hard_errors:
-                messages.error(request, "Importacao com erro: " + " | ".join(hard_errors[:3]))
-            elif warnings or (preview and preview["skipped_rows"]):
-                messages.warning(request, "Arquivo lido com alertas. Revise o resumo da importacao antes de confirmar.")
+                messages.error(request, "Relatorio de importacao gerado com erro: " + " | ".join(hard_errors[:3]))
+            elif warnings or (preview and (preview["skipped_rows"] or preview["missing_employee_rows"])):
+                messages.warning(request, "Arquivo lido com alertas. Revise o relatorio antes de aprovar.")
             else:
-                messages.success(request, "Arquivo validado. Pronto para confirmar a importacao no timesheet.")
+                messages.success(request, "Arquivo validado. Revise e aprove o relatorio para preencher o timesheet.")
+            if report:
+                return redirect(
+                    reverse(
+                        "timesheet_import_report_page",
+                        kwargs={"report_id": report.id},
+                    )
+                )
             return redirect(
                 _timesheet_redirect_with_filters(competence_month=competence_month_value)
             )
 
         if action == "confirm_import_timesheet":
-            preview_data = request.session.get("timesheet_import_preview") or {}
-            if preview_data.get("competence_month") != competence_month_value:
-                messages.error(request, "Nao existe pre-validacao para este mes. Reimporte o arquivo.")
-                return redirect(
-                    _timesheet_redirect_with_filters(competence_month=competence_month_value)
-                )
-
-            if TimesheetMonthClosure.objects.filter(competence_month=competence_month).exists():
-                messages.error(
-                    request,
-                    f"O timesheet de {competence_month_label} esta encerrado. Reabra o mes para importar.",
-                )
-                return redirect(
-                    _timesheet_redirect_with_filters(competence_month=competence_month_value)
-                )
-
-            is_bank_hours_column_locked = _is_month_locked_by_bank_hours_semester_closure(
-                competence_month
-            )
-            entries_in_month = {
-                entry.employee_id: entry
-                for entry in EmployeeTimeEntry.objects.filter(
-                    competence_month=competence_month
-                ).select_related("employee")
-            }
-            employee_by_id = {employee.id: employee for employee in employees}
-            imported_count = 0
-            for row in preview_data.get("rows", []):
-                employee_id = row.get("employee_id")
-                if not employee_id:
-                    continue
-                employee = employee_by_id.get(employee_id)
-                if not employee:
-                    continue
-
-                existing_entry = entries_in_month.get(employee.id)
-                defaults = {
-                    "regular_minutes": int(row.get("regular_minutes") or 0),
-                    "overtime_60_minutes": int(row.get("overtime_60_minutes") or 0),
-                    "overtime_100_minutes": int(row.get("overtime_100_minutes") or 0),
-                    "absence_unexcused_minutes": int(row.get("absence_unexcused_minutes") or 0),
-                    "absence_excused_minutes": int(row.get("absence_excused_minutes") or 0),
-                    "absence_bank_minutes": (
-                        existing_entry.absence_bank_minutes if existing_entry else 0
-                    ),
-                    "notes": existing_entry.notes if existing_entry else "",
-                }
-                if (
-                    employee.regime_compensacao_jornada
-                    != Employee.REGIME_COMPENSACAO_PARTICIPANTE
-                ):
-                    defaults["absence_bank_minutes"] = 0
-                if (
-                    is_bank_hours_column_locked
-                    and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE
-                    and existing_entry
-                ):
-                    defaults["absence_bank_minutes"] = existing_entry.absence_bank_minutes
-
-                has_content = any(
-                    defaults[field_name] > 0
-                    for field_name, _ in TIME_ENTRY_MINUTE_FIELDS
-                ) or defaults["notes"]
-                if has_content:
-                    EmployeeTimeEntry.objects.update_or_create(
-                        employee=employee,
-                        competence_month=competence_month,
-                        defaults=defaults,
-                    )
-                    imported_count += 1
-
-            request.session.pop("timesheet_import_preview", None)
-            messages.success(request, f"Importacao concluida para {imported_count} empregado(s).")
+            messages.error(request, "A importacao deve ser aprovada pela subpagina do relatorio.")
             return redirect(
                 _timesheet_redirect_with_filters(competence_month=competence_month_value)
             )
@@ -2131,7 +2300,19 @@ def timesheet_page(request):
     is_month_locked_by_bank_hours_closure = _is_month_locked_by_bank_hours_semester_closure(
         competence_month
     )
-    timesheet_import_preview = request.session.get("timesheet_import_preview", None)
+    pending_import_report = (
+        TimesheetImportReport.objects.filter(
+            competence_month=competence_month,
+            status=TimesheetImportReport.STATUS_PENDING,
+        )
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    latest_import_report = (
+        TimesheetImportReport.objects.filter(competence_month=competence_month)
+        .order_by("-created_at", "-id")
+        .first()
+    )
 
     month_start, month_end = _get_month_date_range(competence_month)
     base_employees = _get_timesheet_base_employees()
@@ -2246,7 +2427,133 @@ def timesheet_page(request):
             "total_absence_bank_minutes": total_absence_bank_minutes,
             "total_absence_minutes": total_absence_minutes,
             "total_expected_minutes": total_expected_minutes,
-            "timesheet_import_preview": timesheet_import_preview,
+            "pending_import_report": pending_import_report,
+            "latest_import_report": latest_import_report,
+        },
+    )
+
+
+def timesheet_import_report_page(request, report_id):
+    report = get_object_or_404(TimesheetImportReport, id=report_id)
+    competence_month_value = report.competence_month.strftime("%Y-%m")
+    competence_month_label = _format_competence_month_label(report.competence_month)
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "reject":
+            with transaction.atomic():
+                report = TimesheetImportReport.objects.select_for_update().get(id=report.id)
+                if report.status != TimesheetImportReport.STATUS_PENDING:
+                    messages.error(request, "Apenas relatorios pendentes podem ser rejeitados.")
+                else:
+                    report.status = TimesheetImportReport.STATUS_REJECTED
+                    report.rejected_at = timezone.now()
+                    report.save(update_fields=("status", "rejected_at"))
+                    messages.success(request, "Relatorio rejeitado. Nenhum dado foi preenchido no timesheet.")
+            return redirect(
+                _timesheet_redirect_with_filters(competence_month=competence_month_value)
+            )
+
+        if action == "approve":
+            with transaction.atomic():
+                report = TimesheetImportReport.objects.select_for_update().get(id=report.id)
+                if report.status != TimesheetImportReport.STATUS_PENDING:
+                    messages.error(request, "Apenas relatorios pendentes podem ser aprovados.")
+                    return redirect(
+                        reverse(
+                            "timesheet_import_report_page",
+                            kwargs={"report_id": report.id},
+                        )
+                    )
+
+                if TimesheetMonthClosure.objects.filter(
+                    competence_month=report.competence_month
+                ).exists():
+                    messages.error(
+                        request,
+                        f"O timesheet de {competence_month_label} esta encerrado. Reabra o mes para aprovar a importacao.",
+                    )
+                    return redirect(
+                        reverse(
+                            "timesheet_import_report_page",
+                            kwargs={"report_id": report.id},
+                        )
+                    )
+
+                imported_count, apply_error = _apply_timesheet_import_report(report)
+                if apply_error:
+                    messages.error(request, apply_error)
+                    return redirect(
+                        reverse(
+                            "timesheet_import_report_page",
+                            kwargs={"report_id": report.id},
+                        )
+                    )
+
+                report.status = TimesheetImportReport.STATUS_APPROVED
+                report.approved_at = timezone.now()
+                report.applied_entries_count = imported_count
+                report.save(
+                    update_fields=(
+                        "status",
+                        "approved_at",
+                        "applied_entries_count",
+                    )
+                )
+                messages.success(
+                    request,
+                    f"Relatorio aprovado. Importacao concluida para {imported_count} empregado(s).",
+                )
+            return redirect(
+                _timesheet_redirect_with_filters(competence_month=competence_month_value)
+            )
+
+        messages.error(request, "Acao de relatorio invalida.")
+        return redirect(
+            reverse("timesheet_import_report_page", kwargs={"report_id": report.id})
+        )
+
+    warnings, hard_errors = _timesheet_import_report_messages(report)
+    report_rows = list(report.rows.select_related("employee").all())
+    ready_rows = [
+        row for row in report_rows if row.row_type == TimesheetImportReportRow.TYPE_IMPORTED
+    ]
+    problem_rows = [
+        row for row in report_rows if row.row_type == TimesheetImportReportRow.TYPE_SKIPPED
+    ]
+    missing_rows = [
+        row
+        for row in report_rows
+        if row.row_type == TimesheetImportReportRow.TYPE_MISSING_IN_IMPORT
+    ]
+    is_month_closed = TimesheetMonthClosure.objects.filter(
+        competence_month=report.competence_month
+    ).exists()
+    can_approve = (
+        report.status == TimesheetImportReport.STATUS_PENDING
+        and bool(ready_rows)
+        and not hard_errors
+        and not is_month_closed
+    )
+
+    return render(
+        request,
+        "timesheet_import_report.html",
+        {
+            "report": report,
+            "selected_competence_month": competence_month_value,
+            "competence_month_label": competence_month_label,
+            "warnings": warnings,
+            "hard_errors": hard_errors,
+            "ready_rows": _decorate_timesheet_import_report_rows(ready_rows),
+            "problem_rows": _decorate_timesheet_import_report_rows(problem_rows),
+            "missing_rows": _decorate_timesheet_import_report_rows(missing_rows),
+            "ready_rows_count": len(ready_rows),
+            "problem_rows_count": len(problem_rows),
+            "missing_rows_count": len(missing_rows),
+            "is_month_closed": is_month_closed,
+            "can_approve": can_approve,
         },
     )
 

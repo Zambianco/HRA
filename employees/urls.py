@@ -31,6 +31,7 @@ from .views import (
     sectors_page,
     timesheet_page,
     timesheet_dashboard_page,
+    timesheet_import_report_page,
     timesheet_snapshots_audit_page,
     work_schedules_page,
 )
@@ -48,6 +49,11 @@ urlpatterns = [
     path("empregados/<int:employee_id>/ativar/", employee_activate, name="employee_activate"),
     path("eventos/", events_page, name="events_page"),
     path("timesheet/", timesheet_page, name="timesheet_page"),
+    path(
+        "timesheet/importacoes/<int:report_id>/",
+        timesheet_import_report_page,
+        name="timesheet_import_report_page",
+    ),
     path("banco-horas/", bank_hours_page, name="bank_hours_page"),
     path("banco-horas/encerramento/", bank_hours_closure_page, name="bank_hours_closure_page"),
     path("banco-horas/regras/", bank_hours_rules_page, name="bank_hours_rules_page"),

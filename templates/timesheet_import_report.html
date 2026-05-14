@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Relatorio de importacao do timesheet{% endblock %}
+
+{% block content %}
+  <section class="screen-only">
+    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-4">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-2">
+            <li class="breadcrumb-item"><a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}">Timesheet</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Relatorio de importacao</li>
+          </ol>
+        </nav>
+        <h1 class="h3 mb-1">Relatorio de importacao do timesheet</h1>
+        <p class="text-muted mb-0">
+          Competencia {{ competence_month_label }}{% if report.source_file_name %} · Arquivo {{ report.source_file_name }}{% endif %}
+        </p>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge text-bg-light border">Status: {{ report.get_status_display }}</span>
+        <a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Voltar
+        </a>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Lancamentos aptos</div>
+            <div class="h4 mb-0">{{ ready_rows_count }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Com problema no arquivo</div>
+            <div class="h4 mb-0">{{ problem_rows_count }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">No timesheet e ausentes no arquivo</div>
+            <div class="h4 mb-0">{{ missing_rows_count }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if report.file_period_start and report.file_period_end %}
+      <div class="alert alert-light border">
+        Periodo lido no arquivo: {{ report.file_period_start|date:"d/m/Y" }} ate {{ report.file_period_end|date:"d/m/Y" }}.
+      </div>
+    {% endif %}
+
+    {% if is_month_closed %}
+      <div class="alert alert-warning">
+        O timesheet desta competencia esta encerrado. Reabra o mes antes de aprovar a importacao.
+      </div>
+    {% endif %}
+
+    {% if hard_errors %}
+      <div class="alert alert-danger">
+        <div class="fw-semibold mb-1">Erros bloqueantes</div>
+        {% for error in hard_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if warnings %}
+      <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">Alertas do arquivo</div>
+        {% for warning in warnings %}
+          <div>{{ warning }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if report.status == "pending" %}
+      <div class="d-flex align-items-center justify-content-end gap-2 mb-4 flex-wrap">
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <button
+            type="submit"
+            name="action"
+            value="reject"
+            class="btn btn-outline-secondary"
+            onclick="return confirm('Rejeitar este relatorio? Nenhum dado sera preenchido no timesheet.')"
+          >
+            <i class="bi bi-x-circle me-1"></i>Rejeitar relatorio
+          </button>
+        </form>
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <button
+            type="submit"
+            name="action"
+            value="approve"
+            class="btn btn-primary"
+            {% if not can_approve %}disabled{% endif %}
+            onclick="return confirm('Aprovar este relatorio e preencher o timesheet com os lancamentos aptos?')"
+          >
+            <i class="bi bi-check2-circle me-1"></i>Aprovar e preencher timesheet
+          </button>
+        </form>
+      </div>
+    {% else %}
+      <div class="alert alert-light border">
+        {% if report.status == "approved" %}
+          Relatorio aprovado{% if report.approved_at %} em {{ report.approved_at|date:"d/m/Y H:i" }}{% endif %}. Lancamentos aplicados: {{ report.applied_entries_count }}.
+        {% elif report.status == "rejected" %}
+          Relatorio rejeitado{% if report.rejected_at %} em {{ report.rejected_at|date:"d/m/Y H:i" }}{% endif %}. Nenhum dado foi preenchido automaticamente.
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2 flex-wrap">
+        <h2 class="h6 fw-semibold mb-0">Lancamentos aptos a importar</h2>
+        <span class="badge text-bg-success">{{ ready_rows_count }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Matricula</th>
+              <th>Empregado</th>
+              <th>Normais</th>
+              <th>Extra 60%</th>
+              <th>Extra 100%</th>
+              <th>Falta</th>
+              <th>Justificada</th>
+              <th>Banco</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in ready_rows %}
+              <tr>
+                <td>{{ item.row.registration|default:"-" }}</td>
+                <td>{{ item.row.employee_name|default:"-" }}</td>
+                <td>{{ item.regular_label }}</td>
+                <td>{{ item.overtime_60_label }}</td>
+                <td>{{ item.overtime_100_label }}</td>
+                <td>{{ item.absence_unexcused_label }}</td>
+                <td>{{ item.absence_excused_label }}</td>
+                <td>{{ item.absence_bank_label }}</td>
+                <td class="fw-semibold">{{ item.total_label }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="9" class="text-muted text-center py-4">Nenhum lancamento apto.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2 flex-wrap">
+        <h2 class="h6 fw-semibold mb-0">Lancamentos do arquivo com problema</h2>
+        <span class="badge text-bg-danger">{{ problem_rows_count }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Matricula no arquivo</th>
+              <th>Empregado localizado</th>
+              <th>Normais</th>
+              <th>Extra 60%</th>
+              <th>Extra 100%</th>
+              <th>Falta</th>
+              <th>Justificada</th>
+              <th>Banco</th>
+              <th>Problemas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in problem_rows %}
+              <tr>
+                <td>{{ item.row.registration|default:"-" }}</td>
+                <td>{{ item.row.employee_name|default:"-" }}</td>
+                <td>{{ item.regular_label }}</td>
+                <td>{{ item.overtime_60_label }}</td>
+                <td>{{ item.overtime_100_label }}</td>
+                <td>{{ item.absence_unexcused_label }}</td>
+                <td>{{ item.absence_excused_label }}</td>
+                <td>{{ item.absence_bank_label }}</td>
+                <td>
+                  {% for issue in item.issues %}
+                    <div>{{ issue }}</div>
+                  {% empty %}
+                    <span class="text-muted">Sem detalhe.</span>
+                  {% endfor %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="9" class="text-muted text-center py-4">Nenhum problema encontrado nos lancamentos do arquivo.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2 flex-wrap">
+        <h2 class="h6 fw-semibold mb-0">Empregados do timesheet ausentes no arquivo</h2>
+        <span class="badge text-bg-warning">{{ missing_rows_count }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Matricula</th>
+              <th>Empregado</th>
+              <th>Observacao</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in missing_rows %}
+              <tr>
+                <td>{{ item.row.registration|default:"-" }}</td>
+                <td>{{ item.row.employee_name|default:"-" }}</td>
+                <td>
+                  {% for issue in item.issues %}
+                    <div>{{ issue }}</div>
+                  {% empty %}
+                    <span class="text-muted">Sem detalhe.</span>
+                  {% endfor %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="3" class="text-muted text-center py-4">Todos os empregados do timesheet foram encontrados no arquivo.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}

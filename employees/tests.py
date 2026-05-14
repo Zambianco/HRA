@@ -1,13 +1,18 @@
 from datetime import date, timedelta
+from io import BytesIO
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
+from openpyxl import Workbook
 
 from .models import (
     Cargo,
     Employee,
     EmployeeEvent,
     EmployeeTimeEntry,
+    TimesheetImportReport,
+    TimesheetImportReportRow,
     TimesheetMonthClosure,
     TimesheetMonthClosureCalendarPeriodSnapshot,
     TimesheetMonthClosureEmployeeEventSnapshot,
@@ -24,6 +29,40 @@ class EmployeeViewTests(TestCase):
         self.client = Client()
         self.url = reverse("employees_page")
         self.active_cargo = Cargo.objects.create(nome="Cargo Base")
+
+    def _build_timesheet_import_file(
+        self,
+        *,
+        period_text="De: 01/04/2026 ate 30/04/2026",
+        entries=None,
+        name="PONTO.xlsx",
+    ):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Ponto"
+        sheet["A2"] = period_text
+
+        current_row = 4
+        for entry in entries or []:
+            sheet[f"A{current_row}"] = "N\u00ba Folha"
+            sheet[f"B{current_row}"] = entry["registration"]
+            sheet[f"A{current_row + 2}"] = "Data"
+            values_row = current_row + 3
+            sheet[f"B{values_row}"] = entry.get("normal_b", 0)
+            sheet[f"C{values_row}"] = entry.get("absence_unexcused", 0)
+            sheet[f"D{values_row}"] = entry.get("overtime_60_d", 0)
+            sheet[f"E{values_row}"] = entry.get("overtime_100", 0)
+            sheet[f"F{values_row}"] = entry.get("overtime_60_f", 0)
+            sheet[f"G{values_row}"] = entry.get("absence_excused", 0)
+            current_row += 6
+
+        output = BytesIO()
+        workbook.save(output)
+        return SimpleUploadedFile(
+            name,
+            output.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
     def test_get_employees_page(self):
         response = self.client.get(self.url)
@@ -1205,6 +1244,163 @@ class EmployeeViewTests(TestCase):
             response["Location"],
             f"{reverse('timesheet_page')}?competence_month=2026-04",
         )
+
+    def test_timesheet_import_creates_persisted_report_without_filling_entries(self):
+        sector = Sector.objects.create(nome="Importacao")
+        Employee.objects.create(
+            matricula="3004IMP",
+            nome_completo="Funcionario Importado",
+            sector=sector,
+        )
+        Employee.objects.create(
+            matricula="3004MISS",
+            nome_completo="Funcionario Ausente",
+            sector=sector,
+        )
+        uploaded_file = self._build_timesheet_import_file(
+            entries=[
+                {"registration": "3004IMP", "normal_b": 8},
+                {"registration": "9999", "normal_b": 4},
+            ]
+        )
+
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                "action": "preview_import_timesheet",
+                "timesheet_import_file": uploaded_file,
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeTimeEntry.objects.count(), 0)
+        report = TimesheetImportReport.objects.get()
+        self.assertEqual(report.status, TimesheetImportReport.STATUS_PENDING)
+        self.assertEqual(str(report.competence_month), "2026-04-01")
+        self.assertEqual(
+            report.rows.filter(row_type=TimesheetImportReportRow.TYPE_IMPORTED).count(),
+            1,
+        )
+        self.assertEqual(
+            report.rows.filter(row_type=TimesheetImportReportRow.TYPE_SKIPPED).count(),
+            1,
+        )
+        self.assertEqual(
+            report.rows.filter(row_type=TimesheetImportReportRow.TYPE_MISSING_IN_IMPORT).count(),
+            1,
+        )
+        self.assertContains(response, "Lancamentos aptos a importar")
+        self.assertContains(response, "3004IMP")
+        self.assertContains(response, "9999")
+        self.assertContains(response, "3004MISS")
+
+    def test_approve_timesheet_import_report_fills_entries(self):
+        sector = Sector.objects.create(nome="Importacao Aprovada")
+        employee = Employee.objects.create(
+            matricula="3004OK",
+            nome_completo="Funcionario Aprovado",
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+            sector=sector,
+        )
+        non_participant = Employee.objects.create(
+            matricula="3004FALTA",
+            nome_completo="Funcionario Sem Banco",
+            regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+            sector=sector,
+        )
+        uploaded_file = self._build_timesheet_import_file(
+            entries=[
+                {
+                    "registration": "3004OK",
+                    "normal_b": 8,
+                    "absence_unexcused": "0:15",
+                    "overtime_60_d": 2,
+                    "overtime_60_f": 1,
+                    "overtime_100": "0:30",
+                    "absence_excused": 0,
+                },
+                {
+                    "registration": "3004FALTA",
+                    "normal_b": 4,
+                    "absence_unexcused": "0:30",
+                    "overtime_60_d": 0,
+                    "overtime_60_f": 0,
+                    "overtime_100": 0,
+                    "absence_excused": 0,
+                },
+            ]
+        )
+        self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                "action": "preview_import_timesheet",
+                "timesheet_import_file": uploaded_file,
+            },
+            follow=True,
+        )
+        report = TimesheetImportReport.objects.get()
+        participant_report_row = report.rows.get(employee=employee)
+        non_participant_report_row = report.rows.get(employee=non_participant)
+        self.assertEqual(participant_report_row.absence_unexcused_minutes, 0)
+        self.assertEqual(participant_report_row.absence_bank_minutes, 15)
+        self.assertEqual(non_participant_report_row.absence_unexcused_minutes, 30)
+        self.assertEqual(non_participant_report_row.absence_bank_minutes, 0)
+
+        response = self.client.post(
+            reverse("timesheet_import_report_page", kwargs={"report_id": report.id}),
+            data={"action": "approve"},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        report.refresh_from_db()
+        self.assertEqual(report.status, TimesheetImportReport.STATUS_APPROVED)
+        self.assertEqual(report.applied_entries_count, 2)
+        entry = EmployeeTimeEntry.objects.get(employee=employee, competence_month="2026-04-01")
+        self.assertEqual(entry.regular_minutes, 480)
+        self.assertEqual(entry.overtime_60_minutes, 180)
+        self.assertEqual(entry.overtime_100_minutes, 30)
+        self.assertEqual(entry.absence_unexcused_minutes, 0)
+        self.assertEqual(entry.absence_excused_minutes, 0)
+        self.assertEqual(entry.absence_bank_minutes, 15)
+        non_participant_entry = EmployeeTimeEntry.objects.get(
+            employee=non_participant,
+            competence_month="2026-04-01",
+        )
+        self.assertEqual(non_participant_entry.regular_minutes, 240)
+        self.assertEqual(non_participant_entry.absence_unexcused_minutes, 30)
+        self.assertEqual(non_participant_entry.absence_bank_minutes, 0)
+        self.assertContains(response, "Relatorio aprovado")
+
+    def test_timesheet_import_period_mismatch_does_not_create_report(self):
+        sector = Sector.objects.create(nome="Importacao Periodo")
+        Employee.objects.create(
+            matricula="3004MES",
+            nome_completo="Funcionario Periodo",
+            sector=sector,
+        )
+        uploaded_file = self._build_timesheet_import_file(
+            period_text="De: 01/03/2026 ate 31/03/2026",
+            entries=[{"registration": "3004MES", "normal_b": 8}],
+        )
+
+        response = self.client.post(
+            reverse("timesheet_page"),
+            data={
+                "competence_month": "2026-04",
+                "action": "preview_import_timesheet",
+                "timesheet_import_file": uploaded_file,
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(TimesheetImportReport.objects.count(), 0)
+        self.assertEqual(EmployeeTimeEntry.objects.count(), 0)
+        self.assertContains(response, "Periodo do espelho ponto diferente do mes selecionado")
 
     def test_save_monthly_timesheet_compiled_table(self):
         sector = Sector.objects.create(nome="RH")
