@@ -274,7 +274,7 @@ class EmployeeViewTests(TestCase):
             reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
             data={
                 "form_type": "calendar_exception",
-                "exception_type": EmployeeEvent.EVENT_TYPE_MEDICAL_CERTIFICATE,
+                "exception_type": EmployeeEvent.EVENT_TYPE_TERMINATION,
                 "start_date": "2026-05-01",
                 "end_date": "2026-05-10",
             },
@@ -284,6 +284,34 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(EmployeeEvent.objects.count(), 0)
         self.assertContains(response, "Selecione um tipo de excessao valido.")
+
+    def test_create_medical_certificate_calendar_exception_via_employee_edit_page(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3001MED",
+            nome_completo="Atestado por Excecao",
+            sector=sector,
+        )
+
+        response = self.client.post(
+            reverse("employee_edit_page", kwargs={"employee_id": employee.id}),
+            data={
+                "form_type": "calendar_exception",
+                "exception_type": EmployeeEvent.EVENT_TYPE_MEDICAL_CERTIFICATE,
+                "start_date": "2026-05-04",
+                "end_date": "2026-05-05",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeEvent.objects.count(), 1)
+        event = EmployeeEvent.objects.first()
+        self.assertEqual(event.employee, employee)
+        self.assertEqual(event.event_type, EmployeeEvent.EVENT_TYPE_MEDICAL_CERTIFICATE)
+        self.assertEqual(str(event.effective_date), "2026-05-04")
+        self.assertEqual(str(event.end_date), "2026-05-05")
+        self.assertContains(response, "Atestado")
 
     def test_create_calendar_exception_rejects_end_date_before_start_date(self):
         sector = Sector.objects.create(nome="RH")
@@ -870,6 +898,160 @@ class EmployeeViewTests(TestCase):
         self.assertContains(response, 'data-minutes="10560"')
         self.assertContains(response, 'data-minutes="12240"')
 
+    def test_timesheet_page_respects_hiring_event_window(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        schedule = WorkSchedule.objects.create(
+            nome="Escala Admissao",
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        existing_employee = Employee.objects.create(
+            matricula="3004K",
+            nome_completo="Empregado Antigo",
+            sector=sector,
+            work_schedule=schedule,
+        )
+        hired_employee = Employee.objects.create(
+            matricula="3004L",
+            nome_completo="Admissao em Marco",
+            sector=sector,
+            work_schedule=schedule,
+        )
+        EmployeeEvent.objects.create(
+            employee=hired_employee,
+            event_type=EmployeeEvent.EVENT_TYPE_HIRING,
+            effective_date=date(2026, 3, 9),
+        )
+
+        january_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-01"
+        )
+        january_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in january_response.context["rows"]
+        }
+        self.assertIn(existing_employee.id, january_rows)
+        self.assertNotIn(hired_employee.id, january_rows)
+
+        march_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-03"
+        )
+        march_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in march_response.context["rows"]
+        }
+        self.assertEqual(march_rows[existing_employee.id], 10560)
+        self.assertEqual(march_rows[hired_employee.id], 8160)
+        self.assertEqual(march_response.context["total_expected_minutes"], 18720)
+
+    def test_timesheet_page_respects_termination_event_window(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        schedule = WorkSchedule.objects.create(
+            nome="Escala Demissao",
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="3004N",
+            nome_completo="Demissao em Marco",
+            sector=sector,
+            work_schedule=schedule,
+        )
+        EmployeeEvent.objects.create(
+            employee=employee,
+            event_type=EmployeeEvent.EVENT_TYPE_TERMINATION,
+            effective_date=date(2026, 3, 13),
+        )
+
+        march_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-03"
+        )
+        march_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in march_response.context["rows"]
+        }
+        self.assertEqual(march_rows[employee.id], 4800)
+
+        april_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-04"
+        )
+        april_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in april_response.context["rows"]
+        }
+        self.assertNotIn(employee.id, april_rows)
+
+    def test_timesheet_expected_minutes_respects_schedule_change_calendar_and_exceptions(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        old_calendar = WorkCalendar.objects.create(nome="Calendario Antigo")
+        new_calendar = WorkCalendar.objects.create(nome="Calendario Novo")
+        WorkCalendarPeriod.objects.create(
+            calendar=old_calendar,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=date(2026, 3, 10),
+            end_date=date(2026, 3, 10),
+            description="Feriado calendario antigo",
+        )
+        WorkCalendarPeriod.objects.create(
+            calendar=new_calendar,
+            period_type=WorkCalendarPeriod.TYPE_HOLIDAY,
+            start_date=date(2026, 3, 17),
+            end_date=date(2026, 3, 17),
+            description="Feriado calendario novo",
+        )
+        old_schedule = WorkSchedule.objects.create(
+            nome="Escala Antiga Timesheet",
+            calendar=old_calendar,
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        new_schedule = WorkSchedule.objects.create(
+            nome="Escala Nova Timesheet",
+            calendar=new_calendar,
+            horas_segunda="10.00",
+            horas_terca="10.00",
+            horas_quarta="10.00",
+            horas_quinta="10.00",
+            horas_sexta="10.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="3004M",
+            nome_completo="Troca de Escala",
+            sector=sector,
+            work_schedule=new_schedule,
+        )
+        EmployeeEvent.objects.create(
+            employee=employee,
+            event_type=EmployeeEvent.EVENT_TYPE_ALLOCATION_CHANGE,
+            effective_date=date(2026, 3, 16),
+            previous_work_schedule=old_schedule,
+            new_work_schedule=new_schedule,
+        )
+
+        response = self.client.get(f"{reverse('timesheet_page')}?competence_month=2026-03")
+        rows_by_employee = {
+            row["employee"].id: row["expected_minutes"] for row in response.context["rows"]
+        }
+        self.assertEqual(rows_by_employee[employee.id], 10920)
+        self.assertEqual(response.context["total_expected_minutes"], 10920)
+
     def test_timesheet_expected_minutes_subtracts_calendar_exceptions_by_weekday_hours(self):
         sector = Sector.objects.create(nome="Engenharia")
         calendar = WorkCalendar.objects.create(nome="Calendario Operacional")
@@ -973,6 +1155,48 @@ class EmployeeViewTests(TestCase):
             row["employee"].id: row["expected_minutes"] for row in response.context["rows"]
         }
         self.assertEqual(rows_by_employee[employee.id], baseline_minutes - 900)
+
+    def test_timesheet_expected_minutes_subtracts_medical_certificate_event(self):
+        sector = Sector.objects.create(nome="Engenharia")
+        schedule = WorkSchedule.objects.create(
+            nome="Escala Atestado",
+            horas_segunda="8.00",
+            horas_terca="8.00",
+            horas_quarta="8.00",
+            horas_quinta="8.00",
+            horas_sexta="8.00",
+            horas_sabado="0.00",
+            horas_domingo="0.00",
+        )
+        employee = Employee.objects.create(
+            matricula="3004O",
+            nome_completo="Atestado no Timesheet",
+            sector=sector,
+            work_schedule=schedule,
+        )
+
+        baseline_response = self.client.get(
+            f"{reverse('timesheet_page')}?competence_month=2026-05"
+        )
+        baseline_rows = {
+            row["employee"].id: row["expected_minutes"]
+            for row in baseline_response.context["rows"]
+        }
+        baseline_minutes = baseline_rows[employee.id]
+
+        EmployeeEvent.objects.create(
+            employee=employee,
+            event_type=EmployeeEvent.EVENT_TYPE_MEDICAL_CERTIFICATE,
+            effective_date=date(2026, 5, 4),
+            end_date=date(2026, 5, 5),
+            notes="Atestado medico",
+        )
+
+        response = self.client.get(f"{reverse('timesheet_page')}?competence_month=2026-05")
+        rows_by_employee = {
+            row["employee"].id: row["expected_minutes"] for row in response.context["rows"]
+        }
+        self.assertEqual(rows_by_employee[employee.id], baseline_minutes - 960)
 
     def test_legacy_point_url_redirects_to_timesheet(self):
         response = self.client.get("/ponto/?competence_month=2026-04")

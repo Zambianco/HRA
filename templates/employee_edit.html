@@ -439,7 +439,7 @@
     <section class="panel mb-3 d-none" data-edit-tab-panel="calendar-exceptions">
       <div class="section-head">
         <h2 class="section-title"><i class="bi bi-calendar-range text-primary"></i> Exceções de calendario</h2>
-        <p class="section-subtitle">Cadastre folgas, férias e afastamentos com inicio e fim.</p>
+        <p class="section-subtitle">Cadastre folgas, férias, afastamentos e atestados com inicio e fim.</p>
       </div>
       <div class="section-body">
         <form method="post" action="{% url 'employee_edit_page' employee.id %}" class="mb-4">
@@ -454,6 +454,7 @@
                 <option value="day_off">Folga</option>
                 <option value="vacation">Férias</option>
                 <option value="absence">Afastamento</option>
+                <option value="medical_certificate">Atestado</option>
               </select>
             </div>
             <div class="col-lg-3">
@@ -493,6 +494,8 @@
                       Férias
                     {% elif event.event_type == "absence" %}
                       Afastamento
+                    {% elif event.event_type == "medical_certificate" %}
+                      Atestado
                     {% else %}
                       {{ event.get_event_type_display }}
                     {% endif %}
@@ -666,4 +669,3 @@
     })();
   </script>
 {% endblock %}
-

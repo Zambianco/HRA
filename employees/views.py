@@ -472,9 +472,21 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
     if not aggregated_by_registration:
         return None, ["Nenhum bloco de horas valido foi encontrado no arquivo."], warnings
 
+    base_employees = _get_timesheet_base_employees()
+    base_employee_ids = [employee.id for employee in base_employees]
+    lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+    eligible_employee_ids = {
+        employee.id
+        for employee in _filter_employees_active_in_period(
+            base_employees,
+            expected_start,
+            expected_end,
+            lifecycle_dates,
+        )
+    }
     employees_by_registration = {
         str(employee.matricula).strip(): employee
-        for employee in Employee.objects.filter(deactivated_at__isnull=True)
+        for employee in base_employees
         if str(employee.matricula or "").strip()
     }
     preview_rows = []
@@ -484,6 +496,8 @@ def _build_timesheet_import_preview(uploaded_file, competence_month):
         employee = employees_by_registration.get(registration)
         if not employee:
             issues.append("matricula nao encontrada entre empregados ativos")
+        elif employee.id not in eligible_employee_ids:
+            issues.append("empregado fora da competencia pela data de admissao/demissao")
 
         for field_name, field_label in TIME_ENTRY_MINUTE_FIELDS:
             if field_name == "absence_bank_minutes":
@@ -766,28 +780,225 @@ def _build_employee_exception_dates_by_employee(employee_ids, month_start, month
     return exception_dates_by_employee
 
 
+def _build_employee_lifecycle_dates(employee_ids):
+    lifecycle_dates = {
+        employee_id: {"hiring_date": None, "termination_date": None}
+        for employee_id in employee_ids
+    }
+    if not employee_ids:
+        return lifecycle_dates
+
+    events = (
+        EmployeeEvent.objects.filter(
+            employee_id__in=employee_ids,
+            event_type__in=(
+                EmployeeEvent.EVENT_TYPE_HIRING,
+                EmployeeEvent.EVENT_TYPE_TERMINATION,
+            ),
+        )
+        .only("employee_id", "event_type", "effective_date")
+        .order_by("employee_id", "effective_date", "id")
+    )
+    for event in events:
+        employee_lifecycle = lifecycle_dates.setdefault(
+            event.employee_id,
+            {"hiring_date": None, "termination_date": None},
+        )
+        if event.event_type == EmployeeEvent.EVENT_TYPE_HIRING:
+            if (
+                employee_lifecycle["hiring_date"] is None
+                or event.effective_date < employee_lifecycle["hiring_date"]
+            ):
+                employee_lifecycle["hiring_date"] = event.effective_date
+            continue
+
+        if (
+            employee_lifecycle["termination_date"] is None
+            or event.effective_date < employee_lifecycle["termination_date"]
+        ):
+            employee_lifecycle["termination_date"] = event.effective_date
+
+    return lifecycle_dates
+
+
+def _get_employee_active_date_range(employee_id, range_start, range_end, lifecycle_dates):
+    lifecycle = lifecycle_dates.get(employee_id, {})
+    hiring_date = lifecycle.get("hiring_date")
+    termination_date = lifecycle.get("termination_date")
+
+    active_start = max(range_start, hiring_date) if hiring_date else range_start
+    active_end = min(range_end, termination_date) if termination_date else range_end
+    if active_end < active_start:
+        return None, None
+
+    return active_start, active_end
+
+
+def _filter_employees_active_in_period(employees, range_start, range_end, lifecycle_dates):
+    return [
+        employee
+        for employee in employees
+        if _get_employee_active_date_range(
+            employee.id,
+            range_start,
+            range_end,
+            lifecycle_dates,
+        )
+        != (None, None)
+    ]
+
+
+def _build_employee_schedule_events_by_employee(employee_ids):
+    if not employee_ids:
+        return {}
+
+    events = (
+        EmployeeEvent.objects.select_related(
+            "previous_work_schedule__calendar",
+            "new_work_schedule__calendar",
+        )
+        .filter(
+            employee_id__in=employee_ids,
+            event_type=EmployeeEvent.EVENT_TYPE_ALLOCATION_CHANGE,
+        )
+        .order_by("employee_id", "effective_date", "id")
+    )
+    schedule_events_by_employee = defaultdict(list)
+    for event in events:
+        if not event.previous_work_schedule_id and not event.new_work_schedule_id:
+            continue
+        schedule_events_by_employee[event.employee_id].append(event)
+
+    return schedule_events_by_employee
+
+
+def _resolve_work_schedule_for_employee_date(
+    employee,
+    target_date,
+    schedule_events_by_employee,
+):
+    schedule_events = schedule_events_by_employee.get(employee.id, ())
+    if not schedule_events:
+        return employee.work_schedule
+
+    latest_past_event = None
+    earliest_future_event = None
+    for event in schedule_events:
+        if event.effective_date <= target_date:
+            latest_past_event = event
+            continue
+        earliest_future_event = event
+        break
+
+    if latest_past_event:
+        return latest_past_event.new_work_schedule
+    if earliest_future_event:
+        return earliest_future_event.previous_work_schedule
+
+    return employee.work_schedule
+
+
+def _collect_calendar_ids_for_timesheet(employees, schedule_events_by_employee):
+    calendar_ids = {
+        employee.work_schedule.calendar_id
+        for employee in employees
+        if employee.work_schedule and employee.work_schedule.calendar_id
+    }
+    for schedule_events in schedule_events_by_employee.values():
+        for event in schedule_events:
+            for schedule in (event.previous_work_schedule, event.new_work_schedule):
+                if schedule and schedule.calendar_id:
+                    calendar_ids.add(schedule.calendar_id)
+
+    return calendar_ids
+
+
+def _collect_work_schedules_used_for_period(
+    employees,
+    range_start,
+    range_end,
+    lifecycle_dates,
+    schedule_events_by_employee,
+):
+    schedules_by_id = {}
+    for employee in employees:
+        active_start, active_end = _get_employee_active_date_range(
+            employee.id,
+            range_start,
+            range_end,
+            lifecycle_dates,
+        )
+        if active_start is None:
+            continue
+
+        current_date = active_start
+        while current_date <= active_end:
+            schedule = _resolve_work_schedule_for_employee_date(
+                employee,
+                current_date,
+                schedule_events_by_employee,
+            )
+            if schedule:
+                schedules_by_id[schedule.id] = schedule
+            current_date += timedelta(days=1)
+
+    return schedules_by_id
+
+
+def _get_timesheet_base_employees():
+    return list(
+        Employee.objects.select_related(
+            "sector",
+            "sector__department",
+            "sector__department__area",
+            "work_schedule",
+            "work_schedule__calendar",
+        )
+        .filter(deactivated_at__isnull=True)
+        .order_by("nome_completo")
+    )
+
+
 def _calculate_expected_minutes_for_employee(
     employee,
     month_start,
     month_end,
     calendar_exception_dates_by_calendar,
     employee_exception_dates_by_employee,
+    schedule_events_by_employee=None,
+    lifecycle_dates=None,
 ):
-    work_schedule = employee.work_schedule
-    if not work_schedule:
+    schedule_events_by_employee = schedule_events_by_employee or {}
+    lifecycle_dates = lifecycle_dates or {}
+    active_start, active_end = _get_employee_active_date_range(
+        employee.id,
+        month_start,
+        month_end,
+        lifecycle_dates,
+    )
+    if active_start is None:
         return 0
 
-    excluded_dates = set()
-    if work_schedule.calendar_id:
-        excluded_dates.update(
-            calendar_exception_dates_by_calendar.get(work_schedule.calendar_id, set())
-        )
-    excluded_dates.update(employee_exception_dates_by_employee.get(employee.id, set()))
+    employee_exception_dates = employee_exception_dates_by_employee.get(employee.id, set())
 
     total_hours = Decimal("0")
-    current_date = month_start
-    while current_date <= month_end:
-        if current_date not in excluded_dates:
+    current_date = active_start
+    while current_date <= active_end:
+        work_schedule = _resolve_work_schedule_for_employee_date(
+            employee,
+            current_date,
+            schedule_events_by_employee,
+        )
+        calendar_exception_dates = (
+            calendar_exception_dates_by_calendar.get(work_schedule.calendar_id, set())
+            if work_schedule and work_schedule.calendar_id
+            else set()
+        )
+        if (
+            work_schedule
+            and current_date not in calendar_exception_dates
+            and current_date not in employee_exception_dates
+        ):
             field_name = SCHEDULE_FIELDS_IN_WEEKDAY_ORDER[current_date.weekday()]
             day_hours = getattr(work_schedule, field_name, Decimal("0")) or Decimal("0")
             total_hours += day_hours
@@ -1485,17 +1696,27 @@ def _calc_bank_credit_minutes(overtime_minutes):
 def _create_month_closure_snapshots(closure):
     month_start, month_end = _get_month_date_range(closure.competence_month)
 
-    active_employees = Employee.objects.select_related("work_schedule__calendar").filter(
-        deactivated_at__isnull=True
+    base_employees = _get_timesheet_base_employees()
+    base_employee_ids = [employee.id for employee in base_employees]
+    lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+    active_employees = _filter_employees_active_in_period(
+        base_employees,
+        month_start,
+        month_end,
+        lifecycle_dates,
     )
+    employee_ids = [employee.id for employee in active_employees]
+    schedule_events_by_employee = _build_employee_schedule_events_by_employee(employee_ids)
 
-    schedules_by_id = {}
+    schedules_by_id = _collect_work_schedules_used_for_period(
+        active_employees,
+        month_start,
+        month_end,
+        lifecycle_dates,
+        schedule_events_by_employee,
+    )
     calendar_names_by_id = {}
-    for employee in active_employees:
-        schedule = employee.work_schedule
-        if not schedule:
-            continue
-        schedules_by_id[schedule.id] = schedule
+    for schedule in schedules_by_id.values():
         if schedule.calendar_id:
             calendar_names_by_id[schedule.calendar_id] = schedule.calendar.nome
 
@@ -1637,12 +1858,6 @@ def _get_latest_closure_for_calendar(calendar_id):
 
 
 def timesheet_page(request):
-    employees = list(
-        Employee.objects.select_related("sector", "work_schedule")
-        .filter(deactivated_at__isnull=True)
-        .order_by("nome_completo")
-    )
-
     if request.method == "POST":
         competence_month, competence_month_value, error = _resolve_competence_month(
             request.POST.get("competence_month")
@@ -1653,6 +1868,16 @@ def timesheet_page(request):
 
         action = (request.POST.get("action") or "save").strip()
         competence_month_label = _format_competence_month_label(competence_month)
+        month_start, month_end = _get_month_date_range(competence_month)
+        base_employees = _get_timesheet_base_employees()
+        base_employee_ids = [employee.id for employee in base_employees]
+        lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+        employees = _filter_employees_active_in_period(
+            base_employees,
+            month_start,
+            month_end,
+            lifecycle_dates,
+        )
 
         if action == "close_month":
             closure, created = TimesheetMonthClosure.objects.get_or_create(
@@ -1908,18 +2133,28 @@ def timesheet_page(request):
     )
     timesheet_import_preview = request.session.get("timesheet_import_preview", None)
 
+    month_start, month_end = _get_month_date_range(competence_month)
+    base_employees = _get_timesheet_base_employees()
+    base_employee_ids = [employee.id for employee in base_employees]
+    lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+    employees = _filter_employees_active_in_period(
+        base_employees,
+        month_start,
+        month_end,
+        lifecycle_dates,
+    )
+    employee_ids = [employee.id for employee in employees]
+    schedule_events_by_employee = _build_employee_schedule_events_by_employee(employee_ids)
     month_entries = EmployeeTimeEntry.objects.select_related("employee").filter(
-        competence_month=competence_month
+        competence_month=competence_month,
+        employee_id__in=employee_ids,
     )
     entries_by_employee = {entry.employee_id: entry for entry in month_entries}
 
-    month_start, month_end = _get_month_date_range(competence_month)
-    calendar_ids = {
-        employee.work_schedule.calendar_id
-        for employee in employees
-        if employee.work_schedule and employee.work_schedule.calendar_id
-    }
-    employee_ids = [employee.id for employee in employees]
+    calendar_ids = _collect_calendar_ids_for_timesheet(
+        employees,
+        schedule_events_by_employee,
+    )
 
     calendar_exception_dates_by_calendar = _build_calendar_exception_dates_by_calendar(
         calendar_ids,
@@ -1941,6 +2176,8 @@ def timesheet_page(request):
             month_end,
             calendar_exception_dates_by_calendar,
             employee_exception_dates_by_employee,
+            schedule_events_by_employee,
+            lifecycle_dates,
         )
         total_expected_minutes += expected_minutes
         rows.append(
@@ -2082,20 +2319,23 @@ def timesheet_dashboard_page(request):
         messages.error(request, error)
         return redirect(_timesheet_redirect_with_filters())
 
-    employees = list(
-        Employee.objects.select_related(
-            "sector",
-            "sector__department",
-            "sector__department__area",
-            "work_schedule",
-        )
-        .filter(deactivated_at__isnull=True)
-        .order_by("nome_completo")
+    range_end = _get_month_date_range(end_month)[1]
+    base_employees = _get_timesheet_base_employees()
+    base_employee_ids = [employee.id for employee in base_employees]
+    lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+    employees = _filter_employees_active_in_period(
+        base_employees,
+        start_month,
+        range_end,
+        lifecycle_dates,
     )
+    employee_ids = [employee.id for employee in employees]
+    schedule_events_by_employee = _build_employee_schedule_events_by_employee(employee_ids)
 
     competence_months = list(_iterate_competence_months(start_month, end_month))
     month_entries = EmployeeTimeEntry.objects.select_related("employee", "employee__sector").filter(
-        competence_month__in=competence_months
+        competence_month__in=competence_months,
+        employee_id__in=employee_ids,
     )
     entries_by_employee = {}
     for entry in month_entries:
@@ -2117,22 +2357,20 @@ def timesheet_dashboard_page(request):
         employee_entry["absence_excused_minutes"] += entry.absence_excused_minutes
         employee_entry["absence_bank_minutes"] += entry.absence_bank_minutes
 
-    calendar_ids = {
-        employee.work_schedule.calendar_id
-        for employee in employees
-        if employee.work_schedule and employee.work_schedule.calendar_id
-    }
-    employee_ids = [employee.id for employee in employees]
+    calendar_ids = _collect_calendar_ids_for_timesheet(
+        employees,
+        schedule_events_by_employee,
+    )
 
     calendar_exception_dates_by_calendar = _build_calendar_exception_dates_by_calendar(
         calendar_ids,
         start_month,
-        _get_month_date_range(end_month)[1],
+        range_end,
     )
     employee_exception_dates_by_employee = _build_employee_exception_dates_by_employee(
         employee_ids,
         start_month,
-        _get_month_date_range(end_month)[1],
+        range_end,
     )
 
     def _empty_group_bucket(name):
@@ -2212,6 +2450,8 @@ def timesheet_dashboard_page(request):
                 month_end,
                 calendar_exception_dates_by_calendar,
                 employee_exception_dates_by_employee,
+                schedule_events_by_employee,
+                lifecycle_dates,
             )
         total_expected_minutes += expected_minutes
 
@@ -3164,6 +3404,7 @@ def employee_edit_page(request, employee_id):
         EmployeeEvent.EVENT_TYPE_DAY_OFF,
         EmployeeEvent.EVENT_TYPE_VACATION,
         EmployeeEvent.EVENT_TYPE_ABSENCE,
+        EmployeeEvent.EVENT_TYPE_MEDICAL_CERTIFICATE,
     )
     calendar_exception_events = EmployeeEvent.objects.filter(
         employee=employee,
