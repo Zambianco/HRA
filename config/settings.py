@@ -26,7 +26,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 SECRET_KEY = 'django-insecure-v^)vip^$l581psghib5*j(7$vaffltbmy=839v1@0hvs7z1=s('
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 allowed_hosts_from_env = os.getenv("DJANGO_ALLOWED_HOSTS", "").strip()
 if allowed_hosts_from_env:

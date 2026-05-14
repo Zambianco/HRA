@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Erro {{ status_code }} · RH Local</title>
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --panel: #ffffff;
+      --text: #1d2736;
+      --muted: #5d6878;
+      --primary: #1f6feb;
+      --primary-hover: #165ec7;
+      --border: #d6dfec;
+      --danger: #c93b3b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #eef4ff 0, var(--bg) 40%);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      padding: 1rem;
+    }
+    .card {
+      width: min(560px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: 0 12px 36px rgba(26, 36, 56, 0.08);
+    }
+    h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .code {
+      color: var(--danger);
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 1.25rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    button, a {
+      border: 0;
+      border-radius: 10px;
+      padding: 0.6rem 0.95rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 128px;
+    }
+    .reload {
+      background: var(--primary);
+      color: #fff;
+    }
+    .reload:hover {
+      background: var(--primary-hover);
+    }
+    .back {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <h1><span class="code">{{ status_code }}</span> {{ error_title }}</h1>
+    <p>{{ error_description }}</p>
+    <div class="actions">
+      <button type="button" class="reload" onclick="window.location.reload()">Recarregar pagina</button>
+      <button
+        type="button"
+        class="back"
+        onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '/'; }"
+      >
+        Voltar
+      </button>
+      <a class="back" href="/">Ir para inicio</a>
+    </div>
+  </main>
+</body>
+</html>

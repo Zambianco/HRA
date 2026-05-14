@@ -3,7 +3,10 @@ import socket
 import threading
 import time
 import json
+import sqlite3
 from pathlib import Path
+import tkinter as tk
+from tkinter import filedialog, messagebox
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -26,7 +29,14 @@ def _wait_for_server(url: str, timeout_seconds: float = 20.0) -> None:
 
 def _run_django(host: str, port: int) -> None:
     execute_from_command_line(
-        ["manage.py", "runserver", f"{host}:{port}", "--noreload", "--nothreading"]
+        [
+            "manage.py",
+            "runserver",
+            f"{host}:{port}",
+            "--noreload",
+            "--nothreading",
+            "--insecure",
+        ]
     )
 
 
@@ -79,6 +89,31 @@ def _apply_database_mode_from_saved_config() -> None:
             if loaded_mode in {"online", "arquivo"}:
                 mode = loaded_mode
             db_file_path = _normalize_db_path(loaded_path, base_dir, data_dir)
+
+    if mode == "arquivo":
+        while True:
+            db_path = Path(db_file_path).expanduser()
+            if db_path.exists() and _sqlite_has_required_schema(str(db_path)):
+                break
+
+            selected_db = _prompt_for_database_file(initial_dir=data_dir)
+            if not selected_db:
+                raise RuntimeError(
+                    "Banco de dados invalido/nao encontrado e nenhum arquivo foi selecionado."
+                )
+            db_file_path = selected_db
+
+        config_path.write_text(
+            json.dumps(
+                {
+                    "mode": mode,
+                    "db_file_path": db_file_path,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     os.environ["DATABASE_MODE"] = mode
     if mode == "arquivo":
