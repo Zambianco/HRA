@@ -223,6 +223,9 @@
       color: #111827 !important;
       font-weight: 700 !important;
     }
+    .timesheet-total.timesheet-over-limit {
+      color: #d96b6b !important;
+    }
 
     .table-resize-host {
       position: relative;
@@ -567,11 +570,12 @@
                     <span
                       class="fw-semibold text-muted timesheet-total"
                       data-minutes="{{ row.expected_minutes }}"
+                      data-row-expected="{{ forloop.counter0 }}"
                     ></span>
                   </td>
                   <td class="meta-cell text-start">
                     <span
-                      class="fw-semibold timesheet-total"
+                      class="fw-semibold text-muted timesheet-total"
                       data-minutes="0"
                       data-row-launched="{{ forloop.counter0 }}"
                     ></span>
@@ -847,6 +851,11 @@
       const rowLaunchedElements = new Map(
         Array.from(document.querySelectorAll("[data-row-launched]")).map(function (element) {
           return [String(element.dataset.rowLaunched), element];
+        })
+      );
+      const rowExpectedElements = new Map(
+        Array.from(document.querySelectorAll("[data-row-expected]")).map(function (element) {
+          return [String(element.dataset.rowExpected), element];
         })
       );
       let recalculateScheduled = false;
@@ -1575,11 +1584,25 @@
 
         numericInputsByRow.forEach(function (rowInputs, rowKey) {
           const rowLaunchedElement = rowLaunchedElements.get(rowKey);
+          const rowExpectedElement = rowExpectedElements.get(rowKey);
           if (!rowLaunchedElement) return;
           const rowMinutes = rowInputs.reduce(function (sum, input) {
             return sum + resolveMinutesForTotals(input);
           }, 0);
           rowLaunchedElement.dataset.minutes = String(rowMinutes);
+          const expectedMinutes = rowExpectedElement
+            ? Number(rowExpectedElement.dataset.minutes || "0")
+            : 0;
+          if (Number.isFinite(expectedMinutes) && rowMinutes > expectedMinutes) {
+            rowLaunchedElement.classList.add("timesheet-over-limit");
+          } else {
+            rowLaunchedElement.classList.remove("timesheet-over-limit");
+          }
+          if (rowExpectedElement && Number.isFinite(expectedMinutes) && expectedMinutes > rowMinutes) {
+            rowExpectedElement.classList.add("timesheet-over-limit");
+          } else if (rowExpectedElement) {
+            rowExpectedElement.classList.remove("timesheet-over-limit");
+          }
         });
 
         setMinutesOnTargets("regular", regularMinutes);
