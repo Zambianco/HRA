@@ -65,8 +65,45 @@ TIME_ENTRY_MINUTE_FIELDS = (
 )
 
 
+def _project_root_path() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _default_sqlite_db_path() -> Path:
+    return _project_root_path() / "data" / "rh.db"
+
+
+def _normalize_db_file_path(path_value: str) -> str:
+    raw_value = str(path_value or "").strip()
+    if not raw_value:
+        return str(_default_sqlite_db_path())
+
+    project_root = _project_root_path()
+    candidate = Path(raw_value).expanduser()
+    if not candidate.is_absolute():
+        candidate = project_root / candidate
+
+    try:
+        resolved = candidate.resolve(strict=False)
+        _ = resolved.parent.exists()
+    except OSError:
+        return str(_default_sqlite_db_path())
+
+    return str(resolved)
+
+
+def _portable_db_path_for_storage(path_value: str) -> str:
+    normalized = Path(_normalize_db_file_path(path_value))
+    project_root = _project_root_path()
+    try:
+        relative = normalized.relative_to(project_root)
+    except ValueError:
+        return str(normalized)
+    return relative.as_posix()
+
+
 def _db_config_file_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "data" / "db_config.json"
+    return _project_root_path() / "data" / "db_config.json"
 
 
 def _load_db_runtime_config() -> dict:
@@ -77,7 +114,18 @@ def _load_db_runtime_config() -> dict:
         loaded = json.loads(config_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
-    return loaded if isinstance(loaded, dict) else {}
+    if not isinstance(loaded, dict):
+        return {}
+
+    mode = str(loaded.get("mode", "")).strip().lower()
+    if mode not in {"online", "arquivo"}:
+        mode = "arquivo"
+
+    normalized = {
+        "mode": mode,
+        "db_file_path": _normalize_db_file_path(str(loaded.get("db_file_path", ""))),
+    }
+    return normalized
 
 
 def _save_db_runtime_config(mode: str, db_file_path: str) -> None:
@@ -85,7 +133,7 @@ def _save_db_runtime_config(mode: str, db_file_path: str) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "mode": mode,
-        "db_file_path": db_file_path,
+        "db_file_path": _portable_db_path_for_storage(db_file_path),
     }
     config_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
@@ -108,12 +156,12 @@ def _open_location_in_file_manager(path_value: str) -> None:
 
 
 def _create_clean_sqlite_db(db_file_path: str) -> tuple[bool, str]:
-    target = Path(db_file_path).expanduser()
+    target = Path(_normalize_db_file_path(db_file_path))
     parent = target.parent
     if not parent.exists():
         parent.mkdir(parents=True, exist_ok=True)
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = _project_root_path()
     env = os.environ.copy()
     env["DATABASE_MODE"] = "arquivo"
     env["DB_FILE_PATH"] = str(target)
@@ -3703,7 +3751,7 @@ def database_settings_page(request):
 
     context = {
         "database_mode": mode,
-        "db_file_path": db_file_path,
+        "db_file_path": _portable_db_path_for_storage(db_file_path),
     }
     return render(request, "database_settings.html", context)
 

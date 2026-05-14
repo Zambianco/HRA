@@ -40,6 +40,24 @@ def _pick_port(default_port: int = 8000) -> int:
         return int(sock.getsockname()[1])
 
 
+def _normalize_db_path(path_value: str, base_dir: Path, data_dir: Path) -> str:
+    raw = str(path_value or "").strip()
+    if not raw:
+        return str(data_dir / "rh.db")
+
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = base_dir / candidate
+
+    try:
+        resolved = candidate.resolve(strict=False)
+        _ = resolved.parent.exists()
+    except OSError:
+        return str(data_dir / "rh.db")
+
+    return str(resolved)
+
+
 def _apply_database_mode_from_saved_config() -> None:
     base_dir = Path(__file__).resolve().parent
     data_dir = base_dir / "data"
@@ -60,8 +78,7 @@ def _apply_database_mode_from_saved_config() -> None:
             loaded_path = str(loaded.get("db_file_path", "")).strip()
             if loaded_mode in {"online", "arquivo"}:
                 mode = loaded_mode
-            if loaded_path:
-                db_file_path = loaded_path
+            db_file_path = _normalize_db_path(loaded_path, base_dir, data_dir)
 
     os.environ["DATABASE_MODE"] = mode
     if mode == "arquivo":

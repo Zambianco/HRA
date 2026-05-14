@@ -123,7 +123,17 @@ def _build_database() -> dict:
         return _build_online_database()
 
     db_file_path = os.getenv("DB_FILE_PATH", "").strip()
-    sqlite_path = Path(db_file_path) if db_file_path else DEFAULT_SQLITE_PATH
+    if db_file_path:
+        candidate = Path(db_file_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = BASE_DIR / candidate
+        try:
+            sqlite_path = candidate.resolve(strict=False)
+        except OSError:
+            sqlite_path = DEFAULT_SQLITE_PATH
+    else:
+        sqlite_path = DEFAULT_SQLITE_PATH
+
     return {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": str(sqlite_path),
