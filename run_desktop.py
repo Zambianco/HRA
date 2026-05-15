@@ -22,6 +22,28 @@ REQUIRED_SQLITE_TABLES = {
 }
 
 
+class DesktopApi:
+    def save_text_file(self, default_name: str, content: str) -> dict:
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            selected = filedialog.asksaveasfilename(
+                title="Salvar arquivo",
+                defaultextension=".csv",
+                initialfile=default_name or "arquivo.csv",
+                filetypes=[("CSV", "*.csv"), ("Todos os arquivos", "*.*")],
+            )
+        finally:
+            root.destroy()
+
+        if not selected:
+            return {"ok": False, "cancelled": True}
+
+        target = Path(selected)
+        target.write_text(content or "", encoding="utf-8")
+        return {"ok": True, "path": str(target)}
+
+
 def _wait_for_server(url: str, timeout_seconds: float = 20.0) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
@@ -211,7 +233,14 @@ def main() -> None:
     server_thread.start()
 
     _wait_for_server(base_url)
-    webview.create_window("RH Local", base_url, width=1280, height=820, min_size=(960, 640))
+    webview.create_window(
+        "RH Local",
+        base_url,
+        width=1280,
+        height=820,
+        min_size=(960, 640),
+        js_api=DesktopApi(),
+    )
     webview.start(debug=False)
 
 

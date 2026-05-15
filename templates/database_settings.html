@@ -139,7 +139,11 @@
             />
             <div class="mt-3">
               <button type="submit" class="btn btn-success">Importar CSV</button>
-              <a href="{% url 'employees_csv_template_download' %}" class="btn btn-outline-secondary ms-2">
+              <a
+                href="{% url 'employees_csv_template_download' %}"
+                class="btn btn-outline-secondary ms-2"
+                id="download-model-csv"
+              >
                 Baixar modelo CSV
               </a>
             </div>
@@ -172,6 +176,7 @@
       var modeArquivo = document.getElementById("mode_arquivo");
       var filePathGroup = document.getElementById("file-path-group");
       var filePathInput = document.getElementById("db_file_path");
+      var downloadModelCsv = document.getElementById("download-model-csv");
 
       function toggleFilePath() {
         var useFileMode = modeArquivo.checked;
@@ -182,6 +187,29 @@
       modeOnline.addEventListener("change", toggleFilePath);
       modeArquivo.addEventListener("change", toggleFilePath);
       toggleFilePath();
+
+      async function downloadTemplateWithDesktopApi(event) {
+        if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.save_text_file) {
+          return;
+        }
+
+        event.preventDefault();
+
+        try {
+          var response = await fetch(downloadModelCsv.href, { credentials: "same-origin" });
+          if (!response.ok) {
+            throw new Error("Falha ao obter modelo CSV.");
+          }
+          var content = await response.text();
+          await window.pywebview.api.save_text_file("modelo_importacao_empregados.csv", content);
+        } catch (error) {
+          alert("Nao foi possivel salvar o modelo CSV no desktop.");
+        }
+      }
+
+      if (downloadModelCsv) {
+        downloadModelCsv.addEventListener("click", downloadTemplateWithDesktopApi);
+      }
     })();
   </script>
 {% endblock %}
