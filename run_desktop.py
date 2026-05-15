@@ -6,11 +6,12 @@ import json
 import sqlite3
 import subprocess
 import sys
+import re
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import webview
 from django.core.management import execute_from_command_line
@@ -20,6 +21,8 @@ REQUIRED_SQLITE_TABLES = {
     "django_migrations",
     "employees_employee",
 }
+APP_VERSION = "1.0.0"
+GITHUB_REPO = os.environ.get("HRA_GITHUB_REPO", "Zambianco/HRA").strip()
 
 
 class DesktopApi:
@@ -42,6 +45,70 @@ class DesktopApi:
         target = Path(selected)
         target.write_text(content or "", encoding="utf-8")
         return {"ok": True, "path": str(target)}
+
+
+def _parse_semver(version_value: str) -> tuple[int, int, int] | None:
+    raw = str(version_value or "").strip()
+    if raw.lower().startswith("v"):
+        raw = raw[1:]
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", raw)
+    if not match:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _fetch_latest_release(repo: str, timeout_seconds: float = 3.0) -> dict | None:
+    if not repo or "/" not in repo:
+        return None
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
+    request = Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "hra-desktop-updater",
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            payload = response.read().decode("utf-8", errors="replace")
+    except (URLError, OSError, TimeoutError):
+        return None
+
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+def _check_for_updates(current_version: str, repo: str) -> None:
+    release_data = _fetch_latest_release(repo=repo)
+    if not release_data:
+        return
+
+    latest_tag = str(release_data.get("tag_name", "")).strip()
+    latest_tuple = _parse_semver(latest_tag)
+    current_tuple = _parse_semver(current_version)
+    if not latest_tuple or not current_tuple:
+        return
+    if latest_tuple <= current_tuple:
+        return
+
+    html_url = str(release_data.get("html_url", "")).strip()
+    published_at = str(release_data.get("published_at", "")).strip()
+
+    messagebox.showinfo(
+        "Atualizacao disponivel",
+        (
+            f"Versao atual: v{current_version}\n"
+            f"Nova versao disponivel: {latest_tag}\n\n"
+            f"Publicada em: {published_at or 'data indisponivel'}\n"
+            f"Baixe em: {html_url or 'link indisponivel'}"
+        ),
+    )
 
 
 def _wait_for_server(url: str, timeout_seconds: float = 20.0) -> None:
@@ -225,6 +292,7 @@ def _apply_database_mode_from_saved_config() -> None:
 def main() -> None:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     _apply_database_mode_from_saved_config()
+    _check_for_updates(current_version=APP_VERSION, repo=GITHUB_REPO)
     host = "127.0.0.1"
     port = _pick_port()
     base_url = f"http://{host}:{port}/"

@@ -63,10 +63,28 @@ python run_desktop.py
 ```
 
 Esse comando sobe o Django localmente e abre a interface em uma janela nativa.
+Ao iniciar, o app consulta automaticamente o `latest release` no GitHub e avisa quando existir uma versao mais nova.
+Por padrao, o repositorio consultado e `Zambianco/HRA` (pode ser alterado com `HRA_GITHUB_REPO=owner/repo`).
 Para alterar o banco, use o menu `Config. Banco` dentro do sistema:
 - `online`: usa variaveis `DB_*` do ambiente (ex.: deploy com `.env`).
 - `arquivo`: usa o caminho de um arquivo `.db` informado na tela.
 Depois de salvar, reinicie o aplicativo para aplicar.
+
+## Releases no GitHub
+
+- Workflow: `.github/workflows/release.yml`
+- Gatilho: push de tag no formato `vMAJOR.MINOR.PATCH` (ex.: `v1.0.0`)
+- Pipeline: instala dependencias, roda `manage.py check`, roda `manage.py test` e cria a release automaticamente
+
+### Publicar a primeira release (`v1.0.0`)
+
+```powershell
+git add .
+git commit -m "chore: preparar release v1.0.0"
+git push origin main
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## Banco de dados
 
