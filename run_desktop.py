@@ -57,6 +57,18 @@ def _parse_semver(version_value: str) -> tuple[int, int, int] | None:
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
+def _read_local_version(base_dir: Path) -> str:
+    version_file = base_dir / "VERSION"
+    if version_file.exists():
+        try:
+            candidate = version_file.read_text(encoding="utf-8").strip()
+            if _parse_semver(candidate):
+                return candidate.lstrip("v")
+        except OSError:
+            pass
+    return APP_VERSION
+
+
 def _fetch_latest_release(repo: str, timeout_seconds: float = 3.0) -> dict | None:
     if not repo or "/" not in repo:
         return None
@@ -84,6 +96,51 @@ def _fetch_latest_release(repo: str, timeout_seconds: float = 3.0) -> dict | Non
     return data
 
 
+def _run_command(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> tuple[int, str]:
+    completed = subprocess.run(
+        command,
+        cwd=str(cwd),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    output = ((completed.stdout or "") + "\n" + (completed.stderr or "")).strip()
+    return completed.returncode, output
+
+
+def _auto_update_to_tag(base_dir: Path, tag_name: str) -> tuple[bool, str]:
+    rc, _ = _run_command(["git", "--version"], cwd=base_dir)
+    if rc != 0:
+        return False, "Git nao encontrado no ambiente."
+
+    rc, _ = _run_command(["git", "rev-parse", "--is-inside-work-tree"], cwd=base_dir)
+    if rc != 0:
+        return False, "Este diretorio nao e um repositorio Git."
+
+    rc, status_output = _run_command(["git", "status", "--porcelain"], cwd=base_dir)
+    if rc != 0:
+        return False, "Nao foi possivel validar alteracoes locais."
+    if status_output.strip():
+        return False, "Existem alteracoes locais nao commitadas. Atualize manualmente."
+
+    rc, fetch_output = _run_command(["git", "fetch", "--tags", "origin"], cwd=base_dir)
+    if rc != 0:
+        return False, f"Falha no fetch: {fetch_output[:600]}"
+
+    rc, checkout_output = _run_command(["git", "checkout", tag_name], cwd=base_dir)
+    if rc != 0:
+        return False, f"Falha no checkout da tag {tag_name}: {checkout_output[:600]}"
+
+    rc, pip_output = _run_command(
+        [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+        cwd=base_dir,
+    )
+    if rc != 0:
+        return False, f"Falha ao atualizar dependencias: {pip_output[:600]}"
+
+    return True, ""
+
+
 def _check_for_updates(current_version: str, repo: str) -> None:
     release_data = _fetch_latest_release(repo=repo)
     if not release_data:
@@ -99,16 +156,38 @@ def _check_for_updates(current_version: str, repo: str) -> None:
 
     html_url = str(release_data.get("html_url", "")).strip()
     published_at = str(release_data.get("published_at", "")).strip()
+    base_dir = Path(__file__).resolve().parent
 
-    messagebox.showinfo(
+    should_auto_update = messagebox.askyesno(
         "Atualizacao disponivel",
         (
             f"Versao atual: v{current_version}\n"
             f"Nova versao disponivel: {latest_tag}\n\n"
             f"Publicada em: {published_at or 'data indisponivel'}\n"
-            f"Baixe em: {html_url or 'link indisponivel'}"
-        ),
+            f"Link: {html_url or 'indisponivel'}\n\n"
+            "Deseja tentar atualizar automaticamente agora?"
+        )
     )
+    if not should_auto_update:
+        return
+
+    updated, detail = _auto_update_to_tag(base_dir=base_dir, tag_name=latest_tag)
+    if not updated:
+        messagebox.showwarning(
+            "Atualizacao automatica falhou",
+            (
+                "Nao foi possivel concluir a atualizacao automatica.\n\n"
+                f"Motivo: {detail}\n\n"
+                f"Atualize manualmente em: {html_url or 'link indisponivel'}"
+            ),
+        )
+        return
+
+    messagebox.showinfo(
+        "Atualizacao concluida",
+        "Aplicacao atualizada com sucesso. O sistema sera reiniciado.",
+    )
+    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 def _wait_for_server(url: str, timeout_seconds: float = 20.0) -> None:
@@ -163,6 +242,24 @@ def _normalize_db_path(path_value: str, base_dir: Path, data_dir: Path) -> str:
         return str(data_dir / "rh.db")
 
     return str(resolved)
+
+
+def _serialize_db_path_for_config(db_file_path: str, base_dir: Path) -> str:
+    candidate = Path(str(db_file_path or "").strip()).expanduser()
+    if not str(candidate).strip():
+        return "data/rh.db"
+
+    try:
+        resolved = candidate.resolve(strict=False)
+    except OSError:
+        return str(candidate)
+
+    try:
+        relative = resolved.relative_to(base_dir.resolve(strict=False))
+    except ValueError:
+        return str(resolved)
+
+    return str(relative).replace("\\", "/")
 
 
 def _sqlite_has_required_schema(db_file_path: str) -> bool:
@@ -274,7 +371,10 @@ def _apply_database_mode_from_saved_config() -> None:
             json.dumps(
                 {
                     "mode": mode,
-                    "db_file_path": db_file_path,
+                    "db_file_path": _serialize_db_path_for_config(
+                        db_file_path=db_file_path,
+                        base_dir=base_dir,
+                    ),
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -290,9 +390,11 @@ def _apply_database_mode_from_saved_config() -> None:
 
 
 def main() -> None:
+    base_dir = Path(__file__).resolve().parent
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     _apply_database_mode_from_saved_config()
-    _check_for_updates(current_version=APP_VERSION, repo=GITHUB_REPO)
+    current_version = _read_local_version(base_dir=base_dir)
+    _check_for_updates(current_version=current_version, repo=GITHUB_REPO)
     host = "127.0.0.1"
     port = _pick_port()
     base_url = f"http://{host}:{port}/"

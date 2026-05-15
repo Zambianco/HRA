@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 data/rh.db
 data/rh.db-journal
+data/db_config.json
 EMPREGADOS.xlsx
 PONTO.xlsx

@@ -63,8 +63,11 @@ python run_desktop.py
 ```
 
 Esse comando sobe o Django localmente e abre a interface em uma janela nativa.
-Ao iniciar, o app consulta automaticamente o `latest release` no GitHub e avisa quando existir uma versao mais nova.
+Ao iniciar, o app consulta automaticamente o `latest release` no GitHub.
+Quando existir versao mais nova, o app oferece atualizacao automatica (checkout da tag + instalacao de dependencias + reinicio).
+Se a atualizacao automatica falhar, o app mostra o link para atualizacao manual.
 Por padrao, o repositorio consultado e `Zambianco/HRA` (pode ser alterado com `HRA_GITHUB_REPO=owner/repo`).
+Versao local atual: arquivo `VERSION` na raiz do projeto.
 Para alterar o banco, use o menu `Config. Banco` dentro do sistema:
 - `online`: usa variaveis `DB_*` do ambiente (ex.: deploy com `.env`).
 - `arquivo`: usa o caminho de um arquivo `.db` informado na tela.
@@ -93,7 +96,8 @@ git push origin v1.0.0
   - `DATABASE_MODE=online|arquivo`
   - `DB_FILE_PATH=<caminho do .db>` (usado no modo `arquivo`)
   - `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` (usadas no modo `online`)
-- Configuracao persistida localmente em `data/db_config.json`.
+- Configuracao persistida localmente em `data/db_config.json` (arquivo local, ignorado pelo Git).
+- Exemplo seguro para versionamento: `data/db_config.example.json`.
 - Se existir a tabela legada `empregados` (versao Flask), os dados sao importados automaticamente para o modelo Django na migracao `0002`.
 
 ## Verificacao de codificacao de texto
