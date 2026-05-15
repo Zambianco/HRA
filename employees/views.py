@@ -1343,6 +1343,15 @@ def _normalize_employee_type(value):
     return None
 
 
+def _parse_csv_boolean(value):
+    normalized = _normalize_csv_header(value)
+    if normalized in {"sim", "s", "yes", "y", "true", "1"}:
+        return True
+    if normalized in {"nao", "n", "no", "false", "0"}:
+        return False
+    return None
+
+
 def _normalize_name_key(value):
     return " ".join((value or "").strip().lower().split())
 
@@ -1392,7 +1401,7 @@ def _import_employees_from_csv(uploaded_file):
         return 0, ["Arquivo CSV sem cabecalho."]
 
     field_map = {_normalize_csv_header(name): name for name in reader.fieldnames}
-    required_headers = ("matricula", "admissao", "nome", "setor", "cargo", "tipo")
+    required_headers = ("matricula", "admissao", "nome", "setor", "cargo", "tipo", "banco_hora")
     missing_headers = [header for header in required_headers if header not in field_map]
     if missing_headers:
         return 0, [
@@ -1424,6 +1433,8 @@ def _import_employees_from_csv(uploaded_file):
         cargo_name = (row.get(field_map["cargo"]) or "").strip()
         tipo_raw = (row.get(field_map["tipo"]) or "").strip()
         tipo = _normalize_employee_type(tipo_raw)
+        banco_hora_raw = (row.get(field_map["banco_hora"]) or "").strip()
+        banco_hora = _parse_csv_boolean(banco_hora_raw)
 
         if not nome:
             errors.append(f"Linha {line_index}: nome obrigatorio.")
@@ -1442,6 +1453,11 @@ def _import_employees_from_csv(uploaded_file):
                 f"Linha {line_index}: tipo invalido '{tipo_raw}'. Use direto ou indireto."
             )
             continue
+        if banco_hora is None:
+            errors.append(
+                f"Linha {line_index}: banco_hora invalido '{banco_hora_raw}'. Use sim ou nao."
+            )
+            continue
         try:
             admission_date = _parse_br_date(admission_raw)
         except ValueError:
@@ -1450,7 +1466,7 @@ def _import_employees_from_csv(uploaded_file):
             )
             continue
 
-        if tipo == Employee.TYPE_DIRETO:
+        if matricula:
             first_line_for_id = seen_csv_ids.get(matricula)
             if first_line_for_id:
                 errors.append(
@@ -1496,14 +1512,18 @@ def _import_employees_from_csv(uploaded_file):
 
         with transaction.atomic():
             employee = Employee.objects.create(
-                matricula=matricula if tipo == Employee.TYPE_DIRETO else None,
+                matricula=matricula or None,
                 nome_completo=nome,
                 tipo=tipo,
-                regime_compensacao_jornada=Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+                regime_compensacao_jornada=(
+                    Employee.REGIME_COMPENSACAO_PARTICIPANTE
+                    if banco_hora
+                    else Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
+                ),
                 cargo=cargo,
                 sector=sector,
             )
-            if tipo == Employee.TYPE_INDIRETO:
+            if tipo == Employee.TYPE_INDIRETO and not matricula:
                 employee.matricula = str(employee.id + 100000)
                 employee.save(update_fields=["matricula"])
 
@@ -1513,10 +1533,10 @@ def _import_employees_from_csv(uploaded_file):
                 effective_date=admission_date,
                 notes="Evento de admissao criado automaticamente por importacao CSV.",
             )
-        if tipo == Employee.TYPE_DIRETO:
+        if matricula:
             seen_csv_ids[matricula] = line_index
         seen_csv_name_date[name_date_key] = line_index
-        if tipo == Employee.TYPE_DIRETO:
+        if matricula:
             existing_ids.add(matricula)
         existing_name_date.add(name_date_key)
         imported += 1
@@ -4759,9 +4779,10 @@ def database_settings_page(request):
 
 def employees_csv_template_download(request):
     csv_lines = [
-        "matricula,admissao,nome,setor,cargo,tipo",
-        "12345,14/05/2026,Joao da Silva,Usinagem,Operador,direto",
-        "99999,02/01/2026,Maria Souza,Logistica,Analista,indireto",
+        "matricula,admissao,nome,setor,cargo,tipo,banco_hora",
+        "12345,14/05/2026,Joao da Silva,Usinagem,Operador,direto,sim",
+        "99999,02/01/2026,Maria Souza,Logistica,Analista,indireto,nao",
+        ",05/01/2026,Carlos Lima,PCP,Planejador,indireto,sim",
     ]
     content = "\n".join(csv_lines) + "\n"
     response = HttpResponse(content, content_type="text/csv; charset=utf-8")

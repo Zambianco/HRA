@@ -68,6 +68,71 @@ class EmployeeViewTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
+    def test_import_employees_csv_reads_banco_hora_and_preserves_indirect_matricula(self):
+        csv_content = "\n".join(
+            [
+                "matricula,admissao,nome,setor,cargo,tipo,banco_hora",
+                "1001,01/05/2026,Direto Participante,RH,Analista,direto,sim",
+                "2002,02/05/2026,Indireto Com Matricula,TI,Tecnico,indireto,nao",
+                "",
+            ]
+        )
+        uploaded_file = SimpleUploadedFile(
+            "empregados.csv",
+            csv_content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        response = self.client.post(
+            self.url,
+            data={"form_type": "employee_import_csv", "csv_file": uploaded_file},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Employee.objects.count(), 2)
+        direto = Employee.objects.get(nome_completo="Direto Participante")
+        indireto = Employee.objects.get(nome_completo="Indireto Com Matricula")
+        self.assertEqual(direto.matricula, "1001")
+        self.assertEqual(indireto.matricula, "2002")
+        self.assertEqual(
+            direto.regime_compensacao_jornada,
+            Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+        )
+        self.assertEqual(
+            indireto.regime_compensacao_jornada,
+            Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE,
+        )
+
+    def test_import_employees_csv_sets_generated_matricula_only_when_indirect_is_blank(self):
+        csv_content = "\n".join(
+            [
+                "matricula,admissao,nome,setor,cargo,tipo,banco_hora",
+                ",03/05/2026,Indireto Sem Matricula,PCP,Planejador,indireto,sim",
+                "",
+            ]
+        )
+        uploaded_file = SimpleUploadedFile(
+            "empregados.csv",
+            csv_content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        response = self.client.post(
+            self.url,
+            data={"form_type": "employee_import_csv", "csv_file": uploaded_file},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        employee = Employee.objects.get(nome_completo="Indireto Sem Matricula")
+        self.assertEqual(employee.tipo, Employee.TYPE_INDIRETO)
+        self.assertEqual(employee.matricula, str(employee.id + 100000))
+        self.assertEqual(
+            employee.regime_compensacao_jornada,
+            Employee.REGIME_COMPENSACAO_PARTICIPANTE,
+        )
+
     def test_create_employee(self):
         active_sector = Sector.objects.create(nome="RH")
         response = self.client.post(
