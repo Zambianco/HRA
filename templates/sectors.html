@@ -672,8 +672,8 @@
         if (!raw) return;
         const parsed = JSON.parse(raw);
         collapsedState = {
-          areas: parsed && parsed.areas  parsed.areas : {},
-          departments: parsed && parsed.departments  parsed.departments : {},
+          areas: parsed && parsed.areas ? parsed.areas : {},
+          departments: parsed && parsed.departments ? parsed.departments : {},
         };
       } catch (error) {
         collapsedState = { areas: {}, departments: {} };
@@ -780,11 +780,11 @@
         const departmentName = button.dataset.departmentName || "";
         const collapsed =
           type === "area"
-             isAreaCollapsed(areaName)
+            ? isAreaCollapsed(areaName)
             : isDepartmentCollapsed(areaName, departmentName);
         const icon = button.querySelector("i");
         if (icon) {
-          icon.className = collapsed  "bi bi-chevron-right" : "bi bi-chevron-down";
+          icon.className = collapsed ? "bi bi-chevron-right" : "bi bi-chevron-down";
         }
       });
     }
@@ -842,7 +842,7 @@
       });
       const allCollapsed = openAreas.length === 0;
       toggleAllBtn.innerHTML = allCollapsed
-         '<i class="bi bi-arrows-expand me-1"></i>Expandir tudo'
+        ? '<i class="bi bi-arrows-expand me-1"></i>Expandir tudo'
         : '<i class="bi bi-arrows-collapse me-1"></i>Recolher tudo';
     }
 
@@ -1138,6 +1138,7 @@
         const areaName = row.dataset.areaName || "";
         const departmentName = row.dataset.departmentName || "";
         const isPlaceholder = row.dataset.isPlaceholder === "1";
+        const hasDepartmentId = Boolean((row.dataset.departmentId || "").trim());
         const areaCollapsed = isAreaCollapsed(areaName);
         const hasVisibleChild = Array.from(
           sectorTableBody.querySelectorAll(
@@ -1150,19 +1151,20 @@
           row.style.display = "none";
           return;
         }
-        row.style.display = isPlaceholder  (hasVisibleChild  "" : "none") : "";
+        row.style.display = hasDepartmentId || !isPlaceholder || hasVisibleChild ? "" : "none";
       });
 
       const areaRows = sectorTableBody.querySelectorAll(".hierarchy-area-row");
       areaRows.forEach(function (row) {
         const areaName = row.dataset.areaName || "";
         const isPlaceholder = row.dataset.isPlaceholder === "1";
+        const hasAreaId = Boolean((row.dataset.areaId || "").trim());
         const hasVisibleDepartment = Array.from(
           sectorTableBody.querySelectorAll('.hierarchy-department-row[data-area-name="' + areaName + '"]')
         ).some(function (child) {
           return child.style.display !== "none";
         });
-        row.style.display = isPlaceholder  (hasVisibleDepartment  "" : "none") : "";
+        row.style.display = hasAreaId || !isPlaceholder || hasVisibleDepartment ? "" : "none";
       });
 
       visibleCountSpan.textContent = visible;
@@ -1310,6 +1312,3 @@
     applyFilters();
   </script>
 {% endblock %}
-
-
-

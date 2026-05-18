@@ -74,7 +74,7 @@
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(7, 1fr);
       gap: 1rem;
       margin-bottom: 1.6rem;
     }
@@ -198,7 +198,7 @@
 
     .dash-two-columns {
       display: grid;
-      grid-template-columns: 2fr 1.1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 1.2rem;
       margin-bottom: 1.2rem;
     }
@@ -411,7 +411,7 @@
       }
 
       body.print-dashboard-graphs .kpi-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
         gap: 6px !important;
         margin-bottom: 6px !important;
       }
@@ -592,17 +592,27 @@
         <div class="kpi-trend trend-down"><i class="bi bi-arrow-down-short"></i> falta + justificada + banco</div>
       </div>
       <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-clipboard2-check"></i> Horas Just.</div>
+        <div class="kpi-number">{{ total_absence_excused_hhmm }}</div>
+        <div class="kpi-trend trend-neutral">ausencias justificadas</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label"><i class="bi bi-bank"></i> Banco (Uso Banco)</div>
+        <div class="kpi-number">{{ total_absence_bank_hhmm }}</div>
+        <div class="kpi-trend trend-neutral">ausencias por banco</div>
+      </div>
+      <div class="kpi-tile">
         <div class="kpi-label"><i class="bi bi-pie-chart"></i> Distribuicao</div>
         <div class="kpi-number">{{ mod_share_percent }}% / {{ moi_share_percent }}%</div>
         <div class="kpi-trend trend-neutral">MOD · MOI</div>
       </div>
     </div>
 
-    <div class="dash-two-columns">
+    <div class="dash-three-columns">
       <div class="card-dash d-flex flex-column">
         <div class="card-header-custom">
           <div class="card-title-dash">MOD vs MOI</div>
-          <div class="card-sub-dash">mao de obra direta / indireta</div>
+          <div class="card-sub-dash">participacao percentual</div>
         </div>
         <div class="p-3 d-flex flex-column align-items-center justify-content-center flex-grow-1">
           <div class="chart-wrapper" style="height: 200px;">
@@ -610,65 +620,42 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="dash-three-columns">
-      <div class="card-dash">
+      <div class="card-dash d-flex flex-column">
         <div class="card-header-custom">
-          <div class="card-title-dash">Aproveitamento (%) por setor</div>
-          <div class="card-sub-dash">realizado / previsto</div>
+          <div class="card-title-dash">Diretos x Indiretos</div>
+          <div class="card-sub-dash">trabalhadas vs previstas por tipo</div>
         </div>
-        <div class="p-3">
-          <div class="sector-list">
-            {% for row in sector_rows %}
-                            <div class="sector-row">
-                <span class="sector-name">{{ row.name }}</span>
-                <div class="progress-custom">
-                  <div class="progress-fill{% if row.expected_minutes > 0 and row.worked_minutes > row.expected_minutes %} high{% endif %}" style="width:{% if row.expected_minutes > 0 %}{% widthratio row.worked_minutes row.expected_minutes 100 %}{% else %}0{% endif %}%;"></div>
-                </div>
-                <span class="sector-percent{% if row.expected_minutes > 0 and row.worked_minutes > row.expected_minutes %} text-warning{% endif %}">
-                  {% if row.expected_minutes > 0 %}{% widthratio row.worked_minutes row.expected_minutes 100 %}%{% else %}0%{% endif %}
-                </span>
-              </div>
-            {% empty %}
-              <div class="text-muted small">Sem dados no mes selecionado.</div>
-            {% endfor %}
+        <div class="p-3 d-flex flex-column align-items-center justify-content-center flex-grow-1">
+          <div class="chart-wrapper" style="height: 200px;">
+            <canvas id="barChartLaborType" role="img" aria-label="Grafico de barras de horas por tipo direto e indireto"></canvas>
           </div>
         </div>
       </div>
-
-      <div class="card-dash" style="grid-column: 1 / -1;">
+      <div class="card-dash d-flex flex-column">
         <div class="card-header-custom">
-          <div class="card-title-dash">Distribuicao por departamento</div>
-          <div class="card-sub-dash">Previsto, trabalhadas, extras, faltas, justificadas e banco</div>
+          <div class="card-title-dash">Trab. normais x Extras</div>
+          <div class="card-sub-dash">visao geral da empresa com extras separadas (60/100)</div>
         </div>
-        <div class="p-2">
-          <div class="chart-wrapper" style="height: 320px;">
-            <canvas id="departmentStackedBarChart" role="img" aria-label="Grafico de horas por departamento"></canvas>
+        <div class="p-3 d-flex flex-column align-items-center justify-content-center flex-grow-1">
+          <div class="chart-wrapper" style="height: 200px;">
+            <canvas id="pieChartWorkedTypes" role="img" aria-label="Grafico de pizza de horas normais, extra 60 e extra 100"></canvas>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="card-dash">
-        <div class="card-header-custom">
-          <div class="card-title-dash">Ausencias por setor</div>
-          <div class="card-sub-dash">impacto das horas</div>
-        </div>
-        <div class="p-3">
-          {% for row in sector_rows|slice:":8" %}
-            <div class="absence-item-modern {% if not forloop.first %}mt-2{% endif %}" style="border-left-color: {% if row.absence_unexcused_minutes > 0 %}#ef4444{% elif row.absence_excused_minutes > 0 %}#f97316{% else %}#94a3b8{% endif %};">
-              <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                <strong>{{ row.name }}</strong>
-                <span class="badge-hours">{{ row.absence_unexcused_hhmm }} falta</span>
-                <span class="badge-hours">{{ row.absence_excused_hhmm }} just.</span>
-              </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small">Sem dados no mes selecionado.</div>
-          {% endfor %}
+    <div class="card-dash mt-3">
+      <div class="card-header-custom">
+        <div class="card-title-dash">Horas por departamento</div>
+        <div class="card-sub-dash">Normais, HE 60, HE 100, falta, justificadas e banco (empilhado)</div>
+      </div>
+      <div class="p-2">
+        <div class="chart-wrapper" style="height: 340px;">
+          <canvas id="departmentStackedTypesChart" role="img" aria-label="Grafico de barras empilhadas de horas por departamento"></canvas>
         </div>
       </div>
     </div>
+
 
     
     </div>
@@ -743,13 +730,14 @@
               <thead>
                 <tr>
                   <th>Setor</th>
-                  <th>Prev.</th>
-                  <th>Trab.</th>
-                  <th>HE 60</th>
-                  <th>HE 100</th>
+                  <th>Previstas</th>
+                  <th>Lançadas</th>
+                  <th>Normais</th>
+                  <th>Extra 60%</th>
+                  <th>Extra 100%</th>
                   <th>Falta</th>
-                  <th>Just.</th>
-                  <th>Banco (uso banco)</th>
+                  <th>Justificada</th>
+                  <th>Banco</th>
                   <th>Aproveitamento (%)</th>
                 </tr>
               </thead>
@@ -758,7 +746,50 @@
                   <tr>
                     <td>{{ row.name }}</td>
                     <td>{{ row.expected_hhmm }}</td>
-                    <td>{{ row.worked_hhmm }}</td>
+                    <td>{{ row.launched_hhmm }}</td>
+                    <td>{{ row.regular_hhmm }}</td>
+                    <td>{{ row.overtime_60_hhmm }}</td>
+                    <td>{{ row.overtime_100_hhmm }}</td>
+                    <td>{{ row.absence_unexcused_hhmm }}</td>
+                    <td>{{ row.absence_excused_hhmm }}</td>
+                    <td>{{ row.absence_bank_hhmm }}</td>
+                    <td>{{ row.utilization_percent }}%</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="9">Sem dados no mes selecionado.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-section pt-0">
+          <h2 class="table-section-title">Detalhe Por Tipo (Diretos x Indiretos)</h2>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Previstas</th>
+                  <th>Lançadas</th>
+                  <th>Normais</th>
+                  <th>Extra 60%</th>
+                  <th>Extra 100%</th>
+                  <th>Falta</th>
+                  <th>Justificada</th>
+                  <th>Banco</th>
+                  <th>Aproveitamento (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in labor_type_rows %}
+                  <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.expected_hhmm }}</td>
+                    <td>{{ row.launched_hhmm }}</td>
+                    <td>{{ row.regular_hhmm }}</td>
                     <td>{{ row.overtime_60_hhmm }}</td>
                     <td>{{ row.overtime_100_hhmm }}</td>
                     <td>{{ row.absence_unexcused_hhmm }}</td>
@@ -783,13 +814,14 @@
               <thead>
                 <tr>
                   <th>Departamento</th>
-                  <th>Prev.</th>
-                  <th>Trab.</th>
-                  <th>HE 60</th>
-                  <th>HE 100</th>
+                  <th>Previstas</th>
+                  <th>Lançadas</th>
+                  <th>Normais</th>
+                  <th>Extra 60%</th>
+                  <th>Extra 100%</th>
                   <th>Falta</th>
-                  <th>Just.</th>
-                  <th>Banco (uso banco)</th>
+                  <th>Justificada</th>
+                  <th>Banco</th>
                   <th>Aproveitamento (%)</th>
                 </tr>
               </thead>
@@ -798,7 +830,8 @@
                   <tr>
                     <td>{{ row.name }}</td>
                     <td>{{ row.expected_hhmm }}</td>
-                    <td>{{ row.worked_hhmm }}</td>
+                    <td>{{ row.launched_hhmm }}</td>
+                    <td>{{ row.regular_hhmm }}</td>
                     <td>{{ row.overtime_60_hhmm }}</td>
                     <td>{{ row.overtime_100_hhmm }}</td>
                     <td>{{ row.absence_unexcused_hhmm }}</td>
@@ -823,13 +856,14 @@
               <thead>
                 <tr>
                   <th>Area</th>
-                  <th>Prev.</th>
-                  <th>Trab.</th>
-                  <th>HE 60</th>
-                  <th>HE 100</th>
+                  <th>Previstas</th>
+                  <th>Lançadas</th>
+                  <th>Normais</th>
+                  <th>Extra 60%</th>
+                  <th>Extra 100%</th>
                   <th>Falta</th>
-                  <th>Just.</th>
-                  <th>Banco (uso banco)</th>
+                  <th>Justificada</th>
+                  <th>Banco</th>
                   <th>Aproveitamento (%)</th>
                 </tr>
               </thead>
@@ -838,7 +872,8 @@
                   <tr>
                     <td>{{ row.name }}</td>
                     <td>{{ row.expected_hhmm }}</td>
-                    <td>{{ row.worked_hhmm }}</td>
+                    <td>{{ row.launched_hhmm }}</td>
+                    <td>{{ row.regular_hhmm }}</td>
                     <td>{{ row.overtime_60_hhmm }}</td>
                     <td>{{ row.overtime_100_hhmm }}</td>
                     <td>{{ row.absence_unexcused_hhmm }}</td>
@@ -876,6 +911,15 @@
   {{ department_chart_absence_unexcused_hours|json_script:"department-chart-absence-unexcused-hours" }}
   {{ department_chart_absence_excused_hours|json_script:"department-chart-absence-excused-hours" }}
   {{ department_chart_absence_bank_hours|json_script:"department-chart-absence-bank-hours" }}
+  {{ department_chart_overtime_60_minutes|json_script:"department-chart-overtime-60-minutes" }}
+  {{ department_chart_overtime_100_minutes|json_script:"department-chart-overtime-100-minutes" }}
+  {{ department_chart_regular_minutes|json_script:"department-chart-regular-minutes" }}
+  {{ department_chart_absence_unexcused_minutes|json_script:"department-chart-absence-unexcused-minutes" }}
+  {{ department_chart_absence_excused_minutes|json_script:"department-chart-absence-excused-minutes" }}
+  {{ department_chart_absence_bank_minutes|json_script:"department-chart-absence-bank-minutes" }}
+  {{ labor_type_chart_labels|json_script:"labor-type-chart-labels" }}
+  {{ labor_type_chart_worked_minutes|json_script:"labor-type-chart-worked-minutes" }}
+  {{ labor_type_chart_expected_minutes|json_script:"labor-type-chart-expected-minutes" }}
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
@@ -901,11 +945,15 @@
       const departmentLabels = JSON.parse(document.getElementById("department-chart-labels").textContent);
       const departmentExpected = JSON.parse(document.getElementById("department-chart-expected-hours").textContent);
       const departmentWorked = JSON.parse(document.getElementById("department-chart-worked-hours").textContent);
-      const departmentOvertime60 = JSON.parse(document.getElementById("department-chart-overtime-60-hours").textContent);
-      const departmentOvertime100 = JSON.parse(document.getElementById("department-chart-overtime-100-hours").textContent);
-      const departmentAbsenceUnexcused = JSON.parse(document.getElementById("department-chart-absence-unexcused-hours").textContent);
-      const departmentAbsenceExcused = JSON.parse(document.getElementById("department-chart-absence-excused-hours").textContent);
-      const departmentAbsenceBank = JSON.parse(document.getElementById("department-chart-absence-bank-hours").textContent);
+      const departmentOvertime60Minutes = JSON.parse(document.getElementById("department-chart-overtime-60-minutes").textContent);
+      const departmentOvertime100Minutes = JSON.parse(document.getElementById("department-chart-overtime-100-minutes").textContent);
+      const departmentRegularMinutes = JSON.parse(document.getElementById("department-chart-regular-minutes").textContent);
+      const departmentAbsenceUnexcusedMinutes = JSON.parse(document.getElementById("department-chart-absence-unexcused-minutes").textContent);
+      const departmentAbsenceExcusedMinutes = JSON.parse(document.getElementById("department-chart-absence-excused-minutes").textContent);
+      const departmentAbsenceBankMinutes = JSON.parse(document.getElementById("department-chart-absence-bank-minutes").textContent);
+      const laborTypeLabels = JSON.parse(document.getElementById("labor-type-chart-labels").textContent);
+      const laborTypeWorkedMinutes = JSON.parse(document.getElementById("labor-type-chart-worked-minutes").textContent);
+      const laborTypeExpectedMinutes = JSON.parse(document.getElementById("labor-type-chart-expected-minutes").textContent);
       const charts = [];
       let chartsInPrintMode = false;
 
@@ -913,7 +961,7 @@
         type: "doughnut",
         data: {
           labels: ["MOD", "MOI"],
-          datasets: [{ data: [{{ mod_share_percent }}, {{ moi_share_percent }}], backgroundColor: ["#2c6e49", "#9c89b8"], borderWidth: 0, hoverOffset: 8 }],
+          datasets: [{ data: [{{ mod_share_percent }}, {{ moi_share_percent }}], backgroundColor: ["#2563eb", "#f59e0b"], borderWidth: 0, hoverOffset: 8 }],
         },
         options: {
           responsive: true,
@@ -923,30 +971,128 @@
         },
       }));
 
-      charts.push(new Chart(document.getElementById("departmentStackedBarChart"), {
-        type: "bar",
+      charts.push(new Chart(document.getElementById("pieChartWorkedTypes"), {
+        type: "pie",
         data: {
-          labels: departmentLabels,
-          datasets: [
-            { label: "Previsto", data: departmentExpected, backgroundColor: "#cbd5e1", borderRadius: 6, stack: "stack0", barPercentage: 0.65, categoryPercentage: 0.8 },
-            { label: "Trabalhadas", data: departmentWorked, backgroundColor: "#2b9348", borderRadius: 6, stack: "stack1" },
-            { label: "HE 60%", data: departmentOvertime60, backgroundColor: "#f4a261", borderRadius: 6, stack: "stack1" },
-            { label: "HE 100%", data: departmentOvertime100, backgroundColor: "#e76f51", borderRadius: 6, stack: "stack1" },
-            { label: "Falta", data: departmentAbsenceUnexcused, backgroundColor: "#ef4444", borderRadius: 6, stack: "stack2" },
-            { label: "Justificada", data: departmentAbsenceExcused, backgroundColor: "#f59e0b", borderRadius: 6, stack: "stack2" },
-            { label: "Banco", data: departmentAbsenceBank, backgroundColor: "#8b5cf6", borderRadius: 6, stack: "stack2" },
-          ]
+          labels: ["Trab. normais", "Extra 60", "Extra 100"],
+          datasets: [{
+            data: [{{ total_regular_minutes }}, {{ total_overtime_60_minutes }}, {{ total_overtime_100_minutes }}],
+            backgroundColor: ["#22c55e", "#2563eb", "#7c3aed"],
+            borderWidth: 0,
+            hoverOffset: 8
+          }],
         },
         options: {
           responsive: true,
           maintainAspectRatio: true,
           plugins: {
-            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 } },
-            tooltip: { mode: "index", intersect: false },
+            legend: { position: "bottom", labels: { font: { size: 9 } } },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const value = Number(context.parsed || 0);
+                  const hours = Math.floor(value / 60);
+                  const minutes = Math.abs(value % 60);
+                  const mm = String(minutes).padStart(2, "0");
+                  return context.label + ": " + hours + ":" + mm;
+                }
+              }
+            }
+          },
+        },
+      }));
+
+      charts.push(new Chart(document.getElementById("barChartLaborType"), {
+        type: "bar",
+        data: {
+          labels: laborTypeLabels,
+          datasets: [
+            { label: "Previstas", data: laborTypeExpectedMinutes, backgroundColor: "#94a3b8", borderRadius: 4 },
+            { label: "Trabalhadas", data: laborTypeWorkedMinutes, backgroundColor: "#2563eb", borderRadius: 4 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: "bottom", labels: { font: { size: 9 } } },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const value = Number(context.parsed.y || 0);
+                  const hours = Math.floor(value / 60);
+                  const minutes = Math.abs(value % 60);
+                  const mm = String(minutes).padStart(2, "0");
+                  return context.dataset.label + ": " + hours + ":" + mm;
+                }
+              }
+            },
           },
           scales: {
-            y: { beginAtZero: true, title: { display: true, text: "Horas" }, grid: { color: "#eef2f6" } },
-            x: { grid: { display: false } },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Horas (hh:mm)" },
+              ticks: {
+                callback: function(value) {
+                  const minutes = Number(value || 0);
+                  const hours = Math.floor(minutes / 60);
+                  const mins = Math.abs(minutes % 60);
+                  return hours + ":" + String(mins).padStart(2, "0");
+                }
+              }
+            }
+          }
+        },
+      }));
+
+      charts.push(new Chart(document.getElementById("departmentStackedTypesChart"), {
+        type: "bar",
+        data: {
+          labels: departmentLabels,
+          datasets: [
+            { label: "Normais", data: departmentRegularMinutes, backgroundColor: "#22c55e", borderRadius: 4, stack: "hours" },
+            { label: "HE 60%", data: departmentOvertime60Minutes, backgroundColor: "#2563eb", borderRadius: 4, stack: "hours" },
+            { label: "HE 100%", data: departmentOvertime100Minutes, backgroundColor: "#7c3aed", borderRadius: 4, stack: "hours" },
+            { label: "Falta", data: departmentAbsenceUnexcusedMinutes, backgroundColor: "#ef4444", borderRadius: 4, stack: "hours" },
+            { label: "Justificadas", data: departmentAbsenceExcusedMinutes, backgroundColor: "#f59e0b", borderRadius: 4, stack: "hours" },
+            { label: "Banco", data: departmentAbsenceBankMinutes, backgroundColor: "#14b8a6", borderRadius: 4, stack: "hours" },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 10 } },
+            tooltip: {
+              mode: "index",
+              intersect: false,
+              callbacks: {
+                label: function(context) {
+                  const value = Number(context.parsed.y || 0);
+                  const hours = Math.floor(value / 60);
+                  const minutes = Math.abs(value % 60);
+                  const mm = String(minutes).padStart(2, "0");
+                  return context.dataset.label + ": " + hours + ":" + mm;
+                }
+              }
+            },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              title: { display: true, text: "Horas (hh:mm)" },
+              grid: { color: "#eef2f6" },
+              ticks: {
+                callback: function(value) {
+                  const v = Number(value || 0);
+                  const h = Math.floor(v / 60);
+                  const m = Math.abs(v % 60);
+                  return h + ":" + String(m).padStart(2, "0");
+                }
+              }
+            },
           },
         },
       }));
@@ -1114,4 +1260,3 @@
     })();
   </script>
 {% endblock %}
-
