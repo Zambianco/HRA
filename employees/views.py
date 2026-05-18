@@ -850,6 +850,44 @@ def _resolve_competence_month_interval(raw_start, raw_end, raw_fallback=None):
     return start_month, end_month, start_value, end_value, None
 
 
+def _resolve_dataset_competence_month_interval(raw_start, raw_end, raw_fallback=None):
+    normalized_start = (raw_start or "").strip()
+    normalized_end = (raw_end or "").strip()
+    normalized_fallback = (raw_fallback or "").strip()
+
+    if normalized_start or normalized_end or normalized_fallback:
+        return _resolve_competence_month_interval(
+            normalized_start,
+            normalized_end,
+            normalized_fallback,
+        )
+
+    first_entry = (
+        EmployeeTimeEntry.objects.order_by("competence_month")
+        .values_list("competence_month", flat=True)
+        .first()
+    )
+    last_entry = (
+        EmployeeTimeEntry.objects.order_by("-competence_month")
+        .values_list("competence_month", flat=True)
+        .first()
+    )
+
+    if not first_entry or not last_entry:
+        today = timezone.localdate()
+        current_month = date(today.year, today.month, 1)
+        current_month_value = current_month.strftime("%Y-%m")
+        return current_month, current_month, current_month_value, current_month_value, None
+
+    return (
+        first_entry,
+        last_entry,
+        first_entry.strftime("%Y-%m"),
+        last_entry.strftime("%Y-%m"),
+        None,
+    )
+
+
 def _safe_decimal_formula_eval(expression, variables):
     normalized = (expression or "").strip()
     if not normalized:
@@ -3188,7 +3226,7 @@ def timesheet_dashboard_page(request):
 
 def timesheet_dashboard_dataset_api(request):
     start_month, end_month, selected_start_month, selected_end_month, error = (
-        _resolve_competence_month_interval(
+        _resolve_dataset_competence_month_interval(
             request.GET.get("start_month"),
             request.GET.get("end_month"),
             request.GET.get("competence_month"),
@@ -3229,10 +3267,10 @@ def timesheet_dashboard_dataset_api(request):
         competence_month__in=competence_months,
         employee_id__in=employee_ids,
     )
-    entries_by_employee = {}
+    entries_by_employee_month = {}
     for entry in month_entries:
-        employee_entry = entries_by_employee.setdefault(
-            entry.employee_id,
+        employee_entry = entries_by_employee_month.setdefault(
+            (entry.employee_id, entry.competence_month),
             {
                 "regular_minutes": 0,
                 "overtime_60_minutes": 0,
@@ -3267,10 +3305,9 @@ def timesheet_dashboard_dataset_api(request):
     consolidated_data = {}
 
     for employee in employees:
-        expected_minutes = 0
         for competence_month in competence_months:
             month_start, month_end = _get_month_date_range(competence_month)
-            expected_minutes += _calculate_expected_minutes_for_employee(
+            expected_minutes = _calculate_expected_minutes_for_employee(
                 employee,
                 month_start,
                 month_end,
@@ -3280,82 +3317,92 @@ def timesheet_dashboard_dataset_api(request):
                 lifecycle_dates,
             )
 
-        entry = entries_by_employee.get(employee.id)
-        regular_minutes = entry["regular_minutes"] if entry else 0
-        overtime_60_minutes = entry["overtime_60_minutes"] if entry else 0
-        overtime_100_minutes = entry["overtime_100_minutes"] if entry else 0
-        absence_unexcused_minutes = entry["absence_unexcused_minutes"] if entry else 0
-        absence_excused_minutes = entry["absence_excused_minutes"] if entry else 0
-        absence_bank_minutes = 0
-        if entry and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE:
-            absence_bank_minutes = entry["absence_bank_minutes"]
+            entry = entries_by_employee_month.get((employee.id, competence_month))
+            regular_minutes = entry["regular_minutes"] if entry else 0
+            overtime_60_minutes = entry["overtime_60_minutes"] if entry else 0
+            overtime_100_minutes = entry["overtime_100_minutes"] if entry else 0
+            absence_unexcused_minutes = entry["absence_unexcused_minutes"] if entry else 0
+            absence_excused_minutes = entry["absence_excused_minutes"] if entry else 0
+            absence_bank_minutes = 0
+            if (
+                entry
+                and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE
+            ):
+                absence_bank_minutes = entry["absence_bank_minutes"]
 
-        worked_minutes = regular_minutes + overtime_60_minutes + overtime_100_minutes
-        launched_minutes = (
-            regular_minutes
-            + overtime_60_minutes
-            + overtime_100_minutes
-            + absence_unexcused_minutes
-            + absence_excused_minutes
-            + absence_bank_minutes
-        )
-
-        if employee.sector and employee.sector.department:
-            area_name = (
-                employee.sector.department.area.nome
-                if employee.sector.department.area
-                else "Sem area"
+            worked_minutes = regular_minutes + overtime_60_minutes + overtime_100_minutes
+            launched_minutes = (
+                regular_minutes
+                + overtime_60_minutes
+                + overtime_100_minutes
+                + absence_unexcused_minutes
+                + absence_excused_minutes
+                + absence_bank_minutes
             )
-            department_name = employee.sector.department.nome
-            sector_name = employee.sector.nome
-        else:
-            area_name = "Sem area"
-            department_name = "Sem departamento"
-            sector_name = "Sem setor"
 
-        labor_type_name = "Diretos" if employee.tipo == Employee.TYPE_DIRETO else "Indiretos"
+            if employee.sector and employee.sector.department:
+                area_name = (
+                    employee.sector.department.area.nome
+                    if employee.sector.department.area
+                    else "Sem area"
+                )
+                department_name = employee.sector.department.nome
+                sector_name = employee.sector.nome
+            else:
+                area_name = "Sem area"
+                department_name = "Sem departamento"
+                sector_name = "Sem setor"
 
-        if area_filter and area_name.casefold() not in area_filter:
-            continue
-        if department_filter and department_name.casefold() not in department_filter:
-            continue
-        if sector_filter and sector_name.casefold() not in sector_filter:
-            continue
-        if type_filter and labor_type_name.casefold() not in type_filter:
-            continue
+            labor_type_name = "Diretos" if employee.tipo == Employee.TYPE_DIRETO else "Indiretos"
 
-        key = f"{area_name}::{department_name}::{sector_name}::{labor_type_name}"
-        row = consolidated_data.setdefault(
-            key,
-            {
-                "area_name": area_name,
-                "department_name": department_name,
-                "sector_name": sector_name,
-                "labor_type_name": labor_type_name,
-                "expected_minutes": 0,
-                "launched_minutes": 0,
-                "regular_minutes": 0,
-                "overtime_60_minutes": 0,
-                "overtime_100_minutes": 0,
-                "worked_minutes": 0,
-                "absence_unexcused_minutes": 0,
-                "absence_excused_minutes": 0,
-                "absence_bank_minutes": 0,
-            },
-        )
-        row["expected_minutes"] += expected_minutes
-        row["launched_minutes"] += launched_minutes
-        row["regular_minutes"] += regular_minutes
-        row["overtime_60_minutes"] += overtime_60_minutes
-        row["overtime_100_minutes"] += overtime_100_minutes
-        row["worked_minutes"] += worked_minutes
-        row["absence_unexcused_minutes"] += absence_unexcused_minutes
-        row["absence_excused_minutes"] += absence_excused_minutes
-        row["absence_bank_minutes"] += absence_bank_minutes
+            if area_filter and area_name.casefold() not in area_filter:
+                continue
+            if department_filter and department_name.casefold() not in department_filter:
+                continue
+            if sector_filter and sector_name.casefold() not in sector_filter:
+                continue
+            if type_filter and labor_type_name.casefold() not in type_filter:
+                continue
+
+            key = (
+                f"{competence_month}::{area_name}::{department_name}::"
+                f"{sector_name}::{labor_type_name}"
+            )
+            row = consolidated_data.setdefault(
+                key,
+                {
+                    "competence_month": competence_month,
+                    "month_start": month_start.isoformat(),
+                    "month_end": month_end.isoformat(),
+                    "area_name": area_name,
+                    "department_name": department_name,
+                    "sector_name": sector_name,
+                    "labor_type_name": labor_type_name,
+                    "expected_minutes": 0,
+                    "launched_minutes": 0,
+                    "regular_minutes": 0,
+                    "overtime_60_minutes": 0,
+                    "overtime_100_minutes": 0,
+                    "worked_minutes": 0,
+                    "absence_unexcused_minutes": 0,
+                    "absence_excused_minutes": 0,
+                    "absence_bank_minutes": 0,
+                },
+            )
+            row["expected_minutes"] += expected_minutes
+            row["launched_minutes"] += launched_minutes
+            row["regular_minutes"] += regular_minutes
+            row["overtime_60_minutes"] += overtime_60_minutes
+            row["overtime_100_minutes"] += overtime_100_minutes
+            row["worked_minutes"] += worked_minutes
+            row["absence_unexcused_minutes"] += absence_unexcused_minutes
+            row["absence_excused_minutes"] += absence_excused_minutes
+            row["absence_bank_minutes"] += absence_bank_minutes
 
     rows = sorted(
         consolidated_data.values(),
         key=lambda row: (
+            row.get("competence_month", ""),
             row.get("area_name", "").casefold(),
             row.get("department_name", "").casefold(),
             row.get("sector_name", "").casefold(),
@@ -3392,6 +3439,9 @@ def timesheet_dashboard_dataset_api(request):
                 },
             },
             "columns": [
+                "competence_month",
+                "month_start",
+                "month_end",
                 "area_name",
                 "department_name",
                 "sector_name",

@@ -600,13 +600,23 @@
           <h4 class="fw-bold mb-0" style="color: #0f172a;">Painel de marcação de pontos</h4>
           <p class="text-secondary-emphasis mt-1 mb-0" style="font-size: 0.8rem;">{{ month_reference_label }} · {{ employees_count }} empregados ativos</p>
         </div>
-        <form id="dashboard-month-form" method="get" class="d-flex gap-2 align-items-center flex-wrap">
-          <label for="start_month" class="fw-semibold text-secondary small">De</label>
-          <input id="start_month" type="month" name="start_month" value="{{ selected_start_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;">
-          <label for="end_month" class="fw-semibold text-secondary small">Ate</label>
-          <input id="end_month" type="month" name="end_month" value="{{ selected_end_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;">
-          <a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-table"></i> Voltar</a>
-        </form>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-info rounded-pill px-3 no-print"
+            data-bs-toggle="modal"
+            data-bs-target="#powerbi-help-modal"
+          >
+            <i class="bi bi-question-circle"></i> Power BI
+          </button>
+          <form id="dashboard-month-form" method="get" class="d-flex gap-2 align-items-center flex-wrap">
+            <label for="start_month" class="fw-semibold text-secondary small">De</label>
+            <input id="start_month" type="month" name="start_month" value="{{ selected_start_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;">
+            <label for="end_month" class="fw-semibold text-secondary small">Ate</label>
+            <input id="end_month" type="month" name="end_month" value="{{ selected_end_month }}" class="form-control form-control-sm w-auto rounded-3 border-0 shadow-sm" style="background:#f1f5f9;">
+            <a href="{% url 'timesheet_page' %}?competence_month={{ selected_competence_month }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-table"></i> Voltar</a>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -730,6 +740,9 @@
 
     <div class="tab-pane fade" id="pane-tabela" role="tabpanel" aria-labelledby="tab-tabela" tabindex="0">
       <div class="print-actions no-print">
+        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 me-2" id="export-table-csv-btn">
+          <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+        </button>
         <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="print-table-btn">
           <i class="bi bi-printer"></i> Imprimir tabela
         </button>
@@ -851,7 +864,6 @@
                   <th>Falta</th>
                   <th>Justificada</th>
                   <th>Banco</th>
-                  <th>Aproveitamento (%)</th>
                 </tr>
               </thead>
               <tbody>
@@ -869,11 +881,10 @@
                     <td>{{ row.absence_unexcused_hhmm }}</td>
                     <td>{{ row.absence_excused_hhmm }}</td>
                     <td>{{ row.absence_bank_hhmm }}</td>
-                    <td>{{ row.utilization_percent }}%</td>
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="13">Sem dados no mes selecionado.</td>
+                    <td colspan="12">Sem dados no mes selecionado.</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -891,6 +902,40 @@
     {% endwith %}
 
     <footer class="mt-4 screen-only">RH ABN · Dados consolidados por mês de competencia</footer>
+  </div>
+
+  <div class="modal fade no-print" id="powerbi-help-modal" tabindex="-1" aria-labelledby="powerbi-help-modal-label" aria-hidden="true" data-html2canvas-ignore="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="powerbi-help-modal-label">
+            <i class="bi bi-bar-chart-line me-1"></i> Como usar este dataset no Power BI
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Use o endpoint JSON abaixo no conector Web do Power BI Desktop:</p>
+          <pre class="bg-light border rounded p-2 mb-3"><code>{{ request.scheme }}://{{ request.get_host }}{% url 'timesheet_dashboard_dataset_api' %}</code></pre>
+          <p class="mb-3 text-muted small">Sem <code>start_month</code>/<code>end_month</code>, a API retorna automaticamente do primeiro ao ultimo mes com dados.</p>
+          <p class="mb-2 fw-semibold">Passos rápidos:</p>
+          <ol class="mb-3">
+            <li>Power BI Desktop → Obter Dados → Web.</li>
+            <li>Cole a URL do endpoint.</li>
+            <li>No Navegador, selecione <code>rows</code> e clique em Transformar Dados.</li>
+            <li>Expanda as colunas e ajuste os tipos (texto e inteiros).</li>
+            <li>Use <code>competence_month</code> (ou <code>month_start</code>) como filtro de período no relatório, ou passe parâmetros na URL.</li>
+          </ol>
+          <p class="mb-1 fw-semibold">Parâmetros opcionais na URL:</p>
+          <p class="mb-2"><code>start_month</code>, <code>end_month</code>, <code>area</code>, <code>department</code>, <code>sector</code>, <code>tipo</code>.</p>
+          <p class="mb-1 text-muted small">Exemplo por período: <code>?start_month=2027-01&amp;end_month=2027-12</code></p>
+          <p class="mb-1 text-muted small">Exemplo com filtros: <code>?start_month=2027-01&amp;end_month=2027-12&amp;area=Operacional&amp;tipo=Diretos</code></p>
+          <p class="mb-0 text-muted small">Para múltiplos valores no mesmo filtro, separe por vírgula. Ex.: <code>?department=Usinagem,Montagem</code></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   {{ department_chart_labels|json_script:"department-chart-labels" }}
@@ -949,7 +994,7 @@
         const rows = consolidatedTable.querySelectorAll("tbody tr");
         rows.forEach(function (row) {
           const cells = row.querySelectorAll("td");
-          if (cells.length < 13) return;
+          if (cells.length < 12) return;
           values.add((cells[colIndex].textContent || "").trim());
         });
         return Array.from(values).sort(function (a, b) {
@@ -985,7 +1030,7 @@
         const rows = consolidatedTable.querySelectorAll("tbody tr");
         rows.forEach(function (row) {
           const cells = row.querySelectorAll("td");
-          if (cells.length < 13) return;
+          if (cells.length < 12) return;
           const areaValue = (cells[0].textContent || "").trim();
           const departmentValue = (cells[1].textContent || "").trim();
           const sectorValue = (cells[2].textContent || "").trim();
@@ -1356,7 +1401,7 @@
         style.media = "print";
         style.textContent = mode === "graphs"
           ? "@page { size: A4 landscape; margin: 9mm; }"
-          : "@page { size: A4 portrait; margin: 12mm; }";
+          : "@page { size: A4 landscape; margin: 9mm; }";
         document.head.appendChild(style);
       }
 
@@ -1394,8 +1439,48 @@
 
       const printGraphsBtn = document.getElementById("print-graphs-btn");
       const printTableBtn = document.getElementById("print-table-btn");
+      const exportTableCsvBtn = document.getElementById("export-table-csv-btn");
       if (printGraphsBtn) {
         printGraphsBtn.addEventListener("click", function () { printDashboard("graphs"); });
+      }
+      if (exportTableCsvBtn && consolidatedTable) {
+        exportTableCsvBtn.addEventListener("click", function () {
+          const headerCells = consolidatedTable.querySelectorAll("thead th");
+          if (!headerCells.length) return;
+          const headers = Array.from(headerCells).map(function (cell) {
+            return (cell.textContent || "").trim();
+          });
+
+          const dataRows = [];
+          consolidatedTable.querySelectorAll("tbody tr").forEach(function (row) {
+            if (row.style.display === "none") return;
+            const cells = row.querySelectorAll("td");
+            if (cells.length !== headers.length) return;
+            dataRows.push(Array.from(cells).map(function (cell) {
+              return (cell.textContent || "").trim();
+            }));
+          });
+
+          const csvEscape = function (value) {
+            const normalized = String(value == null ? "" : value).replace(/"/g, '""');
+            return '"' + normalized + '"';
+          };
+          const lines = [headers].concat(dataRows).map(function (cols) {
+            return cols.map(csvEscape).join(";");
+          });
+          const csvContent = "\uFEFF" + lines.join("\r\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const monthRef = "{{ selected_competence_month|default:'' }}";
+          const fileName = "timesheet_dashboard_tabela" + (monthRef ? "_" + monthRef : "") + ".csv";
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        });
       }
       if (printTableBtn) {
         printTableBtn.addEventListener("click", function () {

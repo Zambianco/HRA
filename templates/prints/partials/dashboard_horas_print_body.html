@@ -45,7 +45,6 @@
         <col class="ts-col-falta" />
         <col class="ts-col-just" />
         <col class="ts-col-banco" />
-        <col class="ts-col-prev" />
     </colgroup>
     <thead>
         <tr>
@@ -61,7 +60,6 @@
             <th>Falta</th>
             <th>Justificada</th>
             <th>Banco</th>
-            <th>Aproveitamento (%)</th>
         </tr>
     </thead>
     <tbody>
@@ -79,11 +77,10 @@
             <td>{{ row.absence_unexcused_hhmm }}</td>
             <td>{{ row.absence_excused_hhmm }}</td>
             <td>{{ row.absence_bank_hhmm }}</td>
-            <td>{{ row.utilization_percent }}%</td>
         </tr>
         {% empty %}
         <tr>
-            <td colspan="13">Sem dados no mes selecionado.</td>
+            <td colspan="12">Sem dados no mes selecionado.</td>
         </tr>
         {% endfor %}
     </tbody>
