@@ -19,7 +19,7 @@ from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -3183,6 +3183,241 @@ def timesheet_dashboard_page(request):
             "total_mod_hhmm": _format_minutes_as_hour_label(total_mod_minutes),
             "total_moi_hhmm": _format_minutes_as_hour_label(total_moi_minutes),
         },
+    )
+
+
+def timesheet_dashboard_dataset_api(request):
+    start_month, end_month, selected_start_month, selected_end_month, error = (
+        _resolve_competence_month_interval(
+            request.GET.get("start_month"),
+            request.GET.get("end_month"),
+            request.GET.get("competence_month"),
+        )
+    )
+    if error:
+        return JsonResponse({"error": error}, status=400)
+
+    def _parse_filter_set(raw_value):
+        if not raw_value:
+            return set()
+        return {
+            value.strip().casefold()
+            for value in str(raw_value).split(",")
+            if value.strip()
+        }
+
+    area_filter = _parse_filter_set(request.GET.get("area"))
+    department_filter = _parse_filter_set(request.GET.get("department"))
+    sector_filter = _parse_filter_set(request.GET.get("sector"))
+    type_filter = _parse_filter_set(request.GET.get("tipo"))
+
+    range_end = _get_month_date_range(end_month)[1]
+    base_employees = _get_timesheet_base_employees()
+    base_employee_ids = [employee.id for employee in base_employees]
+    lifecycle_dates = _build_employee_lifecycle_dates(base_employee_ids)
+    employees = _filter_employees_active_in_period(
+        base_employees,
+        start_month,
+        range_end,
+        lifecycle_dates,
+    )
+    employee_ids = [employee.id for employee in employees]
+    schedule_events_by_employee = _build_employee_schedule_events_by_employee(employee_ids)
+
+    competence_months = list(_iterate_competence_months(start_month, end_month))
+    month_entries = EmployeeTimeEntry.objects.select_related("employee", "employee__sector").filter(
+        competence_month__in=competence_months,
+        employee_id__in=employee_ids,
+    )
+    entries_by_employee = {}
+    for entry in month_entries:
+        employee_entry = entries_by_employee.setdefault(
+            entry.employee_id,
+            {
+                "regular_minutes": 0,
+                "overtime_60_minutes": 0,
+                "overtime_100_minutes": 0,
+                "absence_unexcused_minutes": 0,
+                "absence_excused_minutes": 0,
+                "absence_bank_minutes": 0,
+            },
+        )
+        employee_entry["regular_minutes"] += entry.regular_minutes
+        employee_entry["overtime_60_minutes"] += entry.overtime_60_minutes
+        employee_entry["overtime_100_minutes"] += entry.overtime_100_minutes
+        employee_entry["absence_unexcused_minutes"] += entry.absence_unexcused_minutes
+        employee_entry["absence_excused_minutes"] += entry.absence_excused_minutes
+        employee_entry["absence_bank_minutes"] += entry.absence_bank_minutes
+
+    calendar_ids = _collect_calendar_ids_for_timesheet(
+        employees,
+        schedule_events_by_employee,
+    )
+    calendar_exception_dates_by_calendar = _build_calendar_exception_dates_by_calendar(
+        calendar_ids,
+        start_month,
+        range_end,
+    )
+    employee_exception_dates_by_employee = _build_employee_exception_dates_by_employee(
+        employee_ids,
+        start_month,
+        range_end,
+    )
+
+    consolidated_data = {}
+
+    for employee in employees:
+        expected_minutes = 0
+        for competence_month in competence_months:
+            month_start, month_end = _get_month_date_range(competence_month)
+            expected_minutes += _calculate_expected_minutes_for_employee(
+                employee,
+                month_start,
+                month_end,
+                calendar_exception_dates_by_calendar,
+                employee_exception_dates_by_employee,
+                schedule_events_by_employee,
+                lifecycle_dates,
+            )
+
+        entry = entries_by_employee.get(employee.id)
+        regular_minutes = entry["regular_minutes"] if entry else 0
+        overtime_60_minutes = entry["overtime_60_minutes"] if entry else 0
+        overtime_100_minutes = entry["overtime_100_minutes"] if entry else 0
+        absence_unexcused_minutes = entry["absence_unexcused_minutes"] if entry else 0
+        absence_excused_minutes = entry["absence_excused_minutes"] if entry else 0
+        absence_bank_minutes = 0
+        if entry and employee.regime_compensacao_jornada == Employee.REGIME_COMPENSACAO_PARTICIPANTE:
+            absence_bank_minutes = entry["absence_bank_minutes"]
+
+        worked_minutes = regular_minutes + overtime_60_minutes + overtime_100_minutes
+        launched_minutes = (
+            regular_minutes
+            + overtime_60_minutes
+            + overtime_100_minutes
+            + absence_unexcused_minutes
+            + absence_excused_minutes
+            + absence_bank_minutes
+        )
+
+        if employee.sector and employee.sector.department:
+            area_name = (
+                employee.sector.department.area.nome
+                if employee.sector.department.area
+                else "Sem area"
+            )
+            department_name = employee.sector.department.nome
+            sector_name = employee.sector.nome
+        else:
+            area_name = "Sem area"
+            department_name = "Sem departamento"
+            sector_name = "Sem setor"
+
+        labor_type_name = "Diretos" if employee.tipo == Employee.TYPE_DIRETO else "Indiretos"
+
+        if area_filter and area_name.casefold() not in area_filter:
+            continue
+        if department_filter and department_name.casefold() not in department_filter:
+            continue
+        if sector_filter and sector_name.casefold() not in sector_filter:
+            continue
+        if type_filter and labor_type_name.casefold() not in type_filter:
+            continue
+
+        key = f"{area_name}::{department_name}::{sector_name}::{labor_type_name}"
+        row = consolidated_data.setdefault(
+            key,
+            {
+                "area_name": area_name,
+                "department_name": department_name,
+                "sector_name": sector_name,
+                "labor_type_name": labor_type_name,
+                "expected_minutes": 0,
+                "launched_minutes": 0,
+                "regular_minutes": 0,
+                "overtime_60_minutes": 0,
+                "overtime_100_minutes": 0,
+                "worked_minutes": 0,
+                "absence_unexcused_minutes": 0,
+                "absence_excused_minutes": 0,
+                "absence_bank_minutes": 0,
+            },
+        )
+        row["expected_minutes"] += expected_minutes
+        row["launched_minutes"] += launched_minutes
+        row["regular_minutes"] += regular_minutes
+        row["overtime_60_minutes"] += overtime_60_minutes
+        row["overtime_100_minutes"] += overtime_100_minutes
+        row["worked_minutes"] += worked_minutes
+        row["absence_unexcused_minutes"] += absence_unexcused_minutes
+        row["absence_excused_minutes"] += absence_excused_minutes
+        row["absence_bank_minutes"] += absence_bank_minutes
+
+    rows = sorted(
+        consolidated_data.values(),
+        key=lambda row: (
+            row.get("area_name", "").casefold(),
+            row.get("department_name", "").casefold(),
+            row.get("sector_name", "").casefold(),
+            row.get("labor_type_name", "").casefold(),
+        ),
+    )
+
+    for row in rows:
+        row["utilization_percent"] = (
+            round((row["worked_minutes"] * 100) / row["expected_minutes"])
+            if row["expected_minutes"] > 0
+            else 0
+        )
+        row["expected_hhmm"] = _format_minutes_as_hour_label(row["expected_minutes"])
+        row["launched_hhmm"] = _format_minutes_as_hour_label(row["launched_minutes"])
+        row["regular_hhmm"] = _format_minutes_as_hour_label(row["regular_minutes"])
+        row["overtime_60_hhmm"] = _format_minutes_as_hour_label(row["overtime_60_minutes"])
+        row["overtime_100_hhmm"] = _format_minutes_as_hour_label(row["overtime_100_minutes"])
+        row["absence_unexcused_hhmm"] = _format_minutes_as_hour_label(row["absence_unexcused_minutes"])
+        row["absence_excused_hhmm"] = _format_minutes_as_hour_label(row["absence_excused_minutes"])
+        row["absence_bank_hhmm"] = _format_minutes_as_hour_label(row["absence_bank_minutes"])
+
+    return JsonResponse(
+        {
+            "meta": {
+                "start_month": selected_start_month,
+                "end_month": selected_end_month,
+                "rows_count": len(rows),
+                "filters": {
+                    "area": sorted(area_filter),
+                    "department": sorted(department_filter),
+                    "sector": sorted(sector_filter),
+                    "tipo": sorted(type_filter),
+                },
+            },
+            "columns": [
+                "area_name",
+                "department_name",
+                "sector_name",
+                "labor_type_name",
+                "expected_minutes",
+                "expected_hhmm",
+                "launched_minutes",
+                "launched_hhmm",
+                "regular_minutes",
+                "regular_hhmm",
+                "overtime_60_minutes",
+                "overtime_60_hhmm",
+                "overtime_100_minutes",
+                "overtime_100_hhmm",
+                "absence_unexcused_minutes",
+                "absence_unexcused_hhmm",
+                "absence_excused_minutes",
+                "absence_excused_hhmm",
+                "absence_bank_minutes",
+                "absence_bank_hhmm",
+                "worked_minutes",
+                "utilization_percent",
+            ],
+            "rows": rows,
+        },
+        json_dumps_params={"ensure_ascii": False},
     )
 
 

@@ -32,6 +32,7 @@ from .views import (
     sectors_page,
     timesheet_page,
     timesheet_dashboard_page,
+    timesheet_dashboard_dataset_api,
     timesheet_import_report_page,
     timesheet_snapshots_audit_page,
     work_schedules_page,
@@ -60,6 +61,7 @@ urlpatterns = [
     path("banco-horas/regras/", bank_hours_rules_page, name="bank_hours_rules_page"),
     path("banco-horas/regras/<int:rule_id>/excluir/", bank_hours_rule_delete, name="bank_hours_rule_delete"),
     path("timesheet/dashboard/", timesheet_dashboard_page, name="timesheet_dashboard_page"),
+    path("timesheet/dashboard/dataset/", timesheet_dashboard_dataset_api, name="timesheet_dashboard_dataset_api"),
     path("timesheet/snapshots/", timesheet_snapshots_audit_page, name="timesheet_snapshots_audit_page"),
     path(
         "ponto/",

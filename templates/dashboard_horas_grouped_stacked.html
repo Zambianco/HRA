@@ -1040,6 +1040,54 @@
       const laborTypeAbsenceBankMinutes = JSON.parse(document.getElementById("labor-type-chart-absence-bank-minutes").textContent);
       const charts = [];
       let chartsInPrintMode = false;
+      function formatMinutesHHMM(totalMinutes) {
+        const value = Number(totalMinutes || 0);
+        const h = Math.floor(value / 60);
+        const m = Math.abs(value % 60);
+        return h + ":" + String(m).padStart(2, "0");
+      }
+      const laborTypeValueLabelsPlugin = {
+        id: "laborTypeValueLabelsPlugin",
+        afterDatasetsDraw(chart) {
+          if (chart.canvas.id !== "barChartLaborType") return;
+          const { ctx } = chart;
+          const datasets = chart.data.datasets || [];
+          const prevIdx = datasets.findIndex((ds) => ds.label === "Previstas");
+          const regIdx = datasets.findIndex((ds) => ds.label === "Normais");
+          const he60Idx = datasets.findIndex((ds) => ds.label === "Extra 60%");
+          const he100Idx = datasets.findIndex((ds) => ds.label === "Extra 100%");
+          const faltaIdx = datasets.findIndex((ds) => ds.label === "Falta");
+          const justIdx = datasets.findIndex((ds) => ds.label === "Justificada");
+          const bancoIdx = datasets.findIndex((ds) => ds.label === "Banco");
+          if (prevIdx < 0 || regIdx < 0) return;
+          ctx.save();
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "600 10px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          const prevMeta = chart.getDatasetMeta(prevIdx);
+          const regMeta = chart.getDatasetMeta(regIdx);
+          for (let i = 0; i < chart.data.labels.length; i += 1) {
+            const prevEl = prevMeta.data[i];
+            if (prevEl) {
+              const prevValue = datasets[prevIdx].data[i] || 0;
+              ctx.fillText(formatMinutesHHMM(prevValue), prevEl.x, prevEl.y - 3);
+            }
+            const workedValue =
+              Number(datasets[regIdx].data[i] || 0) +
+              Number((he60Idx >= 0 ? datasets[he60Idx].data[i] : 0) || 0) +
+              Number((he100Idx >= 0 ? datasets[he100Idx].data[i] : 0) || 0) +
+              Number((faltaIdx >= 0 ? datasets[faltaIdx].data[i] : 0) || 0) +
+              Number((justIdx >= 0 ? datasets[justIdx].data[i] : 0) || 0) +
+              Number((bancoIdx >= 0 ? datasets[bancoIdx].data[i] : 0) || 0);
+            const workedEl = regMeta.data[i];
+            if (workedEl) {
+              ctx.fillText(formatMinutesHHMM(workedValue), workedEl.x, workedEl.y - 3);
+            }
+          }
+          ctx.restore();
+        },
+      };
 
       charts.push(new Chart(document.getElementById("donutChartMod"), {
         type: "doughnut",
@@ -1053,6 +1101,7 @@
           cutout: "65%",
           plugins: { legend: { position: "bottom", labels: { font: { size: 9 } } } },
         },
+        plugins: [laborTypeValueLabelsPlugin],
       }));
 
       charts.push(new Chart(document.getElementById("pieChartWorkedTypes"), {
