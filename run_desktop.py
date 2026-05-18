@@ -21,7 +21,7 @@ REQUIRED_SQLITE_TABLES = {
     "django_migrations",
     "employees_employee",
 }
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 GITHUB_REPO = os.environ.get("HRA_GITHUB_REPO", "Zambianco/HRA").strip()
 
 
