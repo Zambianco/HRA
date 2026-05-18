@@ -2812,6 +2812,7 @@ def timesheet_dashboard_page(request):
         return rows
 
     sector_data = {}
+    consolidated_data = {}
     labor_type_data = {}
     department_data = {}
     area_data = {}
@@ -2875,6 +2876,9 @@ def timesheet_dashboard_page(request):
             sector_key = f"{area_part}::{department_part}::{sector_part}"
             sector_name = f"{department_part} / {sector_part}"
         else:
+            area_part = "Sem area"
+            department_part = "Sem departamento"
+            sector_part = "Sem setor"
             sector_key = "sem_departamento::sem_setor"
             sector_name = "Sem departamento / Sem setor"
 
@@ -2896,6 +2900,30 @@ def timesheet_dashboard_page(request):
             if employee.tipo == Employee.TYPE_DIRETO
             else "Indiretos"
         )
+
+        consolidated_key = f"{area_part}::{department_part}::{sector_part}::{labor_type_name}"
+        consolidated_bucket = consolidated_data.setdefault(
+            consolidated_key,
+            {
+                **_empty_group_bucket(sector_name),
+                "area_name": area_part,
+                "department_name": department_part,
+                "sector_name": sector_part,
+                "labor_type_name": labor_type_name,
+            },
+        )
+        _add_to_group_bucket(
+            consolidated_bucket,
+            expected_minutes,
+            regular_minutes,
+            overtime_60_minutes,
+            overtime_100_minutes,
+            worked_minutes,
+            absence_unexcused_minutes,
+            absence_excused_minutes,
+            absence_bank_minutes,
+        )
+
         labor_type_bucket = labor_type_data.setdefault(
             labor_type_name, _empty_group_bucket(labor_type_name)
         )
@@ -2962,6 +2990,16 @@ def timesheet_dashboard_page(request):
 
     sector_rows = _build_group_rows(sector_data)
     sector_rows = sorted(sector_rows, key=lambda row: row["name"].casefold())[:12]
+    consolidated_rows = _build_group_rows(consolidated_data)
+    consolidated_rows = sorted(
+        consolidated_rows,
+        key=lambda row: (
+            row.get("area_name", "").casefold(),
+            row.get("department_name", "").casefold(),
+            row.get("sector_name", "").casefold(),
+            row.get("labor_type_name", "").casefold(),
+        ),
+    )
     labor_type_rows = _build_group_rows(labor_type_data)
     labor_type_order = {"Diretos": 0, "Indiretos": 1}
     labor_type_rows = sorted(
@@ -3040,8 +3078,19 @@ def timesheet_dashboard_page(request):
         round(row["overtime_100_minutes"] / 60, 2) for row in area_chart_rows
     ]
     labor_type_chart_labels = [row["name"] for row in labor_type_rows]
-    labor_type_chart_worked_minutes = [int(row["worked_minutes"]) for row in labor_type_rows]
     labor_type_chart_expected_minutes = [int(row["expected_minutes"]) for row in labor_type_rows]
+    labor_type_chart_regular_minutes = [int(row["regular_minutes"]) for row in labor_type_rows]
+    labor_type_chart_overtime_60_minutes = [int(row["overtime_60_minutes"]) for row in labor_type_rows]
+    labor_type_chart_overtime_100_minutes = [int(row["overtime_100_minutes"]) for row in labor_type_rows]
+    labor_type_chart_absence_unexcused_minutes = [
+        int(row["absence_unexcused_minutes"]) for row in labor_type_rows
+    ]
+    labor_type_chart_absence_excused_minutes = [
+        int(row["absence_excused_minutes"]) for row in labor_type_rows
+    ]
+    labor_type_chart_absence_bank_minutes = [
+        int(row["absence_bank_minutes"]) for row in labor_type_rows
+    ]
 
     range_start = _get_month_date_range(start_month)[0]
     range_end = _get_month_date_range(end_month)[1]
@@ -3082,6 +3131,7 @@ def timesheet_dashboard_page(request):
             "mod_share_percent": mod_share_percent,
             "moi_share_percent": moi_share_percent,
             "sector_rows": sector_rows,
+            "consolidated_rows": consolidated_rows,
             "labor_type_rows": labor_type_rows,
             "department_rows": department_rows,
             "area_rows": area_rows,
@@ -3114,11 +3164,19 @@ def timesheet_dashboard_page(request):
             "area_chart_overtime_60_hours": area_chart_overtime_60_hours,
             "area_chart_overtime_100_hours": area_chart_overtime_100_hours,
             "labor_type_chart_labels": labor_type_chart_labels,
-            "labor_type_chart_worked_minutes": labor_type_chart_worked_minutes,
             "labor_type_chart_expected_minutes": labor_type_chart_expected_minutes,
+            "labor_type_chart_regular_minutes": labor_type_chart_regular_minutes,
+            "labor_type_chart_overtime_60_minutes": labor_type_chart_overtime_60_minutes,
+            "labor_type_chart_overtime_100_minutes": labor_type_chart_overtime_100_minutes,
+            "labor_type_chart_absence_unexcused_minutes": labor_type_chart_absence_unexcused_minutes,
+            "labor_type_chart_absence_excused_minutes": labor_type_chart_absence_excused_minutes,
+            "labor_type_chart_absence_bank_minutes": labor_type_chart_absence_bank_minutes,
             "total_expected_hhmm": _format_minutes_as_hour_label(total_expected_minutes),
+            "total_regular_hhmm": _format_minutes_as_hour_label(total_regular_minutes),
             "total_worked_hhmm": _format_minutes_as_hour_label(total_worked_minutes),
             "total_overtime_hhmm": _format_minutes_as_hour_label(total_overtime_minutes),
+            "total_overtime_60_hhmm": _format_minutes_as_hour_label(total_overtime_60_minutes),
+            "total_overtime_100_hhmm": _format_minutes_as_hour_label(total_overtime_100_minutes),
             "total_absence_hhmm": _format_minutes_as_hour_label(total_absence_minutes),
             "total_absence_excused_hhmm": _format_minutes_as_hour_label(total_absence_excused_minutes),
             "total_absence_bank_hhmm": _format_minutes_as_hour_label(total_absence_bank_minutes),

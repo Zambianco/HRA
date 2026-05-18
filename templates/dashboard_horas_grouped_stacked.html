@@ -74,9 +74,10 @@
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 1rem;
       margin-bottom: 1.6rem;
+      align-items: stretch;
     }
 
     .kpi-tile {
@@ -209,6 +210,12 @@
       gap: 1.2rem;
     }
 
+    .dashboard-charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.2rem;
+    }
+
     .dashboard-tabs {
       margin-bottom: 1rem;
       gap: 0.5rem;
@@ -327,6 +334,58 @@
       color: #0f172a;
     }
 
+    .dataset-filter-box {
+      border: 1px solid #dbe3ef;
+      border-radius: 0.6rem;
+      background: #fff;
+      padding: 0.5rem;
+      min-height: 130px;
+    }
+
+    .dataset-filter-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #475569;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .dataset-filter-actions {
+      display: flex;
+      gap: 0.3rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .dataset-filter-actions .btn {
+      padding: 0.12rem 0.4rem;
+      font-size: 0.66rem;
+      line-height: 1.2;
+    }
+
+    .dataset-filter-list {
+      max-height: 140px;
+      overflow: auto;
+      border-top: 1px solid #eef2f7;
+      padding-top: 0.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .dataset-filter-list .form-check-label {
+      font-size: 0.78rem;
+      color: #0f172a;
+    }
+
+    .chart-values {
+      margin-top: 0.45rem;
+      font-size: 0.72rem;
+      color: #334155;
+      line-height: 1.35;
+      text-align: center;
+    }
+
     .print-actions {
       margin-bottom: 0.75rem;
       display: flex;
@@ -350,16 +409,22 @@
     }
 
     @media (max-width: 1100px) {
-      .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+      .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; }
       .dash-two-columns { grid-template-columns: 1fr; gap: 1rem; }
       .dash-three-columns { grid-template-columns: 1fr; gap: 1rem; }
+      .dashboard-charts-grid { grid-template-columns: 1fr; gap: 1rem; }
     }
 
     @media (max-width: 700px) {
-      .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     @media print {
+      @page {
+        size: A4 landscape;
+        margin: 6mm;
+      }
+
       .dashboard-container.timesheet-dashboard {
         padding: 0 !important;
         margin: 0 !important;
@@ -396,8 +461,8 @@
 
       body.print-dashboard-graphs .dashboard-container.timesheet-dashboard {
         width: auto !important;
-        max-width: 270mm !important;
-        padding: 4mm 3mm !important;
+        max-width: 285mm !important;
+        padding: 2mm !important;
         margin: 0 auto !important;
         background: #f6f8fc !important;
         border-radius: 0 !important;
@@ -411,9 +476,9 @@
       }
 
       body.print-dashboard-graphs .kpi-grid {
-        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 6px !important;
-        margin-bottom: 6px !important;
+        grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+        margin-bottom: 4px !important;
       }
 
       body.print-dashboard-graphs .kpi-tile {
@@ -440,15 +505,10 @@
         padding: 1px 6px !important;
       }
 
-      body.print-dashboard-graphs .dash-two-columns {
-        grid-template-columns: 1.8fr 1fr !important;
+      body.print-dashboard-graphs .dashboard-charts-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 6px !important;
-        margin-bottom: 6px !important;
-      }
-
-      body.print-dashboard-graphs .dash-three-columns {
-        grid-template-columns: 1fr 1fr 1fr !important;
-        gap: 6px !important;
+        margin-bottom: 0 !important;
       }
 
       body.print-dashboard-graphs .card-dash {
@@ -464,31 +524,31 @@
       }
 
       body.print-dashboard-graphs .card-title-dash {
-        font-size: 0.8rem !important;
+        font-size: 0.76rem !important;
         margin-bottom: 0.05rem !important;
       }
 
       body.print-dashboard-graphs .card-sub-dash {
-        font-size: 0.6rem !important;
+        font-size: 0.56rem !important;
       }
 
       body.print-dashboard-graphs .chart-wrapper {
         height: auto !important;
-        max-height: 64mm !important;
+        max-height: 56mm !important;
         min-height: 0 !important;
-        margin-top: 0.15rem !important;
+        margin-top: 0.05rem !important;
       }
 
       body.print-dashboard-graphs .chart-wrapper[style] {
         height: auto !important;
-        max-height: 64mm !important;
+        max-height: 56mm !important;
       }
 
       body.print-dashboard-graphs .chart-wrapper canvas {
         width: auto !important;
         height: auto !important;
         max-width: 100% !important;
-        max-height: 64mm !important;
+        max-height: 56mm !important;
         display: block !important;
         margin: 0 auto !important;
       }
@@ -601,14 +661,9 @@
         <div class="kpi-number">{{ total_absence_bank_hhmm }}</div>
         <div class="kpi-trend trend-neutral">ausencias por banco</div>
       </div>
-      <div class="kpi-tile">
-        <div class="kpi-label"><i class="bi bi-pie-chart"></i> Distribuicao</div>
-        <div class="kpi-number">{{ mod_share_percent }}% / {{ moi_share_percent }}%</div>
-        <div class="kpi-trend trend-neutral">MOD · MOI</div>
-      </div>
     </div>
 
-    <div class="dash-three-columns">
+    <div class="dashboard-charts-grid">
       <div class="card-dash d-flex flex-column">
         <div class="card-header-custom">
           <div class="card-title-dash">MOD vs MOI</div>
@@ -617,6 +672,9 @@
         <div class="p-3 d-flex flex-column align-items-center justify-content-center flex-grow-1">
           <div class="chart-wrapper" style="height: 200px;">
             <canvas id="donutChartMod" role="img" aria-label="Grafico de distribuicao MOD x MOI"></canvas>
+          </div>
+          <div class="chart-values">
+            MOD: {{ mod_share_percent }}% ({{ total_mod_hhmm }}) | MOI: {{ moi_share_percent }}% ({{ total_moi_hhmm }})
           </div>
         </div>
       </div>
@@ -629,6 +687,11 @@
           <div class="chart-wrapper" style="height: 200px;">
             <canvas id="barChartLaborType" role="img" aria-label="Grafico de barras de horas por tipo direto e indireto"></canvas>
           </div>
+          <div class="chart-values">
+            {% for row in labor_type_rows %}
+              {{ row.name }}: Prev. {{ row.expected_hhmm }} | Real. {{ row.worked_hhmm }}{% if not forloop.last %} &nbsp;•&nbsp; {% endif %}
+            {% endfor %}
+          </div>
         </div>
       </div>
       <div class="card-dash d-flex flex-column">
@@ -640,18 +703,23 @@
           <div class="chart-wrapper" style="height: 200px;">
             <canvas id="pieChartWorkedTypes" role="img" aria-label="Grafico de pizza de horas normais, extra 60 e extra 100"></canvas>
           </div>
+          <div class="chart-values">
+            Normais: {{ total_regular_hhmm }} | Extra 60%: {{ total_overtime_60_hhmm }} | Extra 100%: {{ total_overtime_100_hhmm }}
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="card-dash mt-3">
-      <div class="card-header-custom">
-        <div class="card-title-dash">Horas por departamento</div>
-        <div class="card-sub-dash">Normais, HE 60, HE 100, falta, justificadas e banco (empilhado)</div>
-      </div>
-      <div class="p-2">
-        <div class="chart-wrapper" style="height: 340px;">
-          <canvas id="departmentStackedTypesChart" role="img" aria-label="Grafico de barras empilhadas de horas por departamento"></canvas>
+      <div class="card-dash d-flex flex-column">
+        <div class="card-header-custom">
+          <div class="card-title-dash">Horas por departamento</div>
+          <div class="card-sub-dash">Normais, HE 60, HE 100, falta, justificadas e banco (empilhado)</div>
+        </div>
+        <div class="p-2 d-flex flex-column flex-grow-1">
+          <div class="chart-wrapper" style="height: 280px;">
+            <canvas id="departmentStackedTypesChart" role="img" aria-label="Grafico de barras empilhadas de horas por departamento"></canvas>
+          </div>
+          <div class="chart-values">
+            Top departamentos por previstas: {% for row in department_rows|slice:":3" %}{{ row.name }} ({{ row.expected_hhmm }}){% if not forloop.last %}, {% endif %}{% endfor %}
+          </div>
         </div>
       </div>
     </div>
@@ -721,56 +789,59 @@
         </div>
 
         <div class="table-section pt-0">
-          <h2 class="table-section-title">Detalhe Por Setor (horas)</h2>
+          <h2 class="table-section-title">Dataset Consolidado</h2>
           <p class="table-legend">
-            Legenda: Aproveitamento (%) = (Trabalhadas / Previstas) * 100. Acima de 100% indica horas acima do previsto; abaixo de 100% indica horas abaixo do previsto.
+            Use os filtros por coluna para segmentar por area, departamento, setor e tipo.
           </p>
-          <div class="table-responsive">
-            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
-              <thead>
-                <tr>
-                  <th>Setor</th>
-                  <th>Previstas</th>
-                  <th>Lançadas</th>
-                  <th>Normais</th>
-                  <th>Extra 60%</th>
-                  <th>Extra 100%</th>
-                  <th>Falta</th>
-                  <th>Justificada</th>
-                  <th>Banco</th>
-                  <th>Aproveitamento (%)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in sector_rows %}
-                  <tr>
-                    <td>{{ row.name }}</td>
-                    <td>{{ row.expected_hhmm }}</td>
-                    <td>{{ row.launched_hhmm }}</td>
-                    <td>{{ row.regular_hhmm }}</td>
-                    <td>{{ row.overtime_60_hhmm }}</td>
-                    <td>{{ row.overtime_100_hhmm }}</td>
-                    <td>{{ row.absence_unexcused_hhmm }}</td>
-                    <td>{{ row.absence_excused_hhmm }}</td>
-                    <td>{{ row.absence_bank_hhmm }}</td>
-                    <td>{{ row.utilization_percent }}%</td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="9">Sem dados no mes selecionado.</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <div class="dataset-filter-box">
+                <div class="dataset-filter-title">Area</div>
+                <div class="dataset-filter-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="all" data-filter-target="area">Todos</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="none" data-filter-target="area">Nenhum</button>
+                </div>
+                <div id="filter-area-list" class="dataset-filter-list"></div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="dataset-filter-box">
+                <div class="dataset-filter-title">Departamento</div>
+                <div class="dataset-filter-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="all" data-filter-target="department">Todos</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="none" data-filter-target="department">Nenhum</button>
+                </div>
+                <div id="filter-department-list" class="dataset-filter-list"></div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="dataset-filter-box">
+                <div class="dataset-filter-title">Setor</div>
+                <div class="dataset-filter-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="all" data-filter-target="sector">Todos</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="none" data-filter-target="sector">Nenhum</button>
+                </div>
+                <div id="filter-sector-list" class="dataset-filter-list"></div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="dataset-filter-box">
+                <div class="dataset-filter-title">Tipo</div>
+                <div class="dataset-filter-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="all" data-filter-target="type">Todos</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-filter-action="none" data-filter-target="type">Nenhum</button>
+                </div>
+                <div id="filter-type-list" class="dataset-filter-list"></div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="table-section pt-0">
-          <h2 class="table-section-title">Detalhe Por Tipo (Diretos x Indiretos)</h2>
           <div class="table-responsive">
-            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
+            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0" id="consolidated-dataset-table">
               <thead>
                 <tr>
+                  <th>Area</th>
+                  <th>Departamento</th>
+                  <th>Setor</th>
                   <th>Tipo</th>
                   <th>Previstas</th>
                   <th>Lançadas</th>
@@ -784,9 +855,12 @@
                 </tr>
               </thead>
               <tbody>
-                {% for row in labor_type_rows %}
+                {% for row in consolidated_rows %}
                   <tr>
-                    <td>{{ row.name }}</td>
+                    <td>{{ row.area_name }}</td>
+                    <td>{{ row.department_name }}</td>
+                    <td>{{ row.sector_name }}</td>
+                    <td>{{ row.labor_type_name }}</td>
                     <td>{{ row.expected_hhmm }}</td>
                     <td>{{ row.launched_hhmm }}</td>
                     <td>{{ row.regular_hhmm }}</td>
@@ -799,91 +873,7 @@
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="9">Sem dados no mes selecionado.</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="table-section pt-0">
-          <h2 class="table-section-title">Detalhe Por Departamento (horas)</h2>
-          <div class="table-responsive">
-            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
-              <thead>
-                <tr>
-                  <th>Departamento</th>
-                  <th>Previstas</th>
-                  <th>Lançadas</th>
-                  <th>Normais</th>
-                  <th>Extra 60%</th>
-                  <th>Extra 100%</th>
-                  <th>Falta</th>
-                  <th>Justificada</th>
-                  <th>Banco</th>
-                  <th>Aproveitamento (%)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in department_rows %}
-                  <tr>
-                    <td>{{ row.name }}</td>
-                    <td>{{ row.expected_hhmm }}</td>
-                    <td>{{ row.launched_hhmm }}</td>
-                    <td>{{ row.regular_hhmm }}</td>
-                    <td>{{ row.overtime_60_hhmm }}</td>
-                    <td>{{ row.overtime_100_hhmm }}</td>
-                    <td>{{ row.absence_unexcused_hhmm }}</td>
-                    <td>{{ row.absence_excused_hhmm }}</td>
-                    <td>{{ row.absence_bank_hhmm }}</td>
-                    <td>{{ row.utilization_percent }}%</td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="9">Sem dados no mes selecionado.</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="table-section pt-0">
-          <h2 class="table-section-title">Detalhe Por Area (horas)</h2>
-          <div class="table-responsive">
-            <table class="table table-sm table-striped table-hover align-middle dashboard-data-table mb-0">
-              <thead>
-                <tr>
-                  <th>Area</th>
-                  <th>Previstas</th>
-                  <th>Lançadas</th>
-                  <th>Normais</th>
-                  <th>Extra 60%</th>
-                  <th>Extra 100%</th>
-                  <th>Falta</th>
-                  <th>Justificada</th>
-                  <th>Banco</th>
-                  <th>Aproveitamento (%)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in area_rows %}
-                  <tr>
-                    <td>{{ row.name }}</td>
-                    <td>{{ row.expected_hhmm }}</td>
-                    <td>{{ row.launched_hhmm }}</td>
-                    <td>{{ row.regular_hhmm }}</td>
-                    <td>{{ row.overtime_60_hhmm }}</td>
-                    <td>{{ row.overtime_100_hhmm }}</td>
-                    <td>{{ row.absence_unexcused_hhmm }}</td>
-                    <td>{{ row.absence_excused_hhmm }}</td>
-                    <td>{{ row.absence_bank_hhmm }}</td>
-                    <td>{{ row.utilization_percent }}%</td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="9">Sem dados no mes selecionado.</td>
+                    <td colspan="13">Sem dados no mes selecionado.</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -894,7 +884,7 @@
     </div>
     </div>
 
-    {% with print_title="Relatorio Dashboard de Horas" print_subtitle="Consolidado mensal por setor, departamento e area" print_meta_label="Competencia" print_meta_value=competence_month_label print_body_template="prints/partials/dashboard_horas_print_body.html" print_footer_left="Documento gerado pelo modulo de dashboard de horas." print_footer_right="FIM DO RELATORIO" %}
+    {% with print_title="Relatorio Dashboard de Horas" print_subtitle="Dataset consolidado mensal para filtros por area, departamento, setor e tipo" print_meta_label="Competencia" print_meta_value=competence_month_label print_body_template="prints/partials/dashboard_horas_print_body.html" print_footer_left="Documento gerado pelo modulo de dashboard de horas." print_footer_right="FIM DO RELATORIO" %}
       <div class="js-dashboard-table-report-wrapper">
         {% include "prints/partials/report_sheet.html" %}
       </div>
@@ -918,8 +908,13 @@
   {{ department_chart_absence_excused_minutes|json_script:"department-chart-absence-excused-minutes" }}
   {{ department_chart_absence_bank_minutes|json_script:"department-chart-absence-bank-minutes" }}
   {{ labor_type_chart_labels|json_script:"labor-type-chart-labels" }}
-  {{ labor_type_chart_worked_minutes|json_script:"labor-type-chart-worked-minutes" }}
   {{ labor_type_chart_expected_minutes|json_script:"labor-type-chart-expected-minutes" }}
+  {{ labor_type_chart_regular_minutes|json_script:"labor-type-chart-regular-minutes" }}
+  {{ labor_type_chart_overtime_60_minutes|json_script:"labor-type-chart-overtime-60-minutes" }}
+  {{ labor_type_chart_overtime_100_minutes|json_script:"labor-type-chart-overtime-100-minutes" }}
+  {{ labor_type_chart_absence_unexcused_minutes|json_script:"labor-type-chart-absence-unexcused-minutes" }}
+  {{ labor_type_chart_absence_excused_minutes|json_script:"labor-type-chart-absence-excused-minutes" }}
+  {{ labor_type_chart_absence_bank_minutes|json_script:"labor-type-chart-absence-bank-minutes" }}
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
@@ -942,6 +937,90 @@
         endMonthInput.addEventListener("change", maybeSubmitRange);
       }
 
+      const consolidatedTable = document.getElementById("consolidated-dataset-table");
+      const filterAreaList = document.getElementById("filter-area-list");
+      const filterDepartmentList = document.getElementById("filter-department-list");
+      const filterSectorList = document.getElementById("filter-sector-list");
+      const filterTypeList = document.getElementById("filter-type-list");
+
+      function getUniqueColumnValues(colIndex) {
+        if (!consolidatedTable) return [];
+        const values = new Set();
+        const rows = consolidatedTable.querySelectorAll("tbody tr");
+        rows.forEach(function (row) {
+          const cells = row.querySelectorAll("td");
+          if (cells.length < 13) return;
+          values.add((cells[colIndex].textContent || "").trim());
+        });
+        return Array.from(values).sort(function (a, b) {
+          return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
+        });
+      }
+
+      function buildCheckboxFilter(listElement, values, groupName) {
+        if (!listElement) return;
+        listElement.innerHTML = values.map(function (value, idx) {
+          const safeValue = value.replace(/"/g, "&quot;");
+          const inputId = "filter-" + groupName + "-" + idx;
+          return (
+            '<div class="form-check">' +
+              '<input class="form-check-input dataset-filter-check" type="checkbox" id="' + inputId + '" data-filter-group="' + groupName + '" value="' + safeValue + '" checked>' +
+              '<label class="form-check-label" for="' + inputId + '">' + value + "</label>" +
+            "</div>"
+          );
+        }).join("");
+      }
+
+      function selectedValues(groupName) {
+        const checks = document.querySelectorAll('.dataset-filter-check[data-filter-group="' + groupName + '"]');
+        return Array.from(checks).filter(function (check) { return check.checked; }).map(function (check) { return check.value; });
+      }
+
+      function applyConsolidatedFilters() {
+        if (!consolidatedTable) return;
+        const selectedAreas = new Set(selectedValues("area"));
+        const selectedDepartments = new Set(selectedValues("department"));
+        const selectedSectors = new Set(selectedValues("sector"));
+        const selectedTypes = new Set(selectedValues("type"));
+        const rows = consolidatedTable.querySelectorAll("tbody tr");
+        rows.forEach(function (row) {
+          const cells = row.querySelectorAll("td");
+          if (cells.length < 13) return;
+          const areaValue = (cells[0].textContent || "").trim();
+          const departmentValue = (cells[1].textContent || "").trim();
+          const sectorValue = (cells[2].textContent || "").trim();
+          const typeValue = (cells[3].textContent || "").trim();
+          const visible =
+            selectedAreas.has(areaValue) &&
+            selectedDepartments.has(departmentValue) &&
+            selectedSectors.has(sectorValue) &&
+            selectedTypes.has(typeValue);
+          row.style.display = visible ? "" : "none";
+        });
+      }
+
+      if (consolidatedTable) {
+        buildCheckboxFilter(filterAreaList, getUniqueColumnValues(0), "area");
+        buildCheckboxFilter(filterDepartmentList, getUniqueColumnValues(1), "department");
+        buildCheckboxFilter(filterSectorList, getUniqueColumnValues(2), "sector");
+        buildCheckboxFilter(filterTypeList, getUniqueColumnValues(3), "type");
+      }
+
+      document.querySelectorAll(".dataset-filter-check").forEach(function (input) {
+        input.addEventListener("change", applyConsolidatedFilters);
+      });
+
+      document.querySelectorAll("[data-filter-action][data-filter-target]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          const action = button.getAttribute("data-filter-action");
+          const target = button.getAttribute("data-filter-target");
+          document.querySelectorAll('.dataset-filter-check[data-filter-group="' + target + '"]').forEach(function (check) {
+            check.checked = action === "all";
+          });
+          applyConsolidatedFilters();
+        });
+      });
+
       const departmentLabels = JSON.parse(document.getElementById("department-chart-labels").textContent);
       const departmentExpected = JSON.parse(document.getElementById("department-chart-expected-hours").textContent);
       const departmentWorked = JSON.parse(document.getElementById("department-chart-worked-hours").textContent);
@@ -952,8 +1031,13 @@
       const departmentAbsenceExcusedMinutes = JSON.parse(document.getElementById("department-chart-absence-excused-minutes").textContent);
       const departmentAbsenceBankMinutes = JSON.parse(document.getElementById("department-chart-absence-bank-minutes").textContent);
       const laborTypeLabels = JSON.parse(document.getElementById("labor-type-chart-labels").textContent);
-      const laborTypeWorkedMinutes = JSON.parse(document.getElementById("labor-type-chart-worked-minutes").textContent);
       const laborTypeExpectedMinutes = JSON.parse(document.getElementById("labor-type-chart-expected-minutes").textContent);
+      const laborTypeRegularMinutes = JSON.parse(document.getElementById("labor-type-chart-regular-minutes").textContent);
+      const laborTypeOvertime60Minutes = JSON.parse(document.getElementById("labor-type-chart-overtime-60-minutes").textContent);
+      const laborTypeOvertime100Minutes = JSON.parse(document.getElementById("labor-type-chart-overtime-100-minutes").textContent);
+      const laborTypeAbsenceUnexcusedMinutes = JSON.parse(document.getElementById("labor-type-chart-absence-unexcused-minutes").textContent);
+      const laborTypeAbsenceExcusedMinutes = JSON.parse(document.getElementById("labor-type-chart-absence-excused-minutes").textContent);
+      const laborTypeAbsenceBankMinutes = JSON.parse(document.getElementById("labor-type-chart-absence-bank-minutes").textContent);
       const charts = [];
       let chartsInPrintMode = false;
 
@@ -1007,8 +1091,13 @@
         data: {
           labels: laborTypeLabels,
           datasets: [
-            { label: "Previstas", data: laborTypeExpectedMinutes, backgroundColor: "#94a3b8", borderRadius: 4 },
-            { label: "Trabalhadas", data: laborTypeWorkedMinutes, backgroundColor: "#2563eb", borderRadius: 4 },
+            { label: "Previstas", data: laborTypeExpectedMinutes, backgroundColor: "#94a3b8", borderRadius: 4, stack: "expected" },
+            { label: "Normais", data: laborTypeRegularMinutes, backgroundColor: "#22c55e", borderRadius: 4, stack: "worked" },
+            { label: "Extra 60%", data: laborTypeOvertime60Minutes, backgroundColor: "#2563eb", borderRadius: 4, stack: "worked" },
+            { label: "Extra 100%", data: laborTypeOvertime100Minutes, backgroundColor: "#7c3aed", borderRadius: 4, stack: "worked" },
+            { label: "Falta", data: laborTypeAbsenceUnexcusedMinutes, backgroundColor: "#ef4444", borderRadius: 4, stack: "worked" },
+            { label: "Justificada", data: laborTypeAbsenceExcusedMinutes, backgroundColor: "#f59e0b", borderRadius: 4, stack: "worked" },
+            { label: "Banco", data: laborTypeAbsenceBankMinutes, backgroundColor: "#14b8a6", borderRadius: 4, stack: "worked" },
           ],
         },
         options: {
@@ -1017,6 +1106,19 @@
           plugins: {
             legend: { position: "bottom", labels: { font: { size: 9 } } },
             tooltip: {
+              mode: "index",
+              intersect: false,
+              filter: function(tooltipItem) {
+                const chart = tooltipItem.chart;
+                const active = chart.getActiveElements();
+                if (!active || !active.length) return true;
+                const activeDataset = chart.data.datasets[active[0].datasetIndex];
+                const activeLabel = activeDataset ? activeDataset.label : "";
+                if (activeLabel === "Previstas") {
+                  return tooltipItem.dataset.label === "Previstas";
+                }
+                return tooltipItem.dataset.label !== "Previstas";
+              },
               callbacks: {
                 label: function(context) {
                   const value = Number(context.parsed.y || 0);
@@ -1024,12 +1126,28 @@
                   const minutes = Math.abs(value % 60);
                   const mm = String(minutes).padStart(2, "0");
                   return context.dataset.label + ": " + hours + ":" + mm;
+                },
+                footer: function(tooltipItems) {
+                  const first = tooltipItems && tooltipItems.length ? tooltipItems[0] : null;
+                  if (first && first.dataset && first.dataset.label === "Previstas") {
+                    return "";
+                  }
+                  const totalSemPrevistas = tooltipItems.reduce(function(sum, item) {
+                    return item.dataset.label === "Previstas"
+                      ? sum
+                      : sum + Number(item.parsed.y || 0);
+                  }, 0);
+                  const hSem = Math.floor(totalSemPrevistas / 60);
+                  const mSem = Math.abs(totalSemPrevistas % 60);
+                  return "Total: " + hSem + ":" + String(mSem).padStart(2, "0");
                 }
               }
             },
           },
           scales: {
+            x: { stacked: true, grid: { display: false } },
             y: {
+              stacked: true,
               beginAtZero: true,
               title: { display: true, text: "Horas (hh:mm)" },
               ticks: {
