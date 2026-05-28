@@ -58,12 +58,6 @@ def _parse_semver(version_value: str) -> tuple[int, int, int] | None:
 
 
 def _read_local_version(base_dir: Path) -> str:
-    rc, tag_output = _run_command(["git", "describe", "--tags", "--exact-match"], cwd=base_dir)
-    if rc == 0:
-        tag_value = str(tag_output or "").strip().splitlines()[0].strip()
-        if _parse_semver(tag_value):
-            return tag_value.lstrip("v")
-
     version_file = base_dir / "VERSION"
     if version_file.exists():
         try:
@@ -103,13 +97,16 @@ def _fetch_latest_release(repo: str, timeout_seconds: float = 3.0) -> dict | Non
 
 
 def _run_command(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> tuple[int, str]:
-    completed = subprocess.run(
-        command,
-        cwd=str(cwd),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(cwd),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        return 127, str(exc)
     output = ((completed.stdout or "") + "\n" + (completed.stderr or "")).strip()
     return completed.returncode, output
 
