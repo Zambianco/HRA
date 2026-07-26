@@ -1808,6 +1808,9 @@ def events_page(request):
             messages.error(request, "Selecione um tipo de evento valido.")
             return redirect(_events_redirect_with_filters(employee_id=employee.id))
 
+        if event_type == EmployeeEvent.EVENT_TYPE_TERMINATION:
+            raw_end_date = ""
+
         if not raw_effective_date:
             messages.error(request, "Informe a data de inicio do evento.")
             return redirect(
@@ -1897,33 +1900,37 @@ def events_page(request):
         else:
             bank_hours_amount = None
 
-        EmployeeEvent.objects.create(
-            employee=employee,
-            event_type=event_type,
-            effective_date=effective_date,
-            end_date=end_date,
-            bank_hours_amount=bank_hours_amount,
-            notes=notes,
-        )
+        with transaction.atomic():
+            EmployeeEvent.objects.create(
+                employee=employee,
+                event_type=event_type,
+                effective_date=effective_date,
+                end_date=end_date,
+                bank_hours_amount=bank_hours_amount,
+                notes=notes,
+            )
 
-        if event_type == EmployeeEvent.EVENT_TYPE_BANK_HOURS_ADOPTION:
-            if (
-                employee.regime_compensacao_jornada
-                != Employee.REGIME_COMPENSACAO_PARTICIPANTE
-            ):
-                employee.regime_compensacao_jornada = (
-                    Employee.REGIME_COMPENSACAO_PARTICIPANTE
-                )
-                employee.save(update_fields=["regime_compensacao_jornada"])
-        elif event_type == EmployeeEvent.EVENT_TYPE_BANK_HOURS_WITHDRAWAL:
-            if (
-                employee.regime_compensacao_jornada
-                != Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
-            ):
-                employee.regime_compensacao_jornada = (
-                    Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
-                )
-                employee.save(update_fields=["regime_compensacao_jornada"])
+            if event_type == EmployeeEvent.EVENT_TYPE_BANK_HOURS_ADOPTION:
+                if (
+                    employee.regime_compensacao_jornada
+                    != Employee.REGIME_COMPENSACAO_PARTICIPANTE
+                ):
+                    employee.regime_compensacao_jornada = (
+                        Employee.REGIME_COMPENSACAO_PARTICIPANTE
+                    )
+                    employee.save(update_fields=["regime_compensacao_jornada"])
+            elif event_type == EmployeeEvent.EVENT_TYPE_BANK_HOURS_WITHDRAWAL:
+                if (
+                    employee.regime_compensacao_jornada
+                    != Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
+                ):
+                    employee.regime_compensacao_jornada = (
+                        Employee.REGIME_COMPENSACAO_NAO_PARTICIPANTE
+                    )
+                    employee.save(update_fields=["regime_compensacao_jornada"])
+            elif event_type == EmployeeEvent.EVENT_TYPE_TERMINATION:
+                employee.deactivated_at = timezone.now()
+                employee.save(update_fields=["deactivated_at"])
 
         messages.success(request, "Evento registrado com sucesso.")
         return redirect(

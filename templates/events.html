@@ -227,12 +227,22 @@
       const eventTypeSelect = document.getElementById("event_type");
       const bankHoursWrapper = document.getElementById("bank-hours-wrapper");
       const bankHoursInput = document.getElementById("bank_hours_amount");
+      const endDateInput = document.getElementById("end_date");
       const employeeFilterForm = document.getElementById("event-employee-filter-form");
       const employeeFilterSelect = document.getElementById("event-filter-employee");
       const typeFilterForm = document.getElementById("event-type-filter-form");
       const typeFilterSelect = document.getElementById("event-filter-type");
 
-      if (!form || !eventTypeSelect || !bankHoursWrapper || !bankHoursInput) return;
+      if (!form || !eventTypeSelect || !bankHoursWrapper || !bankHoursInput || !endDateInput) return;
+
+      function updateEndDateField() {
+        const isTermination = eventTypeSelect.value === "termination";
+        endDateInput.disabled = isTermination;
+
+        if (isTermination) {
+          endDateInput.value = "";
+        }
+      }
 
       function updateBankHoursField() {
         const requiresValue = eventTypeSelect.value === "bank_hours_movement";
@@ -245,7 +255,10 @@
         }
       }
 
-      eventTypeSelect.addEventListener("change", updateBankHoursField);
+      eventTypeSelect.addEventListener("change", function () {
+        updateBankHoursField();
+        updateEndDateField();
+      });
       form.addEventListener("submit", function (event) {
         const requiresValue = eventTypeSelect.value === "bank_hours_movement";
 
@@ -272,6 +285,7 @@
       }
 
       updateBankHoursField();
+      updateEndDateField();
     })();
   </script>
 {% endblock %}

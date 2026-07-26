@@ -685,6 +685,34 @@ class EmployeeViewTests(TestCase):
         self.assertEqual(event.notes, "Ausencia justificada")
         self.assertContains(response, "Evento registrado com sucesso.")
 
+    def test_termination_ignores_end_date_and_deactivates_employee(self):
+        sector = Sector.objects.create(nome="RH")
+        employee = Employee.objects.create(
+            matricula="3004TERM",
+            nome_completo="Empregado Demitido",
+            sector=sector,
+        )
+
+        response = self.client.post(
+            reverse("events_page"),
+            data={
+                "employee_id": str(employee.id),
+                "event_type": EmployeeEvent.EVENT_TYPE_TERMINATION,
+                "effective_date": "2026-04-24",
+                "end_date": "2026-05-10",
+                "notes": "Demissao registrada",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event = EmployeeEvent.objects.get()
+        employee.refresh_from_db()
+        self.assertEqual(event.event_type, EmployeeEvent.EVENT_TYPE_TERMINATION)
+        self.assertIsNone(event.end_date)
+        self.assertIsNotNone(employee.deactivated_at)
+        self.assertContains(response, "Evento registrado com sucesso.")
+
     def test_create_event_is_blocked_when_competence_month_is_closed(self):
         sector = Sector.objects.create(nome="RH")
         employee = Employee.objects.create(
